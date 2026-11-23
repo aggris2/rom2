@@ -1,0 +1,34 @@
+# Build output
+build/
+build-*/
+*.o
+*.a
+*.so
+
+# Content converted from the original game. Never commit this.
+content/
+
+# Original game files, in case a copy ends up inside the checkout
+*.res
+*.256
+*.16
+*.16a
+*.alm
+*.a2c
+*.reg
+data.bin
+
+# Editors and OS
+.vscode/
+.idea/
+*.swp
+*~
+.DS_Store
+Thumbs.db
+
+# Runtime files
+*.log
+core
+
+# Synthetic test fixtures made for this project are allowed
+!tests/fixtures/**
