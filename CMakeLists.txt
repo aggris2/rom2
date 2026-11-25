@@ -41,6 +41,7 @@ rom2_set_warnings(rom2_core)
 # importer uses them; the game itself never reads an original file.
 add_library(rom2_import STATIC
     tools/import/res.c
+    tools/import/sprite256.c
 )
 target_include_directories(rom2_import PUBLIC tools)
 target_link_libraries(rom2_import PUBLIC rom2_core)
@@ -59,6 +60,7 @@ add_executable(rom2_tests
     tests/base/test_file.c
     tests/base/test_reader.c
     tests/import/test_res.c
+    tests/import/test_sprite256.c
 )
 # tests/utest.h is the test framework (github.com/sheredom/utest.h, public
 # domain). SYSTEM: it is not held to our warning settings.
