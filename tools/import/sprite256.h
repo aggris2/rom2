@@ -12,6 +12,8 @@
 #include <stddef.h>
 #include <stdint.h>
 
+#include "base/reader.h"
+
 /* An open sprite file: its bytes and what its trailer says. Does not own
  * the bytes. */
 typedef struct Sprite256 {
@@ -27,5 +29,30 @@ typedef struct Sprite256 {
  * a trailer, or too short to hold the palette and the number of frames the
  * trailer claims. */
 bool sprite256_open(const uint8_t *data, size_t size, Sprite256 *out);
+
+/* One decoded frame: `width * height` pixels, row after row from the top.
+ * Each pixel is an index into the palette, and 0 means transparent. The
+ * pixels are a block from malloc() that the frame owns. */
+typedef struct Frame256 {
+    uint32_t width;
+    uint32_t height;
+    uint8_t *pixels;
+} Frame256;
+
+/* Returns a reader over the frames of an open sprite, standing at the
+ * first one. Reading `frame_count` frames from it reads the whole sprite. */
+Reader sprite256_frames(const Sprite256 *s);
+
+/* Reads and decodes the frame the reader stands at, and moves the reader
+ * to the next one. On success the caller owns `out->pixels` and gives it
+ * back with frame256_free().
+ *
+ * Returns false, and leaves `*out` alone, if the frame cannot be read, is
+ * larger than any frame the game has, or its codes do not fill it
+ * exactly. */
+bool sprite256_frame_read(Reader *frames, Frame256 *out);
+
+/* Frees the pixels of a frame and clears it. Safe on a cleared frame. */
+void frame256_free(Frame256 *frame);
 
 #endif
