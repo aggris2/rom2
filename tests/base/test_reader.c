@@ -168,6 +168,66 @@ UTEST(reader, u32_failed_read_does_not_move)
     ASSERT_EQ(pos_before, r.pos);
 }
 
+/* ---- reader_i8 ---- */
+
+UTEST(reader, i8_reads_negative_and_positive)
+{
+    const uint8_t bytes[] = {0xf0, 0x7f};
+    Reader r = reader_init(bytes, sizeof bytes);
+
+    ASSERT_EQ(-16, reader_i8(&r));
+    ASSERT_EQ(127, reader_i8(&r));
+    ASSERT_TRUE(reader_ok(&r));
+}
+
+UTEST(reader, i8_past_the_end_fails_and_returns_zero)
+{
+    Reader r = reader_init(NULL, 0);
+
+    ASSERT_EQ(0, reader_i8(&r));
+    ASSERT_FALSE(reader_ok(&r));
+}
+
+/* ---- reader_i16 ---- */
+
+UTEST(reader, i16_reads_negative_and_positive)
+{
+    const uint8_t bytes[] = {0x00, 0xf0, 0x7f, 0x7f};
+    Reader r = reader_init(bytes, sizeof bytes);
+
+    ASSERT_EQ(-4096, reader_i16(&r));
+    ASSERT_EQ(32639, reader_i16(&r));
+    ASSERT_TRUE(reader_ok(&r));
+}
+
+UTEST(reader, i16_past_the_end_fails_and_returns_zero)
+{
+    Reader r = reader_init(NULL, 0);
+
+    ASSERT_EQ(0, reader_i16(&r));
+    ASSERT_FALSE(reader_ok(&r));
+}
+
+/* ---- reader_i32 ---- */
+
+UTEST(reader, i32_reads_negative_and_positive)
+{
+    const uint8_t bytes[] = {0xf0, 0xf0, 0xff, 0xff, 0x01, 0x02, 0x03, 0x00};
+    Reader r = reader_init(bytes, sizeof bytes);
+
+    ASSERT_EQ(-3856, reader_i32(&r));
+    ASSERT_EQ(0x00030201, reader_i32(&r));
+    ASSERT_TRUE(reader_ok(&r));
+}
+
+UTEST(reader, i32_past_the_end_fails_and_returns_zero)
+{
+    Reader r = reader_init(NULL, 0);
+
+    ASSERT_EQ(0, reader_i32(&r));
+    ASSERT_FALSE(reader_ok(&r));
+}
+
 /* ---- failure, for every kind of read ---- */
 
 UTEST(reader, failure_is_sticky)

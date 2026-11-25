@@ -60,6 +60,21 @@ uint32_t reader_u32(Reader *r)
     return b;
 }
 
+int8_t reader_i8(Reader *r)
+{
+    return (int8_t)reader_u8(r);
+}
+
+int16_t reader_i16(Reader *r)
+{
+    return (int16_t)reader_u16(r);
+}
+
+int32_t reader_i32(Reader *r)
+{
+    return (int32_t)reader_u32(r);
+}
+
 bool reader_ok(const Reader *r)
 {
     return !r->failed;

@@ -50,6 +50,15 @@ uint16_t reader_u16(Reader *r);
 /* Reads an unsigned 32-bit number: 4 bytes. */
 uint32_t reader_u32(Reader *r);
 
+/* Reads a signed 8-bit number: 1 byte. */
+int8_t reader_i8(Reader *r);
+
+/* Reads a signed 16-bit number: 2 bytes. */
+int16_t reader_i16(Reader *r);
+
+/* Reads a signed 32-bit number: 4 bytes. */
+int32_t reader_i32(Reader *r);
+
 /* Returns true if no read has failed since reader_init(). */
 bool reader_ok(const Reader *r);
 
