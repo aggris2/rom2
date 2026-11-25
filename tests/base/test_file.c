@@ -15,7 +15,10 @@ static bool write_test_file(const uint8_t *bytes, size_t size)
     if (f == NULL) {
         return false;
     }
-    size_t written = fwrite(bytes, 1, size, f);
+    size_t written = 0;
+    if (size > 0) {
+        written = fwrite(bytes, 1, size, f);
+    }
     return fclose(f) == 0 && written == size;
 }
 

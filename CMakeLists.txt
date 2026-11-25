@@ -46,6 +46,11 @@ target_include_directories(rom2_import PUBLIC tools)
 target_link_libraries(rom2_import PUBLIC rom2_core)
 rom2_set_warnings(rom2_import)
 
+# res_list: prints the contents of a .res archive.
+add_executable(res_list tools/res_list/main.c)
+target_link_libraries(res_list PRIVATE rom2_import)
+rom2_set_warnings(res_list)
+
 # Tests: one program, rom2_tests, built from every test file.
 enable_testing()
 
