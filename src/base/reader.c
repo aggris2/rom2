@@ -33,6 +33,33 @@ uint8_t reader_u8(Reader *r)
     return value;
 }
 
+uint16_t reader_u16(Reader *r)
+{
+    if (reader_remaining(r) < 2) {
+        r->failed = true;
+        return 0;
+    }
+    const uint8_t *d = r->data + r->pos;
+    uint16_t b = (uint16_t)(d[0] | (d[1] << 8));
+    r->pos += 2;
+    return b;
+}
+
+uint32_t reader_u32(Reader *r)
+{
+    if (reader_remaining(r) < 4) {
+        r->failed = true;
+        return 0;
+    }
+    const uint8_t *d = r->data + r->pos;
+    uint32_t b = (uint32_t)d[0]
+        | ((uint32_t)d[1] << 8)
+        | ((uint32_t)d[2] << 16)
+        | ((uint32_t)d[3] << 24);
+    r->pos += 4;
+    return b;
+}
+
 bool reader_ok(const Reader *r)
 {
     return !r->failed;

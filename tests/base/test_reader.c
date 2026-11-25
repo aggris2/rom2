@@ -2,6 +2,8 @@
 
 #include "utest.h"
 
+/* ---- reader_init ---- */
+
 UTEST(reader, new_reader_has_everything_remaining)
 {
     const uint8_t bytes[] = {1, 2, 3, 4};
@@ -10,6 +12,27 @@ UTEST(reader, new_reader_has_everything_remaining)
     ASSERT_EQ(4u, reader_remaining(&r));
     ASSERT_TRUE(reader_ok(&r));
 }
+
+UTEST(reader, empty_reader_is_valid_until_read)
+{
+    Reader r = reader_init(NULL, 0);
+
+    ASSERT_TRUE(reader_ok(&r));
+    ASSERT_EQ(0u, reader_remaining(&r));
+    ASSERT_EQ(0, reader_u8(&r));
+    ASSERT_FALSE(reader_ok(&r));
+}
+
+UTEST(reader, null_data_with_a_size_starts_failed)
+{
+    Reader r = reader_init(NULL, 5);
+
+    ASSERT_FALSE(reader_ok(&r));
+    ASSERT_EQ(0u, reader_remaining(&r));
+    ASSERT_EQ(0, reader_u8(&r));
+}
+
+/* ---- reader_u8 ---- */
 
 UTEST(reader, u8_returns_bytes_in_order)
 {
@@ -34,7 +57,7 @@ UTEST(reader, u8_reduces_remaining_by_one)
     ASSERT_TRUE(reader_ok(&r));
 }
 
-UTEST(reader, reading_past_the_end_fails_and_returns_zero)
+UTEST(reader, u8_past_the_end_fails_and_returns_zero)
 {
     const uint8_t bytes[] = {42};
     Reader r = reader_init(bytes, sizeof bytes);
@@ -44,7 +67,7 @@ UTEST(reader, reading_past_the_end_fails_and_returns_zero)
     ASSERT_FALSE(reader_ok(&r));
 }
 
-UTEST(reader, failed_read_does_not_move)
+UTEST(reader, u8_failed_read_does_not_move)
 {
     const uint8_t bytes[] = {42};
     Reader r = reader_init(bytes, sizeof bytes);
@@ -54,6 +77,98 @@ UTEST(reader, failed_read_does_not_move)
     reader_u8(&r);
     ASSERT_EQ(pos_before, r.pos);
 }
+
+/* ---- reader_u16 ---- */
+
+UTEST(reader, u16_reads_low_byte_first)
+{
+    const uint8_t bytes[] = {0x10, 0xff, 0x00, 0xaa};
+    Reader r = reader_init(bytes, sizeof bytes);
+
+    ASSERT_EQ(0xff10, reader_u16(&r));
+    ASSERT_EQ(0xaa00, reader_u16(&r));
+    ASSERT_TRUE(reader_ok(&r));
+}
+
+UTEST(reader, u16_reduces_remaining_by_two)
+{
+    const uint8_t bytes[] = {0x07, 0x08, 0x09, 0x03, 0x05};
+    Reader r = reader_init(bytes, sizeof bytes);
+
+    reader_u16(&r);
+    ASSERT_EQ(3u, reader_remaining(&r));
+    reader_u16(&r);
+    ASSERT_EQ(1u, reader_remaining(&r));
+    ASSERT_TRUE(reader_ok(&r));
+}
+
+UTEST(reader, u16_past_the_end_fails_and_returns_zero)
+{
+    const uint8_t bytes[] = {0x34, 0x12, 0x07};
+    Reader r = reader_init(bytes, sizeof bytes);
+
+    ASSERT_EQ(0x1234, reader_u16(&r));
+    ASSERT_EQ(0, reader_u16(&r));
+    ASSERT_FALSE(reader_ok(&r));
+}
+
+UTEST(reader, u16_failed_read_does_not_move)
+{
+    const uint8_t bytes[] = {0x34, 0x12, 0x07};
+    Reader r = reader_init(bytes, sizeof bytes);
+
+    reader_u16(&r);
+    size_t pos_before = r.pos;
+    reader_u16(&r);
+    ASSERT_EQ(pos_before, r.pos);
+}
+
+/* ---- reader_u32 ---- */
+
+UTEST(reader, u32_reads_low_byte_first)
+{
+    const uint8_t bytes[] = {0x10, 0xff, 0x00, 0xaa, 0x34, 0x12, 0x07, 0x08};
+    Reader r = reader_init(bytes, sizeof bytes);
+
+    ASSERT_EQ(0xaa00ff10, reader_u32(&r));
+    ASSERT_EQ(0x08071234, reader_u32(&r));
+    ASSERT_TRUE(reader_ok(&r));
+}
+
+UTEST(reader, u32_reduces_remaining_by_four)
+{
+    const uint8_t bytes[] = {0x10, 0xff, 0x00, 0xaa, 0x34, 0x12, 0x07, 0x08, 0x77};
+    Reader r = reader_init(bytes, sizeof bytes);
+
+    reader_u32(&r);
+    ASSERT_EQ(5u, reader_remaining(&r));
+    reader_u32(&r);
+    ASSERT_EQ(1u, reader_remaining(&r));
+    ASSERT_TRUE(reader_ok(&r));
+}
+
+UTEST(reader, u32_past_the_end_fails_and_returns_zero)
+{
+    const uint8_t bytes[] = {0x10, 0xff, 0x00, 0xaa, 0x34};
+    Reader r = reader_init(bytes, sizeof bytes);
+
+    ASSERT_EQ(0xaa00ff10, reader_u32(&r));
+    ASSERT_EQ(0, reader_u32(&r));
+    ASSERT_FALSE(reader_ok(&r));
+}
+
+UTEST(reader, u32_failed_read_does_not_move)
+{
+    const uint8_t bytes[] = {0x10, 0xff, 0x00, 0xaa, 0x34};
+    Reader r = reader_init(bytes, sizeof bytes);
+
+    reader_u32(&r);
+    size_t pos_before = r.pos;
+    reader_u32(&r);
+    ASSERT_EQ(pos_before, r.pos);
+}
+
+/* ---- failure, for every kind of read ---- */
 
 UTEST(reader, failure_is_sticky)
 {
@@ -78,23 +193,4 @@ UTEST(reader, remaining_is_zero_after_failure)
     ASSERT_EQ(0u, reader_remaining(&r));
     ASSERT_EQ(0, reader_u8(&r));
     ASSERT_EQ(0u, r.pos);
-}
-
-UTEST(reader, empty_reader_is_valid_until_read)
-{
-    Reader r = reader_init(NULL, 0);
-
-    ASSERT_TRUE(reader_ok(&r));
-    ASSERT_EQ(0u, reader_remaining(&r));
-    ASSERT_EQ(0, reader_u8(&r));
-    ASSERT_FALSE(reader_ok(&r));
-}
-
-UTEST(reader, null_data_with_a_size_starts_failed)
-{
-    Reader r = reader_init(NULL, 5);
-
-    ASSERT_FALSE(reader_ok(&r));
-    ASSERT_EQ(0u, reader_remaining(&r));
-    ASSERT_EQ(0, reader_u8(&r));
 }

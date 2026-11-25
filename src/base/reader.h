@@ -34,10 +34,21 @@ Reader reader_init(const uint8_t *data, size_t size);
  * that will not be delivered. */
 size_t reader_remaining(const Reader *r);
 
-/* Reads one byte and moves past it. If no byte is left, or the reader has
- * already failed, it returns 0, marks the reader as failed and does not
+/* The read functions. Each reads one value and moves past it. Numbers
+ * wider than one byte are stored low byte first.
+ *
+ * If fewer bytes are left than the value needs, or the reader has already
+ * failed, the function returns 0, marks the reader as failed and does not
  * move. */
+
+/* Reads an unsigned 8-bit number: 1 byte. */
 uint8_t reader_u8(Reader *r);
+
+/* Reads an unsigned 16-bit number: 2 bytes. */
+uint16_t reader_u16(Reader *r);
+
+/* Reads an unsigned 32-bit number: 4 bytes. */
+uint32_t reader_u32(Reader *r);
 
 /* Returns true if no read has failed since reader_init(). */
 bool reader_ok(const Reader *r);
