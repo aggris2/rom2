@@ -70,6 +70,14 @@ void reader_skip(Reader *r, size_t count);
  * use reader_ok() to tell whether it failed, not the pointer. */
 const uint8_t *reader_bytes(Reader *r, size_t count);
 
+/* Returns a new reader over the next `count` bytes and moves this reader
+ * past them. The new reader cannot read outside those bytes.
+ *
+ * On failure this reader is marked failed and the returned reader is
+ * empty and already failed. Afterwards the two are independent: a failure
+ * in the returned reader does not mark this one. */
+Reader reader_sub(Reader *r, size_t count);
+
 /* Returns true unless the reader has failed. */
 bool reader_ok(const Reader *r);
 

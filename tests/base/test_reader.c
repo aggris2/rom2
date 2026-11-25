@@ -380,6 +380,91 @@ UTEST(reader, bytes_past_the_end_of_an_empty_reader_fails)
     ASSERT_FALSE(reader_ok(&r));
 }
 
+/* ---- reader_sub ---- */
+
+UTEST(reader, sub_reads_the_bytes_of_its_slice)
+{
+    const uint8_t bytes[] = {1, 2, 3, 4, 5, 6, 7, 8};
+    Reader r = reader_init(bytes, sizeof bytes);
+    reader_skip(&r, 2);
+
+    Reader sub = reader_sub(&r, 4);
+
+    ASSERT_EQ(3, reader_u8(&sub));
+    ASSERT_EQ(4, reader_u8(&sub));
+    ASSERT_EQ(5, reader_u8(&sub));
+    ASSERT_EQ(6, reader_u8(&sub));
+    ASSERT_TRUE(reader_ok(&sub));
+}
+
+UTEST(reader, sub_moves_the_parent_past_the_slice)
+{
+    const uint8_t bytes[] = {1, 2, 3, 4, 5, 6, 7, 8};
+    Reader r = reader_init(bytes, sizeof bytes);
+    reader_skip(&r, 2);
+
+    Reader sub = reader_sub(&r, 4);
+
+    ASSERT_EQ(7, reader_u8(&r));
+    ASSERT_TRUE(reader_ok(&r));
+    ASSERT_TRUE(reader_ok(&sub));
+}
+
+UTEST(reader, sub_cannot_read_past_its_slice_and_parent_is_unaffected)
+{
+    const uint8_t bytes[] = {1, 2, 3, 4, 5, 6, 7, 8};
+    Reader r = reader_init(bytes, sizeof bytes);
+    reader_skip(&r, 2);
+
+    Reader sub = reader_sub(&r, 2);
+    reader_u8(&sub);
+    reader_u8(&sub);
+    reader_u8(&sub);
+
+    ASSERT_FALSE(reader_ok(&sub));
+    ASSERT_TRUE(reader_ok(&r));
+    ASSERT_EQ(5, reader_u8(&r));
+}
+
+UTEST(reader, sub_past_the_end_fails_both)
+{
+    const uint8_t bytes[] = {1, 2, 3, 4};
+    Reader r = reader_init(bytes, sizeof bytes);
+    reader_skip(&r, 2);
+
+    Reader sub = reader_sub(&r, 3);
+
+    ASSERT_EQ(2u, r.pos);
+    ASSERT_FALSE(reader_ok(&sub));
+    ASSERT_FALSE(reader_ok(&r));
+}
+
+UTEST(reader, sub_of_a_failed_parent_is_failed)
+{
+    const uint8_t bytes[] = {1, 2, 3, 4};
+    Reader r = reader_init(bytes, sizeof bytes);
+    reader_skip(&r, 5);
+
+    Reader sub = reader_sub(&r, 1);
+
+    ASSERT_FALSE(reader_ok(&sub));
+    ASSERT_FALSE(reader_ok(&r));
+}
+
+UTEST(reader, sub_of_zero_is_a_valid_empty_reader)
+{
+    const uint8_t bytes[] = {1, 2, 3, 4};
+    Reader r = reader_init(bytes, sizeof bytes);
+    reader_skip(&r, 2);
+
+    Reader sub = reader_sub(&r, 0);
+
+    ASSERT_TRUE(reader_ok(&sub));
+    ASSERT_EQ(0u, reader_remaining(&sub));
+    ASSERT_TRUE(reader_ok(&r));
+    ASSERT_EQ(3, reader_u8(&r));
+}
+
 /* ---- failure, for every kind of read ---- */
 
 UTEST(reader, failure_is_sticky)

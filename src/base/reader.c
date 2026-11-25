@@ -99,6 +99,17 @@ const uint8_t *reader_bytes(Reader *r, size_t count)
     return p;
 }
 
+Reader reader_sub(Reader *r, size_t count)
+{
+    const uint8_t *p = reader_bytes(r, count);
+    if (!reader_ok(r)) {
+        Reader bad = reader_init(NULL, 0);
+        bad.failed = true;
+        return bad;
+    }
+    return reader_init(p, count);
+}
+
 bool reader_ok(const Reader *r)
 {
     return !r->failed;
