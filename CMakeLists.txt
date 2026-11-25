@@ -18,6 +18,12 @@ function(rom2_set_warnings target)
     endif()
 endfunction()
 
+# The Windows compiler calls fopen() and its relatives deprecated and
+# suggests its own replacements, which no other system has.
+if(MSVC)
+    add_compile_definitions(_CRT_SECURE_NO_WARNINGS)
+endif()
+
 if(ROM2_SANITIZE AND NOT MSVC)
     add_compile_options(-fsanitize=address,undefined -fno-omit-frame-pointer)
     add_link_options(-fsanitize=address,undefined)
@@ -26,6 +32,7 @@ endif()
 # rom2_core: code with no dependency on a window, a network or the clock.
 add_library(rom2_core STATIC
     src/base/reader.c
+    src/base/file.c
 )
 target_include_directories(rom2_core PUBLIC src)
 rom2_set_warnings(rom2_core)
@@ -44,6 +51,7 @@ enable_testing()
 
 add_executable(rom2_tests
     tests/main.c
+    tests/base/test_file.c
     tests/base/test_reader.c
     tests/import/test_res.c
 )

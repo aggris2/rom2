@@ -30,6 +30,9 @@ tests/
 it instead of touching a pointer. A read past the end fails, and the
 failure sticks, so a parser checks once at the end.
 
+`src/base/file` reads a whole file from disk into memory. It is the only
+code in `base` that touches the file system.
+
 `tools/import` reads the original game's files, starting with the `.res`
 archives. It is the only code that knows those formats. The game itself
 never opens an original file.
