@@ -33,7 +33,8 @@ bool res_header_read(Reader *r, ResHeader *out)
     return true;
 }
 
-static void copy_name(char *dst, size_t dst_size, const uint8_t *field, size_t field_size)
+static void copy_name(char *dst, size_t dst_size,
+    const uint8_t *field, size_t field_size)
 {
     if (dst_size == 0) {
         return;
@@ -60,5 +61,46 @@ bool res_entry_read(Reader *r, ResEntry *out)
     out->offset = offset;
     out->size = size;
     copy_name(out->name, sizeof out->name, name, RES_NAME_SIZE);
+    return true;
+}
+
+bool res_open(const uint8_t *data, size_t size, ResArchive *out)
+{
+    Reader r = reader_init(data, size);
+    ResHeader header;
+    if (!res_header_read(&r, &header)) {
+        return false;
+    }
+    out->data = data;
+    out->size = size;
+    out->header = header;
+    return true;
+}
+
+bool res_entry_at(const ResArchive *a, uint32_t index, ResEntry *out)
+{
+    if (index >= a->header.entry_count) {
+        return false;
+    }
+    size_t at = (size_t)a->header.table_offset
+        + (size_t)index * RES_ENTRY_SIZE;
+    Reader r = reader_init(a->data + at, RES_ENTRY_SIZE);
+    ResEntry entry;
+    if (!res_entry_read(&r, &entry)) {
+        return false;
+    }
+    if (entry.is_folder) {
+        if (entry.offset > a->header.entry_count
+            || entry.size > a->header.entry_count - entry.offset) {
+            return false;
+        }
+    } else {
+        if (entry.offset < RES_HEADER_SIZE
+            || entry.offset > a->header.table_offset
+            || entry.size > a->header.table_offset - entry.offset) {
+            return false;
+        }
+    }
+    *out = entry;
     return true;
 }

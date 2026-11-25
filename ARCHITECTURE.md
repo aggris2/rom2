@@ -51,6 +51,8 @@ standard library and nothing else.
 - Functions used in one file are `static`.
 - Headers sit next to their sources and are included with their folder:
   `#include "base/reader.h"`.
+- Lines are at most 80 characters. A parameter list that does not fit
+  breaks between parameters, and the next line is indented four spaces.
 
 ## Tests
 

@@ -433,3 +433,279 @@ UTEST(res, entry_with_an_unknown_type_fails)
     ASSERT_FALSE(res_entry_read(&r, &e));
     ASSERT_TRUE(entry_is_untouched(&e));
 }
+
+/* ---- res_open and res_entry_at ---- */
+
+/* A small complete archive, built by hand:
+ *
+ *     bytes 0 to 23      header
+ *     bytes 24 to 31     file data, 8 bytes
+ *     bytes 32 to 127    table of three entries
+ *
+ *     entry 0   file    "a.bin"   bytes 24 to 31
+ *     entry 1   folder  "dir"     holds entry 2
+ *     entry 2   file    "b.bin"   bytes 28 to 31
+ *
+ * The root folder is entries 0 and 1. As with the header tests, the numbers
+ * sit on the limits: a.bin ends exactly where the table starts, and dir
+ * ends exactly at the last entry. */
+enum {
+    SMALL_DATA_SIZE = 8,
+    SMALL_ENTRY_COUNT = 3,
+    SMALL_TABLE_OFFSET = 24 + SMALL_DATA_SIZE,
+    SMALL_SIZE = SMALL_TABLE_OFFSET + SMALL_ENTRY_COUNT * ENTRY_SIZE
+};
+
+static uint8_t *small_entry(uint8_t bytes[SMALL_SIZE], uint32_t index)
+{
+    return bytes + SMALL_TABLE_OFFSET + index * ENTRY_SIZE;
+}
+
+static void make_small_archive(uint8_t bytes[SMALL_SIZE])
+{
+    memset(bytes, 0, SMALL_SIZE);
+    put_u32(bytes, AT_SIGNATURE, 0x31415926u);
+    put_u32(bytes, AT_ROOT_FIRST, 0);
+    put_u32(bytes, AT_ROOT_COUNT, 2);
+    put_u32(bytes, AT_FLAGS, 1);
+    put_u32(bytes, AT_TABLE_OFFSET, SMALL_TABLE_OFFSET);
+    put_u32(bytes, AT_ENTRY_COUNT, SMALL_ENTRY_COUNT);
+    make_entry(small_entry(bytes, 0), 24, 8, 0, "a.bin");
+    make_entry(small_entry(bytes, 1), 2, 1, 1, "dir");
+    make_entry(small_entry(bytes, 2), 28, 4, 0, "b.bin");
+}
+
+UTEST(res, open_keeps_the_bytes_and_the_header)
+{
+    uint8_t bytes[SMALL_SIZE];
+    make_small_archive(bytes);
+    ResArchive a = {0};
+
+    ASSERT_TRUE(res_open(bytes, sizeof bytes, &a));
+
+    ASSERT_TRUE(a.data == bytes);
+    ASSERT_EQ((size_t)SMALL_SIZE, a.size);
+    ASSERT_EQ(0u, a.header.root_first);
+    ASSERT_EQ(2u, a.header.root_count);
+    ASSERT_EQ((uint32_t)SMALL_TABLE_OFFSET, a.header.table_offset);
+    ASSERT_EQ((uint32_t)SMALL_ENTRY_COUNT, a.header.entry_count);
+}
+
+UTEST(res, open_of_a_bad_archive_fails)
+{
+    uint8_t bytes[SMALL_SIZE];
+    make_small_archive(bytes);
+    put_u32(bytes, AT_SIGNATURE, 0);
+    ResArchive a = {.data = NULL, .size = 12345};
+
+    ASSERT_FALSE(res_open(bytes, sizeof bytes, &a));
+
+    ASSERT_TRUE(a.data == NULL);
+    ASSERT_EQ((size_t)12345, a.size);
+}
+
+UTEST(res, entry_at_reads_a_file)
+{
+    uint8_t bytes[SMALL_SIZE];
+    make_small_archive(bytes);
+    ResArchive a;
+    ASSERT_TRUE(res_open(bytes, sizeof bytes, &a));
+    ResEntry e = untouched_entry();
+
+    ASSERT_TRUE(res_entry_at(&a, 0, &e));
+
+    ASSERT_FALSE(e.is_folder);
+    ASSERT_EQ(24u, e.offset);
+    ASSERT_EQ(8u, e.size);
+    ASSERT_STREQ("a.bin", e.name);
+}
+
+UTEST(res, entry_at_reads_a_folder)
+{
+    uint8_t bytes[SMALL_SIZE];
+    make_small_archive(bytes);
+    ResArchive a;
+    ASSERT_TRUE(res_open(bytes, sizeof bytes, &a));
+    ResEntry e = untouched_entry();
+    e.is_folder = false;
+
+    ASSERT_TRUE(res_entry_at(&a, 1, &e));
+
+    ASSERT_TRUE(e.is_folder);
+    ASSERT_EQ(2u, e.offset);
+    ASSERT_EQ(1u, e.size);
+    ASSERT_STREQ("dir", e.name);
+}
+
+UTEST(res, entry_at_reads_the_last_entry)
+{
+    uint8_t bytes[SMALL_SIZE];
+    make_small_archive(bytes);
+    ResArchive a;
+    ASSERT_TRUE(res_open(bytes, sizeof bytes, &a));
+    ResEntry e = untouched_entry();
+
+    ASSERT_TRUE(res_entry_at(&a, 2, &e));
+
+    ASSERT_STREQ("b.bin", e.name);
+}
+
+UTEST(res, entry_at_one_past_the_last_entry_fails)
+{
+    uint8_t bytes[SMALL_SIZE];
+    make_small_archive(bytes);
+    ResArchive a;
+    ASSERT_TRUE(res_open(bytes, sizeof bytes, &a));
+    ResEntry e = untouched_entry();
+
+    ASSERT_FALSE(res_entry_at(&a, 3, &e));
+    ASSERT_TRUE(entry_is_untouched(&e));
+}
+
+UTEST(res, entry_at_a_huge_index_fails)
+{
+    uint8_t bytes[SMALL_SIZE];
+    make_small_archive(bytes);
+    ResArchive a;
+    ASSERT_TRUE(res_open(bytes, sizeof bytes, &a));
+    ResEntry e = untouched_entry();
+
+    ASSERT_FALSE(res_entry_at(&a, 0xffffffffu, &e));
+    ASSERT_TRUE(entry_is_untouched(&e));
+}
+
+UTEST(res, entry_at_with_an_unknown_type_fails)
+{
+    uint8_t bytes[SMALL_SIZE];
+    make_small_archive(bytes);
+    make_entry(small_entry(bytes, 0), 24, 8, 2, "a.bin");
+    ResArchive a;
+    ASSERT_TRUE(res_open(bytes, sizeof bytes, &a));
+    ResEntry e = untouched_entry();
+
+    ASSERT_FALSE(res_entry_at(&a, 0, &e));
+    ASSERT_TRUE(entry_is_untouched(&e));
+}
+
+UTEST(res, entry_at_accepts_an_empty_file_at_the_end_of_the_data)
+{
+    uint8_t bytes[SMALL_SIZE];
+    make_small_archive(bytes);
+    make_entry(small_entry(bytes, 0), SMALL_TABLE_OFFSET, 0, 0, "empty");
+    ResArchive a;
+    ASSERT_TRUE(res_open(bytes, sizeof bytes, &a));
+    ResEntry e = untouched_entry();
+
+    ASSERT_TRUE(res_entry_at(&a, 0, &e));
+
+    ASSERT_EQ(0u, e.size);
+}
+
+UTEST(res, entry_at_file_starting_inside_the_header_fails)
+{
+    uint8_t bytes[SMALL_SIZE];
+    make_small_archive(bytes);
+    make_entry(small_entry(bytes, 0), 23, 1, 0, "a.bin");
+    ResArchive a;
+    ASSERT_TRUE(res_open(bytes, sizeof bytes, &a));
+    ResEntry e = untouched_entry();
+
+    ASSERT_FALSE(res_entry_at(&a, 0, &e));
+    ASSERT_TRUE(entry_is_untouched(&e));
+}
+
+UTEST(res, entry_at_file_starting_inside_the_table_fails)
+{
+    uint8_t bytes[SMALL_SIZE];
+    make_small_archive(bytes);
+    make_entry(small_entry(bytes, 0), SMALL_TABLE_OFFSET + 1, 0, 0, "a.bin");
+    ResArchive a;
+    ASSERT_TRUE(res_open(bytes, sizeof bytes, &a));
+    ResEntry e = untouched_entry();
+
+    ASSERT_FALSE(res_entry_at(&a, 0, &e));
+    ASSERT_TRUE(entry_is_untouched(&e));
+}
+
+UTEST(res, entry_at_file_running_into_the_table_fails)
+{
+    /* One byte more than there is between byte 24 and the table. */
+    uint8_t bytes[SMALL_SIZE];
+    make_small_archive(bytes);
+    make_entry(small_entry(bytes, 0), 24, SMALL_DATA_SIZE + 1, 0, "a.bin");
+    ResArchive a;
+    ASSERT_TRUE(res_open(bytes, sizeof bytes, &a));
+    ResEntry e = untouched_entry();
+
+    ASSERT_FALSE(res_entry_at(&a, 0, &e));
+    ASSERT_TRUE(entry_is_untouched(&e));
+}
+
+UTEST(res, entry_at_file_with_a_huge_size_fails)
+{
+    /* 28 + 0xfffffffc wraps round to 24 in 32 bits. */
+    uint8_t bytes[SMALL_SIZE];
+    make_small_archive(bytes);
+    make_entry(small_entry(bytes, 0), 28, 0xfffffffcu, 0, "a.bin");
+    ResArchive a;
+    ASSERT_TRUE(res_open(bytes, sizeof bytes, &a));
+    ResEntry e = untouched_entry();
+
+    ASSERT_FALSE(res_entry_at(&a, 0, &e));
+    ASSERT_TRUE(entry_is_untouched(&e));
+}
+
+UTEST(res, entry_at_accepts_an_empty_folder_at_the_end_of_the_table)
+{
+    uint8_t bytes[SMALL_SIZE];
+    make_small_archive(bytes);
+    make_entry(small_entry(bytes, 1), SMALL_ENTRY_COUNT, 0, 1, "empty");
+    ResArchive a;
+    ASSERT_TRUE(res_open(bytes, sizeof bytes, &a));
+    ResEntry e = untouched_entry();
+
+    ASSERT_TRUE(res_entry_at(&a, 1, &e));
+
+    ASSERT_TRUE(e.is_folder);
+    ASSERT_EQ(0u, e.size);
+}
+
+UTEST(res, entry_at_folder_starting_past_the_table_fails)
+{
+    uint8_t bytes[SMALL_SIZE];
+    make_small_archive(bytes);
+    make_entry(small_entry(bytes, 1), SMALL_ENTRY_COUNT + 1, 0, 1, "dir");
+    ResArchive a;
+    ASSERT_TRUE(res_open(bytes, sizeof bytes, &a));
+    ResEntry e = untouched_entry();
+
+    ASSERT_FALSE(res_entry_at(&a, 1, &e));
+    ASSERT_TRUE(entry_is_untouched(&e));
+}
+
+UTEST(res, entry_at_folder_with_one_child_too_many_fails)
+{
+    uint8_t bytes[SMALL_SIZE];
+    make_small_archive(bytes);
+    make_entry(small_entry(bytes, 1), 2, 2, 1, "dir");
+    ResArchive a;
+    ASSERT_TRUE(res_open(bytes, sizeof bytes, &a));
+    ResEntry e = untouched_entry();
+
+    ASSERT_FALSE(res_entry_at(&a, 1, &e));
+    ASSERT_TRUE(entry_is_untouched(&e));
+}
+
+UTEST(res, entry_at_folder_with_a_huge_child_count_fails)
+{
+    /* 2 + 0xffffffff wraps round to 1 in 32 bits. */
+    uint8_t bytes[SMALL_SIZE];
+    make_small_archive(bytes);
+    make_entry(small_entry(bytes, 1), 2, 0xffffffffu, 1, "dir");
+    ResArchive a;
+    ASSERT_TRUE(res_open(bytes, sizeof bytes, &a));
+    ResEntry e = untouched_entry();
+
+    ASSERT_FALSE(res_entry_at(&a, 1, &e));
+    ASSERT_TRUE(entry_is_untouched(&e));
+}

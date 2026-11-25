@@ -39,4 +39,21 @@ typedef struct ResEntry {
  * if fewer than 32 bytes are left or the type is neither file nor folder. */
 bool res_entry_read(Reader *r, ResEntry *out);
 
+/* An open archive: its bytes and its checked header. Does not own the
+ * bytes. */
+typedef struct ResArchive {
+    const uint8_t *data;
+    size_t size;
+    ResHeader header;
+} ResArchive;
+
+/* Opens an archive held in memory. Returns false, and leaves `*out` alone,
+ * if the header is not valid. */
+bool res_open(const uint8_t *data, size_t size, ResArchive *out);
+
+/* Reads entry number `index` of the table and checks it. Returns false,
+ * and leaves `*out` alone, if there is no such entry, it cannot be read,
+ * or it points outside the archive. */
+bool res_entry_at(const ResArchive *a, uint32_t index, ResEntry *out);
+
 #endif
