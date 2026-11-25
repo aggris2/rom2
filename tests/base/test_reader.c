@@ -228,6 +228,158 @@ UTEST(reader, i32_past_the_end_fails_and_returns_zero)
     ASSERT_FALSE(reader_ok(&r));
 }
 
+/* ---- reader_skip ---- */
+
+UTEST(reader, skip_moves_past_count)
+{
+    const uint8_t bytes[] = {0x11, 0x22, 0x33, 0x44};
+    Reader r = reader_init(bytes, sizeof bytes);
+
+    reader_skip(&r, 2);
+
+    ASSERT_EQ(0x33, reader_u8(&r));
+    ASSERT_TRUE(reader_ok(&r));
+}
+
+UTEST(reader, skip_to_the_exact_end_is_allowed)
+{
+    const uint8_t bytes[] = {0x11, 0x22, 0x33, 0x44};
+    Reader r = reader_init(bytes, sizeof bytes);
+
+    reader_skip(&r, 4);
+
+    ASSERT_TRUE(reader_ok(&r));
+    ASSERT_EQ(0u, reader_remaining(&r));
+}
+
+UTEST(reader, skip_of_zero_does_nothing)
+{
+    const uint8_t bytes[] = {0x11, 0x22, 0x33, 0x44};
+    Reader r = reader_init(bytes, sizeof bytes);
+
+    reader_skip(&r, 0);
+
+    ASSERT_EQ(0x11, reader_u8(&r));
+    ASSERT_TRUE(reader_ok(&r));
+}
+
+UTEST(reader, skip_of_zero_on_empty_reader)
+{
+    Reader r = reader_init(NULL, 0);
+
+    reader_skip(&r, 0);
+
+    ASSERT_TRUE(reader_ok(&r));
+}
+
+UTEST(reader, skip_past_the_end_fails_and_does_not_move)
+{
+    const uint8_t bytes[] = {0x11, 0x22, 0x33, 0x44};
+    Reader r = reader_init(bytes, sizeof bytes);
+
+    reader_skip(&r, 5);
+
+    ASSERT_FALSE(reader_ok(&r));
+    ASSERT_EQ(0u, r.pos);
+}
+
+UTEST(reader, skip_of_a_huge_count_fails)
+{
+    const uint8_t bytes[] = {0x11, 0x22, 0x33, 0x44};
+    Reader r = reader_init(bytes, sizeof bytes);
+
+    reader_skip(&r, SIZE_MAX);
+
+    ASSERT_FALSE(reader_ok(&r));
+    ASSERT_EQ(0u, r.pos);
+}
+
+/* ---- reader_bytes ---- */
+
+UTEST(reader, bytes_returns_pointer_to_current_position)
+{
+    const uint8_t bytes[] = {0x11, 0x22, 0x33, 0x44};
+    Reader r = reader_init(bytes, sizeof bytes);
+
+    reader_u8(&r);
+    const uint8_t *p = reader_bytes(&r, 2);
+
+    ASSERT_TRUE(p == bytes + 1);
+    ASSERT_EQ(0x22, p[0]);
+    ASSERT_EQ(0x33, p[1]);
+    ASSERT_EQ(0x44, reader_u8(&r));
+    ASSERT_TRUE(reader_ok(&r));
+}
+
+UTEST(reader, bytes_to_the_exact_end_is_allowed)
+{
+    const uint8_t bytes[] = {0x11, 0x22, 0x33, 0x44};
+    Reader r = reader_init(bytes, sizeof bytes);
+
+    const uint8_t *p = reader_bytes(&r, 4);
+
+    ASSERT_TRUE(p == bytes);
+    ASSERT_EQ(0x44, p[3]);
+    ASSERT_TRUE(reader_ok(&r));
+    ASSERT_EQ(0u, reader_remaining(&r));
+}
+
+UTEST(reader, bytes_past_the_end_fails_and_returns_null)
+{
+    const uint8_t bytes[] = {0x11, 0x22, 0x33, 0x44};
+    Reader r = reader_init(bytes, sizeof bytes);
+
+    const uint8_t *p = reader_bytes(&r, 5);
+
+    ASSERT_TRUE(p == NULL);
+    ASSERT_EQ(0u, r.pos);
+    ASSERT_FALSE(reader_ok(&r));
+}
+
+UTEST(reader, bytes_of_a_huge_count_fails)
+{
+    const uint8_t bytes[] = {0x11, 0x22, 0x33, 0x44};
+    Reader r = reader_init(bytes, sizeof bytes);
+
+    const uint8_t *p = reader_bytes(&r, SIZE_MAX);
+
+    ASSERT_TRUE(p == NULL);
+    ASSERT_EQ(0u, r.pos);
+    ASSERT_FALSE(reader_ok(&r));
+}
+
+UTEST(reader, bytes_of_zero_does_not_fail)
+{
+    const uint8_t bytes[] = {0x11, 0x22};
+    Reader r = reader_init(bytes, sizeof bytes);
+
+    reader_bytes(&r, 0);
+
+    ASSERT_TRUE(reader_ok(&r));
+    ASSERT_EQ(0x11, reader_u8(&r));
+}
+
+UTEST(reader, bytes_of_zero_on_empty_reader_does_not_fail)
+{
+    Reader r = reader_init(NULL, 0);
+
+    const uint8_t *p = reader_bytes(&r, 0);
+
+    ASSERT_TRUE(p == NULL);
+    ASSERT_TRUE(reader_ok(&r));
+}
+
+UTEST(reader, bytes_past_the_end_of_an_empty_reader_fails)
+{
+    Reader r = reader_init(NULL, 0);
+
+    const uint8_t *p = reader_bytes(&r, 1);
+
+    ASSERT_TRUE(p == NULL);
+    ASSERT_EQ(0u, r.pos);
+    ASSERT_FALSE(reader_ok(&r));
+}
+
 /* ---- failure, for every kind of read ---- */
 
 UTEST(reader, failure_is_sticky)

@@ -18,7 +18,7 @@
 typedef struct Reader {
     const uint8_t *data; /* first byte; not owned */
     size_t size;         /* number of bytes at data */
-    size_t pos;          /* number of bytes read so far */
+    size_t pos;          /* number of bytes read or skipped so far */
     bool failed;         /* a read went past the end */
 } Reader;
 
@@ -34,12 +34,12 @@ Reader reader_init(const uint8_t *data, size_t size);
  * that will not be delivered. */
 size_t reader_remaining(const Reader *r);
 
-/* The read functions. Each reads one value and moves past it. Numbers
- * wider than one byte are stored low byte first.
+/* The read functions. Each takes something at the current position and
+ * moves past it. Numbers wider than one byte are stored low byte first.
  *
- * If fewer bytes are left than the value needs, or the reader has already
- * failed, the function returns 0, marks the reader as failed and does not
- * move. */
+ * If fewer bytes are left than a function needs, or the reader has already
+ * failed, it marks the reader as failed, does not move, and returns 0
+ * (NULL from reader_bytes, nothing from reader_skip). */
 
 /* Reads an unsigned 8-bit number: 1 byte. */
 uint8_t reader_u8(Reader *r);
@@ -59,7 +59,18 @@ int16_t reader_i16(Reader *r);
 /* Reads a signed 32-bit number: 4 bytes. */
 int32_t reader_i32(Reader *r);
 
-/* Returns true if no read has failed since reader_init(). */
+/* Moves past `count` bytes without looking at them. */
+void reader_skip(Reader *r, size_t count);
+
+/* Returns a pointer to the next `count` bytes and moves past them. The
+ * pointer points into the data the reader was given: nothing is copied, and
+ * it is valid for as long as that data is.
+ *
+ * Returns NULL on failure. It may also return NULL when `count` is 0, so
+ * use reader_ok() to tell whether it failed, not the pointer. */
+const uint8_t *reader_bytes(Reader *r, size_t count);
+
+/* Returns true unless the reader has failed. */
 bool reader_ok(const Reader *r);
 
 #endif

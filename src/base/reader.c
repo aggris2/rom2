@@ -75,6 +75,30 @@ int32_t reader_i32(Reader *r)
     return (int32_t)reader_u32(r);
 }
 
+void reader_skip(Reader *r, size_t count)
+{
+    if (reader_remaining(r) < count) {
+        r->failed = true;
+        return;
+    }
+    r->pos += count;
+}
+
+const uint8_t *reader_bytes(Reader *r, size_t count)
+{
+    if (reader_remaining(r) < count) {
+        r->failed = true;
+        return NULL;
+    }
+    /* an empty reader has nothing to point at */
+    if (r->data == NULL) {
+        return NULL;
+    }
+    const uint8_t *p = r->data + r->pos;
+    r->pos += count;
+    return p;
+}
+
 bool reader_ok(const Reader *r)
 {
     return !r->failed;
