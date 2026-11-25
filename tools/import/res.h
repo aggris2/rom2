@@ -56,4 +56,16 @@ bool res_open(const uint8_t *data, size_t size, ResArchive *out);
  * or it points outside the archive. */
 bool res_entry_at(const ResArchive *a, uint32_t index, ResEntry *out);
 
+/* Returns a reader over the bytes of the file `entry`, which must come
+ * from this archive. Returns an empty, failed reader for a folder. */
+Reader res_file_reader(const ResArchive *a, const ResEntry *entry);
+
+/* Finds the entry at `path`, such as "units/heroes/archer/sprites.256".
+ * Names are separated by '/' and must match exactly. The entry found may
+ * be a file or a folder.
+ *
+ * Returns false, and leaves `*out` alone, if there is no such entry or
+ * the archive is damaged. */
+bool res_find(const ResArchive *a, const char *path, ResEntry *out);
+
 #endif

@@ -1,5 +1,7 @@
 #include "import/res.h"
 
+#include <string.h>
+
 #define RES_SIGNATURE 0x31415926u
 #define RES_HEADER_SIZE 24u
 #define RES_ENTRY_SIZE 32u
@@ -103,4 +105,66 @@ bool res_entry_at(const ResArchive *a, uint32_t index, ResEntry *out)
     }
     *out = entry;
     return true;
+}
+
+Reader res_file_reader(const ResArchive *a, const ResEntry *entry)
+{
+    if (entry->is_folder) {
+        Reader bad = reader_init(NULL, 0);
+        bad.failed = true;
+        return bad;
+    }
+    return reader_init(a->data + entry->offset, entry->size);
+}
+
+/* Looks in the folder made of `count` entries starting at entry `first`
+ * for one whose name is the first `length` characters of `name`. */
+static bool find_in_folder(const ResArchive *a, uint32_t first,
+    uint32_t count, const char *name, size_t length, ResEntry *out)
+{
+    if (length > RES_NAME_SIZE) {
+        return false;
+    }
+    for (uint32_t i = 0; i < count; i++) {
+        ResEntry entry;
+        if (!res_entry_at(a, first + i, &entry)) {
+            return false;
+        }
+        if (strncmp(entry.name, name, length) == 0
+            && entry.name[length] == '\0') {
+            *out = entry;
+            return true;
+        }
+    }
+    return false;
+}
+
+bool res_find(const ResArchive *a, const char *path, ResEntry *out)
+{
+    uint32_t first = a->header.root_first;
+    uint32_t count = a->header.root_count;
+
+    for (;;) {
+        /* The next name runs up to the next '/', or to the end of the
+         * path if there is no '/'. */
+        const char *slash = strchr(path, '/');
+        size_t length = slash != NULL ? (size_t)(slash - path) : strlen(path);
+
+        ResEntry entry;
+        if (!find_in_folder(a, first, count, path, length, &entry)) {
+            return false;
+        }
+        if (slash == NULL) {
+            *out = entry;
+            return true;
+        }
+
+        /* More of the path follows, so this name has to be a folder. */
+        if (!entry.is_folder) {
+            return false;
+        }
+        first = entry.offset;
+        count = entry.size;
+        path = slash + 1;
+    }
 }

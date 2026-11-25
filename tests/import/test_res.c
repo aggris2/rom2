@@ -709,3 +709,241 @@ UTEST(res, entry_at_folder_with_a_huge_child_count_fails)
     ASSERT_FALSE(res_entry_at(&a, 1, &e));
     ASSERT_TRUE(entry_is_untouched(&e));
 }
+
+/* ---- res_file_reader and res_find ---- */
+
+/* The small archive above, with real bytes in its data area so that a
+ * file's contents can be told apart:
+ *
+ *     bytes 24 to 31     0x10 0x11 0x12 0x13 0x14 0x15 0x16 0x17
+ *
+ * a.bin is all eight of them. dir/b.bin is the last four. */
+static void make_small_archive_with_data(uint8_t bytes[SMALL_SIZE])
+{
+    make_small_archive(bytes);
+    for (uint32_t i = 0; i < SMALL_DATA_SIZE; i++) {
+        bytes[24 + i] = (uint8_t)(0x10 + i);
+    }
+}
+
+UTEST(res, file_reader_covers_exactly_the_file)
+{
+    uint8_t bytes[SMALL_SIZE];
+    make_small_archive_with_data(bytes);
+    ResArchive a;
+    ASSERT_TRUE(res_open(bytes, sizeof bytes, &a));
+    ResEntry e;
+    ASSERT_TRUE(res_entry_at(&a, 2, &e));
+
+    Reader r = res_file_reader(&a, &e);
+
+    ASSERT_EQ(4u, reader_remaining(&r));
+    ASSERT_EQ(0x14, reader_u8(&r));
+    ASSERT_EQ(0x15, reader_u8(&r));
+    ASSERT_EQ(0x16, reader_u8(&r));
+    ASSERT_EQ(0x17, reader_u8(&r));
+    ASSERT_TRUE(reader_ok(&r));
+    ASSERT_EQ(0, reader_u8(&r));
+    ASSERT_FALSE(reader_ok(&r));
+}
+
+UTEST(res, file_reader_of_a_folder_is_failed)
+{
+    uint8_t bytes[SMALL_SIZE];
+    make_small_archive_with_data(bytes);
+    ResArchive a;
+    ASSERT_TRUE(res_open(bytes, sizeof bytes, &a));
+    ResEntry e;
+    ASSERT_TRUE(res_entry_at(&a, 1, &e));
+
+    Reader r = res_file_reader(&a, &e);
+
+    ASSERT_FALSE(reader_ok(&r));
+    ASSERT_EQ(0u, reader_remaining(&r));
+}
+
+UTEST(res, find_a_file_in_the_root)
+{
+    uint8_t bytes[SMALL_SIZE];
+    make_small_archive_with_data(bytes);
+    ResArchive a;
+    ASSERT_TRUE(res_open(bytes, sizeof bytes, &a));
+    ResEntry e = untouched_entry();
+
+    ASSERT_TRUE(res_find(&a, "a.bin", &e));
+
+    ASSERT_FALSE(e.is_folder);
+    ASSERT_EQ(24u, e.offset);
+    ASSERT_EQ(8u, e.size);
+    ASSERT_STREQ("a.bin", e.name);
+}
+
+UTEST(res, find_a_file_inside_a_folder)
+{
+    uint8_t bytes[SMALL_SIZE];
+    make_small_archive_with_data(bytes);
+    ResArchive a;
+    ASSERT_TRUE(res_open(bytes, sizeof bytes, &a));
+    ResEntry e = untouched_entry();
+
+    ASSERT_TRUE(res_find(&a, "dir/b.bin", &e));
+
+    ASSERT_FALSE(e.is_folder);
+    ASSERT_EQ(28u, e.offset);
+    ASSERT_EQ(4u, e.size);
+    ASSERT_STREQ("b.bin", e.name);
+}
+
+UTEST(res, find_a_folder)
+{
+    uint8_t bytes[SMALL_SIZE];
+    make_small_archive_with_data(bytes);
+    ResArchive a;
+    ASSERT_TRUE(res_open(bytes, sizeof bytes, &a));
+    ResEntry e = untouched_entry();
+    e.is_folder = false;
+
+    ASSERT_TRUE(res_find(&a, "dir", &e));
+
+    ASSERT_TRUE(e.is_folder);
+    ASSERT_STREQ("dir", e.name);
+}
+
+UTEST(res, find_then_read_gives_the_bytes_of_the_file)
+{
+    uint8_t bytes[SMALL_SIZE];
+    make_small_archive_with_data(bytes);
+    ResArchive a;
+    ASSERT_TRUE(res_open(bytes, sizeof bytes, &a));
+    ResEntry e;
+    ASSERT_TRUE(res_find(&a, "dir/b.bin", &e));
+
+    Reader r = res_file_reader(&a, &e);
+
+    ASSERT_EQ(0x17161514u, reader_u32(&r));
+    ASSERT_EQ(0u, reader_remaining(&r));
+    ASSERT_TRUE(reader_ok(&r));
+}
+
+UTEST(res, find_a_missing_name_fails)
+{
+    uint8_t bytes[SMALL_SIZE];
+    make_small_archive_with_data(bytes);
+    ResArchive a;
+    ASSERT_TRUE(res_open(bytes, sizeof bytes, &a));
+    ResEntry e = untouched_entry();
+
+    ASSERT_FALSE(res_find(&a, "c.bin", &e));
+    ASSERT_TRUE(entry_is_untouched(&e));
+}
+
+UTEST(res, find_does_not_match_the_start_of_a_longer_name)
+{
+    /* "a.bi" is the beginning of "a.bin" but is not an entry. */
+    uint8_t bytes[SMALL_SIZE];
+    make_small_archive_with_data(bytes);
+    ResArchive a;
+    ASSERT_TRUE(res_open(bytes, sizeof bytes, &a));
+    ResEntry e = untouched_entry();
+
+    ASSERT_FALSE(res_find(&a, "a.bi", &e));
+    ASSERT_TRUE(entry_is_untouched(&e));
+}
+
+UTEST(res, find_does_not_match_a_name_with_more_after_it)
+{
+    /* "a.bin2" begins with the entry "a.bin" but is not that entry. */
+    uint8_t bytes[SMALL_SIZE];
+    make_small_archive_with_data(bytes);
+    ResArchive a;
+    ASSERT_TRUE(res_open(bytes, sizeof bytes, &a));
+    ResEntry e = untouched_entry();
+
+    ASSERT_FALSE(res_find(&a, "a.bin2", &e));
+    ASSERT_TRUE(entry_is_untouched(&e));
+}
+
+UTEST(res, find_does_not_look_in_other_folders)
+{
+    /* b.bin exists, but inside dir, not in the root. */
+    uint8_t bytes[SMALL_SIZE];
+    make_small_archive_with_data(bytes);
+    ResArchive a;
+    ASSERT_TRUE(res_open(bytes, sizeof bytes, &a));
+    ResEntry e = untouched_entry();
+
+    ASSERT_FALSE(res_find(&a, "b.bin", &e));
+    ASSERT_FALSE(res_find(&a, "dir/a.bin", &e));
+    ASSERT_TRUE(entry_is_untouched(&e));
+}
+
+UTEST(res, find_through_a_file_fails)
+{
+    /* a.bin is a file, so nothing can be inside it. */
+    uint8_t bytes[SMALL_SIZE];
+    make_small_archive_with_data(bytes);
+    ResArchive a;
+    ASSERT_TRUE(res_open(bytes, sizeof bytes, &a));
+    ResEntry e = untouched_entry();
+
+    ASSERT_FALSE(res_find(&a, "a.bin/b.bin", &e));
+    ASSERT_TRUE(entry_is_untouched(&e));
+}
+
+UTEST(res, find_with_an_empty_or_odd_path_fails)
+{
+    uint8_t bytes[SMALL_SIZE];
+    make_small_archive_with_data(bytes);
+    ResArchive a;
+    ASSERT_TRUE(res_open(bytes, sizeof bytes, &a));
+    ResEntry e = untouched_entry();
+
+    ASSERT_FALSE(res_find(&a, "", &e));
+    ASSERT_FALSE(res_find(&a, "/", &e));
+    ASSERT_FALSE(res_find(&a, "/a.bin", &e));
+    ASSERT_FALSE(res_find(&a, "dir/", &e));
+    ASSERT_FALSE(res_find(&a, "dir//b.bin", &e));
+    ASSERT_TRUE(entry_is_untouched(&e));
+}
+
+UTEST(res, find_with_a_name_longer_than_16_fails)
+{
+    uint8_t bytes[SMALL_SIZE];
+    make_small_archive_with_data(bytes);
+    ResArchive a;
+    ASSERT_TRUE(res_open(bytes, sizeof bytes, &a));
+    ResEntry e = untouched_entry();
+
+    ASSERT_FALSE(res_find(&a, "a.bin_and_seventeen", &e));
+    ASSERT_FALSE(res_find(&a, "dir/b.bin_and_seventeen", &e));
+    ASSERT_TRUE(entry_is_untouched(&e));
+}
+
+UTEST(res, find_a_name_that_fills_all_16_characters)
+{
+    uint8_t bytes[SMALL_SIZE];
+    make_small_archive_with_data(bytes);
+    make_entry(small_entry(bytes, 0), 24, 8, 0, "0123456789abcdef");
+    ResArchive a;
+    ASSERT_TRUE(res_open(bytes, sizeof bytes, &a));
+    ResEntry e = untouched_entry();
+
+    ASSERT_TRUE(res_find(&a, "0123456789abcdef", &e));
+
+    ASSERT_STREQ("0123456789abcdef", e.name);
+}
+
+UTEST(res, find_in_a_damaged_folder_fails)
+{
+    /* The second root entry has a type that is neither file nor folder,
+     * so the search cannot get past it. */
+    uint8_t bytes[SMALL_SIZE];
+    make_small_archive_with_data(bytes);
+    make_entry(small_entry(bytes, 0), 24, 8, 2, "broken");
+    ResArchive a;
+    ASSERT_TRUE(res_open(bytes, sizeof bytes, &a));
+    ResEntry e = untouched_entry();
+
+    ASSERT_FALSE(res_find(&a, "dir", &e));
+    ASSERT_TRUE(entry_is_untouched(&e));
+}
