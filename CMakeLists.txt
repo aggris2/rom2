@@ -30,16 +30,26 @@ add_library(rom2_core STATIC
 target_include_directories(rom2_core PUBLIC src)
 rom2_set_warnings(rom2_core)
 
+# rom2_import: readers for the original game's file formats. Only the
+# importer uses them; the game itself never reads an original file.
+add_library(rom2_import STATIC
+    tools/import/res.c
+)
+target_include_directories(rom2_import PUBLIC tools)
+target_link_libraries(rom2_import PUBLIC rom2_core)
+rom2_set_warnings(rom2_import)
+
 # Tests: one program, rom2_tests, built from every test file.
 enable_testing()
 
 add_executable(rom2_tests
     tests/main.c
     tests/base/test_reader.c
+    tests/import/test_res.c
 )
 # tests/utest.h is the test framework (github.com/sheredom/utest.h, public
 # domain). SYSTEM: it is not held to our warning settings.
 target_include_directories(rom2_tests SYSTEM PRIVATE tests)
-target_link_libraries(rom2_tests PRIVATE rom2_core)
+target_link_libraries(rom2_tests PRIVATE rom2_core rom2_import)
 rom2_set_warnings(rom2_tests)
 add_test(NAME rom2_tests COMMAND rom2_tests)
