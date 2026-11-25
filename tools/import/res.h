@@ -28,4 +28,15 @@ typedef struct ResHeader {
  * root folder's entries are not all inside the table. */
 bool res_header_read(Reader *r, ResHeader *out);
 
+typedef struct ResEntry {
+    bool is_folder;
+    uint32_t offset;
+    uint32_t size;
+    char name[17];   /* up to 16 characters and the closing zero */
+} ResEntry;
+
+/* Reads one 32-byte table entry. Returns false, and leaves `*out` alone,
+ * if fewer than 32 bytes are left or the type is neither file nor folder. */
+bool res_entry_read(Reader *r, ResEntry *out);
+
 #endif

@@ -264,3 +264,172 @@ UTEST(res, header_with_a_huge_root_count_fails)
     ASSERT_FALSE(res_header_read(&r, &h));
     ASSERT_TRUE(header_is_untouched(&h));
 }
+
+/* ---- res_entry_read ---- */
+
+enum {
+    ENTRY_SIZE = 32,
+
+    /* Where each entry field starts. */
+    AT_ENTRY_UNKNOWN = 0,
+    AT_ENTRY_OFFSET = 4,
+    AT_ENTRY_SIZE = 8,
+    AT_ENTRY_TYPE = 12,
+    AT_ENTRY_NAME = 16
+};
+
+/* Builds one table entry. `name` is copied without its closing zero, and
+ * the rest of the 16-byte name field is filled with zeros. */
+static void make_entry(uint8_t bytes[ENTRY_SIZE], uint32_t offset,
+                       uint32_t size, uint32_t type, const char *name)
+{
+    memset(bytes, 0, ENTRY_SIZE);
+    put_u32(bytes, AT_ENTRY_OFFSET, offset);
+    put_u32(bytes, AT_ENTRY_SIZE, size);
+    put_u32(bytes, AT_ENTRY_TYPE, type);
+    memcpy(bytes + AT_ENTRY_NAME, name, strlen(name));
+}
+
+/* An entry that has not been written to. A failed read must leave it
+ * exactly like this. */
+static ResEntry untouched_entry(void)
+{
+    ResEntry e = {
+        .is_folder = true,
+        .offset = 0xaaaaaaaau,
+        .size = 0xaaaaaaaau,
+        .name = "untouched"
+    };
+    return e;
+}
+
+static bool entry_is_untouched(const ResEntry *e)
+{
+    return e->is_folder
+        && e->offset == 0xaaaaaaaau
+        && e->size == 0xaaaaaaaau
+        && strcmp(e->name, "untouched") == 0;
+}
+
+UTEST(res, entry_of_a_file_is_read)
+{
+    uint8_t bytes[ENTRY_SIZE];
+    make_entry(bytes, 24, 80172, 0, "objects.reg");
+    Reader r = reader_init(bytes, sizeof bytes);
+    ResEntry e = untouched_entry();
+
+    ASSERT_TRUE(res_entry_read(&r, &e));
+
+    ASSERT_FALSE(e.is_folder);
+    ASSERT_EQ(24u, e.offset);
+    ASSERT_EQ(80172u, e.size);
+    ASSERT_STREQ("objects.reg", e.name);
+}
+
+UTEST(res, entry_of_a_folder_is_read)
+{
+    uint8_t bytes[ENTRY_SIZE];
+    make_entry(bytes, 977, 6, 1, "units");
+    Reader r = reader_init(bytes, sizeof bytes);
+    ResEntry e = untouched_entry();
+    e.is_folder = false;
+
+    ASSERT_TRUE(res_entry_read(&r, &e));
+
+    ASSERT_TRUE(e.is_folder);
+    ASSERT_EQ(977u, e.offset);
+    ASSERT_EQ(6u, e.size);
+    ASSERT_STREQ("units", e.name);
+}
+
+UTEST(res, entry_read_moves_past_the_entry)
+{
+    /* Two entries one after the other, as they sit in the table. */
+    uint8_t bytes[2 * ENTRY_SIZE];
+    make_entry(bytes, 1, 2, 0, "first");
+    make_entry(bytes + ENTRY_SIZE, 3, 4, 1, "second");
+    Reader r = reader_init(bytes, sizeof bytes);
+    ResEntry e = untouched_entry();
+
+    ASSERT_TRUE(res_entry_read(&r, &e));
+    ASSERT_STREQ("first", e.name);
+    ASSERT_TRUE(res_entry_read(&r, &e));
+    ASSERT_STREQ("second", e.name);
+    ASSERT_EQ(0u, reader_remaining(&r));
+}
+
+UTEST(res, entry_ignores_the_unknown_first_field)
+{
+    uint8_t bytes[ENTRY_SIZE];
+    make_entry(bytes, 24, 100, 0, "a.bmp");
+    put_u32(bytes, AT_ENTRY_UNKNOWN, 0xffffffffu);
+    Reader r = reader_init(bytes, sizeof bytes);
+    ResEntry e = untouched_entry();
+
+    ASSERT_TRUE(res_entry_read(&r, &e));
+
+    ASSERT_EQ(24u, e.offset);
+    ASSERT_EQ(100u, e.size);
+    ASSERT_STREQ("a.bmp", e.name);
+}
+
+UTEST(res, entry_name_stops_at_the_first_zero)
+{
+    /* Some original archives have leftover bytes after the zero. */
+    uint8_t bytes[ENTRY_SIZE];
+    make_entry(bytes, 24, 100, 0, "pine1");
+    memcpy(bytes + AT_ENTRY_NAME + 6, "leftover", 8);
+    Reader r = reader_init(bytes, sizeof bytes);
+    ResEntry e = untouched_entry();
+
+    ASSERT_TRUE(res_entry_read(&r, &e));
+
+    ASSERT_STREQ("pine1", e.name);
+}
+
+UTEST(res, entry_name_may_fill_the_whole_field)
+{
+    /* 16 characters and no zero byte in the field at all. */
+    uint8_t bytes[ENTRY_SIZE];
+    make_entry(bytes, 24, 100, 0, "0123456789abcdef");
+    Reader r = reader_init(bytes, sizeof bytes);
+    ResEntry e = untouched_entry();
+
+    ASSERT_TRUE(res_entry_read(&r, &e));
+
+    ASSERT_STREQ("0123456789abcdef", e.name);
+}
+
+UTEST(res, entry_name_may_be_empty)
+{
+    uint8_t bytes[ENTRY_SIZE];
+    make_entry(bytes, 24, 100, 0, "");
+    Reader r = reader_init(bytes, sizeof bytes);
+    ResEntry e = untouched_entry();
+
+    ASSERT_TRUE(res_entry_read(&r, &e));
+
+    ASSERT_STREQ("", e.name);
+}
+
+UTEST(res, entry_shorter_than_32_bytes_fails)
+{
+    uint8_t bytes[ENTRY_SIZE];
+    make_entry(bytes, 24, 100, 0, "a.bmp");
+    Reader r = reader_init(bytes, ENTRY_SIZE - 1);
+    ResEntry e = untouched_entry();
+
+    ASSERT_FALSE(res_entry_read(&r, &e));
+    ASSERT_TRUE(entry_is_untouched(&e));
+}
+
+UTEST(res, entry_with_an_unknown_type_fails)
+{
+    uint8_t bytes[ENTRY_SIZE];
+    make_entry(bytes, 24, 100, 2, "a.bmp");
+    Reader r = reader_init(bytes, sizeof bytes);
+    ResEntry e = untouched_entry();
+
+    ASSERT_FALSE(res_entry_read(&r, &e));
+    ASSERT_TRUE(entry_is_untouched(&e));
+}
