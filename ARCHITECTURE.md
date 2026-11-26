@@ -33,12 +33,16 @@ failure sticks, so a parser checks once at the end.
 `src/base/buffer` is a block of bytes that grows as bytes are added. A
 file to be written is built in one first.
 
-`src/base/file` reads a whole file from disk into memory. It is the only
-code in `base` that touches the file system.
+`src/base/checksum` has the two checksums the PNG format needs, CRC-32
+and Adler-32.
 
-`tools/import` reads the original game's files, starting with the `.res`
-archives. It is the only code that knows those formats. The game itself
-never opens an original file.
+`src/base/file` reads a whole file from disk into memory and writes one
+back. It is the only code in `base` that touches the file system.
+
+`tools/import` reads the original game's files: the `.res` archives and
+the `.256` sprites so far. It is the only code that knows those formats.
+The game itself never opens an original file. It also writes what the
+import produces, which so far is 8-bit indexed PNG pictures.
 
 ## Libraries
 

@@ -33,6 +33,7 @@ endif()
 add_library(rom2_core STATIC
     src/base/reader.c
     src/base/buffer.c
+    src/base/checksum.c
     src/base/file.c
 )
 target_include_directories(rom2_core PUBLIC src)
@@ -41,6 +42,7 @@ rom2_set_warnings(rom2_core)
 # rom2_import: readers for the original game's file formats. Only the
 # importer uses them; the game itself never reads an original file.
 add_library(rom2_import STATIC
+    tools/import/png.c
     tools/import/res.c
     tools/import/sprite256.c
 )
@@ -59,8 +61,10 @@ enable_testing()
 add_executable(rom2_tests
     tests/main.c
     tests/base/test_buffer.c
+    tests/base/test_checksum.c
     tests/base/test_file.c
     tests/base/test_reader.c
+    tests/import/test_png.c
     tests/import/test_res.c
     tests/import/test_sprite256.c
 )

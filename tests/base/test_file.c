@@ -92,3 +92,66 @@ UTEST(file, read_all_of_a_missing_file_fails)
     ASSERT_TRUE(data == &marker);
     ASSERT_EQ((size_t)12345, size);
 }
+
+/* ---- file_write_all ---- */
+
+UTEST(file, write_all_then_read_all_gives_the_same_bytes)
+{
+    const uint8_t bytes[] = {0x00, 0x0a, 0x0d, 0x0a, 0x1a, 0xff, 0x89, 0x50};
+    uint8_t *data = NULL;
+    size_t size = 0;
+
+    bool written = file_write_all(TEST_PATH, bytes, sizeof bytes);
+    bool read = file_read_all(TEST_PATH, &data, &size);
+    remove(TEST_PATH);
+
+    ASSERT_TRUE(written);
+    ASSERT_TRUE(read);
+    ASSERT_EQ(sizeof bytes, size);
+    for (size_t i = 0; i < sizeof bytes; i++) {
+        ASSERT_EQ(bytes[i], data[i]);
+    }
+    free(data);
+}
+
+UTEST(file, write_all_replaces_an_existing_file)
+{
+    const uint8_t longer[] = {1, 2, 3, 4, 5, 6};
+    const uint8_t shorter[] = {9, 8};
+    uint8_t *data = NULL;
+    size_t size = 0;
+    ASSERT_TRUE(file_write_all(TEST_PATH, longer, sizeof longer));
+
+    bool written = file_write_all(TEST_PATH, shorter, sizeof shorter);
+    bool read = file_read_all(TEST_PATH, &data, &size);
+    remove(TEST_PATH);
+
+    ASSERT_TRUE(written);
+    ASSERT_TRUE(read);
+    ASSERT_EQ(2u, size);
+    ASSERT_EQ(9, data[0]);
+    ASSERT_EQ(8, data[1]);
+    free(data);
+}
+
+UTEST(file, write_all_of_no_bytes_makes_an_empty_file)
+{
+    uint8_t *data = NULL;
+    size_t size = 12345;
+
+    bool written = file_write_all(TEST_PATH, NULL, 0);
+    bool read = file_read_all(TEST_PATH, &data, &size);
+    remove(TEST_PATH);
+
+    ASSERT_TRUE(written);
+    ASSERT_TRUE(read);
+    ASSERT_EQ(0u, size);
+    free(data);
+}
+
+UTEST(file, write_all_into_a_missing_folder_fails)
+{
+    const uint8_t bytes[] = {1};
+
+    ASSERT_FALSE(file_write_all("rom2_no_such_folder/file.tmp", bytes, 1));
+}

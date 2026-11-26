@@ -13,6 +13,7 @@
 #include <stdint.h>
 
 #include "base/reader.h"
+#include "import/rgb.h"
 
 /* An open sprite file: its bytes and what its trailer says. Does not own
  * the bytes. */
@@ -29,13 +30,6 @@ typedef struct Sprite256 {
  * a trailer, or too short to hold the palette and the number of frames the
  * trailer claims. */
 bool sprite256_open(const uint8_t *data, size_t size, Sprite256 *out);
-
-/* One colour of a palette. */
-typedef struct Rgb {
-    uint8_t r;
-    uint8_t g;
-    uint8_t b;
-} Rgb;
 
 /* Reads the 256 colours of a sprite's palette into `out`. In a frame,
  * pixel value `n` means colour `out[n]`, and 0 means transparent whatever

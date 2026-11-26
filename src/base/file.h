@@ -1,4 +1,4 @@
-/* Reading whole files from disk.
+/* Reading and writing whole files on disk.
  *
  * This is the only code in base that touches the file system. Everything
  * else works on bytes that are already in memory, so it can be tested
@@ -18,5 +18,12 @@
  * Returns false, and leaves the out-pointers alone, if the file cannot be
  * opened or read. */
 bool file_read_all(const char *path, uint8_t **out_data, size_t *out_size);
+
+/* Writes `size` bytes to a file, replacing the file if it exists. `data`
+ * may be NULL when `size` is 0, which makes an empty file.
+ *
+ * Returns false if the file cannot be created or not every byte could be
+ * written. A file may then be left behind with only part of the bytes. */
+bool file_write_all(const char *path, const uint8_t *data, size_t size);
 
 #endif

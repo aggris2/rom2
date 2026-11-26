@@ -40,3 +40,19 @@ bool file_read_all(const char *path, uint8_t **out_data, size_t *out_size)
     *out_size = size;
     return true;
 }
+
+bool file_write_all(const char *path, const uint8_t *data, size_t size)
+{
+    FILE *f = fopen(path, "wb");
+    if (f == NULL) {
+        return false;
+    }
+    size_t written = 0;
+    if (size > 0) {
+        written = fwrite(data, 1, size, f);
+    }
+    /* fclose() is where a full disk is often reported, so its result
+     * counts as well. */
+    bool closed = fclose(f) == 0;
+    return written == size && closed;
+}
