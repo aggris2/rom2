@@ -79,6 +79,9 @@ rom2_set_warnings(rom2_core)
 add_library(rom2_import STATIC
     tools/import/databin.c
     tools/import/frames.c
+    tools/import/icon_strip.c
+    tools/import/item_toml.c
+    tools/import/items.c
     tools/import/name.c
     tools/import/object_sheet.c
     tools/import/object_toml.c
@@ -141,6 +144,11 @@ add_executable(import_spells tools/import_spells/main.c)
 target_link_libraries(import_spells PRIVATE rom2_import)
 rom2_set_warnings(import_spells)
 
+# import_items: writes the items of the original game as ROM2 content.
+add_executable(import_items tools/import_items/main.c)
+target_link_libraries(import_items PRIVATE rom2_import)
+rom2_set_warnings(import_items)
+
 # Tests: one program, rom2_tests, built from every test file.
 enable_testing()
 
@@ -151,6 +159,9 @@ add_executable(rom2_tests
     tests/base/test_pack.c
     tests/base/test_reader.c
     tests/import/test_databin.c
+    tests/import/test_icon_strip.c
+    tests/import/test_item_toml.c
+    tests/import/test_items.c
     tests/import/test_name.c
     tests/import/test_object_sheet.c
     tests/import/test_object_toml.c

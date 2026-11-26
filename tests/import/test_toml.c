@@ -164,3 +164,54 @@ UTEST(toml, text_list_of_one_or_no_texts)
     ASSERT_TRUE(holds(&b, "one = [\"a \\\"b\\\"\"]\nnone = []\n"));
     buffer_free(&b);
 }
+
+UTEST(toml, float_writes_the_shortest_text_that_reads_back_the_same)
+{
+    ByteBuffer b = {0};
+    ASSERT_TRUE(toml_float(&b, "a", 0.25));
+    ASSERT_TRUE(toml_float(&b, "b", 1.3));
+    ASSERT_TRUE(toml_float(&b, "c", 0.200001));
+    ASSERT_TRUE(toml_float(&b, "d", -2.5));
+    ASSERT_TRUE(holds(&b, "a = 0.25\nb = 1.3\nc = 0.200001\nd = -2.5\n"));
+    buffer_free(&b);
+}
+
+UTEST(toml, float_of_a_whole_number_still_has_a_point)
+{
+    ByteBuffer b = {0};
+    ASSERT_TRUE(toml_float(&b, "a", 1.0));
+    ASSERT_TRUE(toml_float(&b, "b", 0.0));
+    ASSERT_TRUE(toml_float(&b, "c", 900.0));
+    ASSERT_TRUE(holds(&b, "a = 1.0\nb = 0.0\nc = 900.0\n"));
+    buffer_free(&b);
+}
+
+UTEST(toml, float_keeps_every_digit_a_number_needs)
+{
+    /* One third has no short form: it takes 16 digits to bring it back
+     * exactly. */
+    ByteBuffer b = {0};
+    ASSERT_TRUE(toml_float(&b, "a", 1.0 / 3.0));
+    ASSERT_TRUE(holds(&b, "a = 0.3333333333333333\n"));
+    buffer_free(&b);
+}
+
+UTEST(toml, float_writes_very_large_and_very_small_numbers)
+{
+    ByteBuffer b = {0};
+    ASSERT_TRUE(toml_float(&b, "a", 1e300));
+    ASSERT_TRUE(toml_float(&b, "b", 2.5e-10));
+    ASSERT_TRUE(holds(&b, "a = 1e+300\nb = 2.5e-10\n"));
+    buffer_free(&b);
+}
+
+UTEST(toml, float_refuses_a_number_that_is_not_finite)
+{
+    ByteBuffer b = {0};
+    double zero = 0.0;
+    ASSERT_FALSE(toml_float(&b, "a", 1.0 / zero));
+    ASSERT_FALSE(toml_float(&b, "a", -1.0 / zero));
+    ASSERT_FALSE(toml_float(&b, "a", zero / zero));
+    ASSERT_EQ(0u, b.size);
+    buffer_free(&b);
+}

@@ -17,6 +17,37 @@ void name_copy(char *dst, size_t dst_size, const uint8_t *field,
     dst[i] = '\0';
 }
 
+/* Adds `name` to the text of `length` characters in `out`, which has
+ * room for `size` bytes: in lower case, with one '_' for every run of
+ * characters that are not letters or digits. With `gap` a '_' also goes
+ * in front. Stops when `out` is full. Returns the new length. */
+static size_t append_label(char *out, size_t length, size_t size,
+    const char *name, bool gap)
+{
+    for (const char *p = name; *p != '\0'; p++) {
+        char c = *p;
+        if (c >= 'A' && c <= 'Z') {
+            c = (char)(c - 'A' + 'a');
+        }
+        if (!((c >= 'a' && c <= 'z') || (c >= '0' && c <= '9'))) {
+            /* A '_' is owed before the next letter or digit, unless
+             * nothing has been written yet. */
+            gap = gap || length > 0;
+            continue;
+        }
+        if (length + (gap ? 2u : 1u) >= size) {
+            break;
+        }
+        if (gap) {
+            out[length++] = '_';
+            gap = false;
+        }
+        out[length++] = c;
+    }
+    out[length] = '\0';
+    return length;
+}
+
 bool name_folder(int32_t id, const char *name, char out[NAME_FOLDER_SIZE])
 {
     if (id < 0 || id > 999) {
@@ -24,28 +55,15 @@ bool name_folder(int32_t id, const char *name, char out[NAME_FOLDER_SIZE])
     }
     char folder[NAME_FOLDER_SIZE];
     size_t length = (size_t)snprintf(folder, sizeof folder, "%03d", (int)id);
-    /* A '_' is owed before the next letter or digit: after the ID, and
-     * after any run of other characters. */
-    bool gap = true;
-    for (const char *p = name; *p != '\0'; p++) {
-        char c = *p;
-        if (c >= 'A' && c <= 'Z') {
-            c = (char)(c - 'A' + 'a');
-        }
-        if (!((c >= 'a' && c <= 'z') || (c >= '0' && c <= '9'))) {
-            gap = true;
-            continue;
-        }
-        if (length + (gap ? 2u : 1u) >= sizeof folder) {
-            break;
-        }
-        if (gap) {
-            folder[length++] = '_';
-            gap = false;
-        }
-        folder[length++] = c;
-    }
-    folder[length] = '\0';
+    length = append_label(folder, length, sizeof folder, name, true);
     memcpy(out, folder, length + 1);
     return true;
+}
+
+void name_label(const char *name, char *out, size_t size)
+{
+    if (size == 0) {
+        return;
+    }
+    append_label(out, 0, size, name, false);
 }

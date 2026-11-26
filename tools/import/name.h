@@ -29,4 +29,10 @@ void name_copy(char *dst, size_t dst_size, const uint8_t *field,
  * 999. */
 bool name_folder(int32_t id, const char *name, char out[NAME_FOLDER_SIZE]);
 
+/* Writes a name as it goes into the name of a file: in lower case, with
+ * one '_' for every run of characters that are not letters or digits,
+ * and none at the start or the end. "Magic Wood" gives "magic_wood". A
+ * name that does not fit `size` is cut. Does nothing if `size` is 0. */
+void name_label(const char *name, char *out, size_t size);
+
 #endif

@@ -8,8 +8,8 @@ other.
 Measured on the `data.bin` of the GOG release, 149,971 bytes. Read as
 described below, the tables end exactly at the last byte of the file.
 
-Read by `tools/import/databin.c`. So far ROM2 uses the monsters, the
-humans, the buildings and the spells. The buildings are described with the
+Read by `tools/import/databin.c`. ROM2 uses all of its tables. The item
+tables are described in [items.md](items.md), and the buildings with the
 structures, in [structures.md](structures.md).
 
 ## Building blocks
@@ -105,8 +105,8 @@ projectile it sends, are not in this table.
 
 ## Not known
 
-- What the 9 fractions of a shape or a material are, one by one. Their
-  header has 10 columns after the name.
+- What the 9 fractions of a class or a material are, one by one. Their
+  header has 10 columns after the name. See [items.md](items.md).
 - Why the count of most tables is one or two more than their rows.
 - What `face` means for a human kind.
 - The two monster columns the header calls `not used`. They are -1 in

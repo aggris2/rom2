@@ -126,3 +126,39 @@ UTEST(name, folder_refuses_an_id_outside_0_to_999)
     ASSERT_FALSE(name_folder(1000, "a", out));
     ASSERT_STREQ("untouched", out);
 }
+
+/* ---- name_label ---- */
+
+UTEST(name, label_is_lower_case_with_underscores_between_words)
+{
+    char out[32];
+    name_label("Magic Wood", out, sizeof out);
+    ASSERT_STREQ("magic_wood", out);
+    name_label("Very Rare", out, sizeof out);
+    ASSERT_STREQ("very_rare", out);
+    name_label("Iron", out, sizeof out);
+    ASSERT_STREQ("iron", out);
+}
+
+UTEST(name, label_has_no_underscore_at_the_start_or_the_end)
+{
+    char out[32];
+    name_label("  (Dragon) Leather!! ", out, sizeof out);
+    ASSERT_STREQ("dragon_leather", out);
+    name_label("", out, sizeof out);
+    ASSERT_STREQ("", out);
+    name_label("?!", out, sizeof out);
+    ASSERT_STREQ("", out);
+}
+
+UTEST(name, label_cuts_a_name_that_does_not_fit)
+{
+    char out[8];
+    memset(out, 'x', sizeof out);
+    name_label("abcdefghijkl", out, 6);
+    ASSERT_STREQ("abcde", out);
+    ASSERT_EQ('x', out[6]);
+    /* No room at all: nothing is written. */
+    name_label("abc", out, 0);
+    ASSERT_STREQ("abcde", out);
+}

@@ -1,6 +1,8 @@
 #include "import/toml.h"
 
+#include <float.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 
 static bool put(ByteBuffer *b, const char *text)
@@ -23,6 +25,33 @@ bool toml_comment(ByteBuffer *b, const char *text)
 bool toml_table(ByteBuffer *b, const char *name)
 {
     return put(b, "\n[") && put(b, name) && put(b, "]\n");
+}
+
+bool toml_float(ByteBuffer *b, const char *key, double value)
+{
+    /* Not finite: an infinity or a result that is not a number. Such a
+     * value is not equal to itself, or is past the largest number. */
+    if (value != value || value > DBL_MAX || value < -DBL_MAX) {
+        return false;
+    }
+    /* 17 digits always read back the same number. Fewer are tried
+     * first, so that 0.25 is written as 0.25. A number of ordinary size
+     * is not left in the form with an exponent that few digits give it,
+     * so that 900 is written as 900.0 and not as 9e+02. */
+    double size = value < 0 ? -value : value;
+    bool ordinary = size == 0.0 || (size >= 1e-5 && size < 1e15);
+    char digits[40];
+    for (int precision = 1; precision <= 17; precision++) {
+        snprintf(digits, sizeof digits, "%.*g", precision, value);
+        if (strtod(digits, NULL) == value
+            && !(ordinary && strchr(digits, 'e') != NULL)) {
+            break;
+        }
+    }
+    if (strpbrk(digits, ".e") == NULL) {
+        strcat(digits, ".0");
+    }
+    return put(b, key) && put(b, " = ") && put(b, digits) && put(b, "\n");
 }
 
 bool toml_table_list(ByteBuffer *b, const char *name)

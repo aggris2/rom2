@@ -1,0 +1,155 @@
+# Items: shapes, materials, classes and their pictures
+
+An item is something a character carries or wears: a sword, a helm, a
+scroll. Their numbers are in six tables of `data.bin`, described in
+[databin.md](databin.md), and their pictures for the inventory are
+[.16a](16a.md) files in `graphics.res`.
+
+Measured on the GOG release.
+
+Read by `tools/import/items.c`.
+
+## An item is a shape in a material and a class
+
+The original has no row for an iron long sword. It has:
+
+- **shapes**: the rows of the tables of weapons (27), shields (9) and
+  armour (30). A dagger, a long sword, a plate cuirass.
+- **materials**: 16 rows, from iron and bronze to dragon leather and
+  crystal.
+- **classes**: 7 rows: common, uncommon, rare, very rare, elven, bad and
+  good. The file calls this table the shapes, which it is not.
+
+A row of the materials or the classes is 9 fractions. The first two are
+0 in every row. The other seven are taken to be what a shape's price,
+weight, damage, chance to hit, defence and absorption are multiplied
+by, and one more number to do with magic. That reading is from the
+table's column names and was not checked in the game.
+
+## Which variants exist
+
+Not every material goes with every class. A shape's row ends in 8 short
+numbers, one for each class from 0 to 7, and in each of them bit `m` is
+set if the shape exists in that class in material `m`. The dagger's are
+3, 6, 104, 208, 224, 0, 0, 0: a common dagger is of iron or bronze, an
+uncommon one of bronze or steel, a rare one of silver, mithril or
+adamantium.
+
+One pair of a material and a class is a variant of the shape. The 66
+shapes have 395 variants, 14 at most.
+
+## A shape's row
+
+After its name a row has 17 numbers and the 8 short ones. The columns
+are, by the file's own names: `Shape`, `Material`, `Price`, `weight`,
+`Slot`, `@.attackType`, `@.physicalMin`, `@.physicalMax`, `@.toHit`,
+`#.deIrnce`, `#.absorbtion`, `@.range`, `@.charge`, `@.relax`,
+`2 handed`, `sutableFor` and `Other Parameter`.
+
+`Slot` is where the item is worn:
+
+| Slot | | Slot | |
+|---|---|---|---|
+| 1 | weapon | 8 | cuirass, cloak |
+| 2 | shield | 9 | bracers |
+| 4 | ring | 10 | gauntlets, gloves |
+| 5 | amulet | 12 | boots, shoes |
+| 6 | helm, hat | 14 | magic item |
+| 7 | mail, robe | | |
+
+One row of the weapons, called `rem`, is -1 in every number: a gap. Five
+weapons have no variants: bare hands, and four that only monsters and
+structures use, such as the dragon's flame thrower.
+
+## The pictures for the inventory
+
+`inventory/` has 491 `.16a` files, each one frame of 80 by 80 pixels.
+A file is named after its item in seven digits:
+
+```
+MM SS C PP     material, slot, class, place
+00 01 0 02     an iron common dagger: 0001002.16a
+```
+
+`place` is the shape's place in its table, counted from 1. Armour is
+one table for all its slots: the ring is 1, the amulet 2, the plate
+boots 30.
+
+The masks and the files agree completely: each of the 395 variants has
+its file, and no file is of a variant the masks do not allow.
+
+The other 96 files are the magic items, as material 0 and class 0 in
+slot 14: `0014001.16a` to `0014096.16a`.
+
+The pictures of one shape are not one picture in other colours. An iron
+dagger and a gold one differ in their pixels and in their palettes.
+
+## What does not fit
+
+- **Two amulets are drawn as helms.** The pictures of the common amulet
+  in iron and in bronze, `0005002.16a` and `0105002.16a`, are the same
+  files byte for byte as those of the common helm in iron and in bronze,
+  `0006006.16a` and `0106006.16a`. The other 12 amulets are amulets.
+  ROM2 writes them as they are.
+- **Magic items share pictures.** Every scroll of one kind of magic has
+  the same picture, and so have the potions of one kind: 10 groups of 4
+  to 10 files that are the same byte for byte.
+
+## Magic items
+
+The table of magic items has 96 rows: books, scrolls, potions, and
+things for quests. A row is a price and a weight, and 84 of them have a
+text of what the item does: `castSpell=Fire_Arrow:50`. A magic item's
+number is the place of its row, counted from 1.
+
+## Modifiers
+
+The 50 rows of the modifiers are what magic can change about whoever
+carries an item: `body`, `healthMax`, `toHit`, `damageEarth`. A row is
+28 numbers: `cost.MP`, `affectMin`, `affectMax`, `UsableBy`, and then
+24 named after places on the body, 12 for a fighter and 12 for a mage:
+how much of the change an item in that place can hold.
+
+## How a unit names its items
+
+A kind of unit in `data.bin` names what it carries as text: the class,
+if it is not common, the material, the shape, and in braces what magic
+it has. `Elven Magic Wood Long Bow{toHit=50}`. Reading these texts is
+not done yet.
+
+## What ROM2 writes
+
+`import_items` writes, in `content/items`:
+
+- A folder for every shape, in `weapons`, `shields` or `armour`, named
+  after its place and its name: `weapons/002_dagger`. In it is
+  `item.toml`, with the shape's numbers and the list of its variants,
+  and a folder for each variant, named after its material and its
+  class: `iron_common`. A variant's folder has its picture for the
+  inventory: `icon.png`, an 8-bit indexed PNG with its own palette, and
+  `icon_alpha.png`, which says how solid each pixel is.
+- A folder for every magic item in `magic`, with `item.toml`,
+  `icon.png` and `icon_alpha.png`.
+- `materials.toml`, `classes.toml` and `modifiers.toml`: the three
+  tables, an entry for each row.
+
+A variant has pictures of its own because it has colours of its own,
+and a PNG holds one palette: put side by side in one picture, only the
+first would look right in a viewer. Its folder is also where the
+pictures of the item worn will go.
+
+The files are described at the top of `tools/import/item_toml.h`.
+
+65 shapes and 96 magic items are written, with all 491 pictures.
+
+The pictures of items worn on a character, in `equipment/`, are not
+written yet.
+
+## Not known
+
+- What the 9 fractions of a material or a class are, beyond the reading
+  above, and how exactly a variant's numbers are worked out from them.
+- The columns `Shape`, `Material`, `sutableFor` and `Other Parameter` of
+  a shape.
+- The small languages of a magic item's text and of the braces in a
+  unit's item.
