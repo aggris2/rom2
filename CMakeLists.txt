@@ -32,15 +32,46 @@ if(ROM2_SANITIZE AND NOT MSVC)
     add_link_options(-fsanitize=address,undefined)
 endif()
 
+# zlib does the compression inside PNG pictures. Its source is downloaded
+# and built along with ROM2, at an exact version checked by its hash, so
+# that every build of ROM2 uses the same zlib and packs data to the same
+# bytes. ROM2_SYSTEM_ZLIB is for those who package ROM2 for a system and
+# want the system's own copy instead.
+option(ROM2_SYSTEM_ZLIB "Use the zlib installed on the system" OFF)
+# Give downloaded files the time they were unpacked, as newer CMake asks.
+if(POLICY CMP0135)
+    cmake_policy(SET CMP0135 NEW)
+endif()
+if(ROM2_SYSTEM_ZLIB)
+    find_package(ZLIB REQUIRED)
+    set(ROM2_ZLIB ZLIB::ZLIB)
+else()
+    include(FetchContent)
+    set(ZLIB_BUILD_SHARED OFF CACHE BOOL "" FORCE)
+    set(ZLIB_BUILD_TESTING OFF CACHE BOOL "" FORCE)
+    set(ZLIB_INSTALL OFF CACHE BOOL "" FORCE)
+    FetchContent_Declare(zlib
+        URL https://github.com/madler/zlib/releases/download/v1.3.2/zlib-1.3.2.tar.gz
+        URL_HASH SHA256=bb329a0a2cd0274d05519d61c667c062e06990d72e125ee2dfa8de64f0119d16
+    )
+    FetchContent_MakeAvailable(zlib)
+    # zlib's headers are not held to our warning settings.
+    get_target_property(ROM2_ZLIB_INCLUDES zlibstatic
+        INTERFACE_INCLUDE_DIRECTORIES)
+    set_target_properties(zlibstatic PROPERTIES
+        INTERFACE_SYSTEM_INCLUDE_DIRECTORIES "${ROM2_ZLIB_INCLUDES}")
+    set(ROM2_ZLIB ZLIB::ZLIBSTATIC)
+endif()
+
 # rom2_core: code with no dependency on a window, a network or the clock.
 add_library(rom2_core STATIC
-    src/base/reader.c
-    src/base/zlib.c
     src/base/buffer.c
-    src/base/checksum.c
     src/base/file.c
+    src/base/pack.c
+    src/base/reader.c
 )
 target_include_directories(rom2_core PUBLIC src)
+target_link_libraries(rom2_core PRIVATE ${ROM2_ZLIB})
 rom2_set_warnings(rom2_core)
 
 # rom2_import: readers for the original game's file formats. Only the
@@ -65,10 +96,9 @@ enable_testing()
 add_executable(rom2_tests
     tests/main.c
     tests/base/test_buffer.c
-    tests/base/test_checksum.c
     tests/base/test_file.c
+    tests/base/test_pack.c
     tests/base/test_reader.c
-    tests/base/test_zlib.c
     tests/import/test_png.c
     tests/import/test_res.c
     tests/import/test_sprite256.c

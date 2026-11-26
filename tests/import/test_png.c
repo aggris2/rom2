@@ -2,9 +2,8 @@
 
 #include <string.h>
 
-#include "base/checksum.h"
+#include "base/pack.h"
 #include "base/reader.h"
-#include "base/zlib.h"
 #include "utest.h"
 
 /* The tests read back what the writer wrote, with a small PNG reader of
@@ -43,8 +42,8 @@ static bool read_chunk(Reader *r, Chunk *out)
     out->type[4] = '\0';
     out->data = data;
     out->size = size;
-    out->crc_ok = crc == crc32_update(
-        crc32_update(CRC32_START, type, 4), data, size);
+    out->crc_ok = crc == pack_crc32(
+        pack_crc32(PACK_CRC32_START, type, 4), data, size);
     return true;
 }
 
@@ -182,7 +181,7 @@ static bool pixels_survive(uint32_t width, uint32_t height,
     size_t expected_size = (size_t)height * (width + 1);
     ByteBuffer raw = {0};
     bool same = found
-        && zlib_decompress(&raw, c.data, c.size, expected_size)
+        && unpack_zlib(&raw, c.data, c.size, expected_size)
         && raw.size == expected_size;
 
     /* Each row is one filter byte, which must be 0, and then its pixels. */

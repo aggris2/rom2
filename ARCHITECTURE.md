@@ -33,14 +33,12 @@ failure sticks, so a parser checks once at the end.
 `src/base/buffer` is a block of bytes that grows as bytes are added. A
 file to be written is built in one first.
 
-`src/base/checksum` has the two checksums the PNG format needs, CRC-32
-and Adler-32.
-
 `src/base/file` reads a whole file from disk into memory and writes one
 back. It is the only code in `base` that touches the file system.
 
-`src/base/zlib` packs and unpacks data in the zlib format, the lossless
-compression inside a PNG.
+`src/base/pack` packs and unpacks data in the zlib format, the lossless
+compression inside a PNG, and has the CRC that goes with it. The work is
+done by the zlib library, and this is the only file that calls it.
 
 `tools/import` reads the original game's files: the `.res` archives and
 the `.256` sprites so far. It is the only code that knows those formats.
@@ -50,7 +48,11 @@ import produces, which so far is 8-bit indexed PNG pictures.
 ## Libraries
 
 `rom2_core` is a static library built from `src/base`. It depends on the C
-standard library and nothing else.
+standard library and on zlib.
+
+zlib is the one outside library so far. The build downloads its source at
+an exact version, checked by its hash, and builds it with ROM2, so every
+build uses the same zlib. Nothing of zlib is kept in this repository.
 
 `rom2_import` is a static library built from `tools/import`. It depends on
 `rom2_core` and nothing else.

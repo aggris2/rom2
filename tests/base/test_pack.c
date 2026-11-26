@@ -1,12 +1,12 @@
-#include "base/zlib.h"
+#include "base/pack.h"
 
 #include <string.h>
 
 #include "utest.h"
 
 /* Streams made by the real zlib library, one of each kind of block. They
- * check that zlib_decompress() reads what other programs write, not only
- * what zlib_compress() writes. */
+ * check that unpack_zlib() reads what other programs write, not only
+ * what pack_zlib() writes. */
 
 /* zlib level 9 on "abcabcabcabcabc": a block with the fixed codes. */
 static const uint8_t FIXED_STREAM[13] = {
@@ -66,8 +66,8 @@ static bool survives(const uint8_t *data, size_t size, size_t *packed_size)
 {
     ByteBuffer packed = {0};
     ByteBuffer unpacked = {0};
-    bool ok = zlib_compress(&packed, data, size)
-        && zlib_decompress(&unpacked, packed.data, packed.size, size)
+    bool ok = pack_zlib(&packed, data, size)
+        && unpack_zlib(&unpacked, packed.data, packed.size, size)
         && unpacked.size == size
         && (size == 0 || memcmp(unpacked.data, data, size) == 0);
     if (packed_size != NULL) {
@@ -78,24 +78,24 @@ static bool survives(const uint8_t *data, size_t size, size_t *packed_size)
     return ok;
 }
 
-/* ---- zlib_decompress, on streams made by zlib ---- */
+/* ---- unpack_zlib, on streams made by zlib itself ---- */
 
-UTEST(zlib, decompress_reads_a_block_with_the_fixed_codes)
+UTEST(pack, unpack_reads_a_block_with_the_fixed_codes)
 {
     ByteBuffer out = {0};
 
-    ASSERT_TRUE(zlib_decompress(&out, FIXED_STREAM, sizeof FIXED_STREAM, 100));
+    ASSERT_TRUE(unpack_zlib(&out, FIXED_STREAM, sizeof FIXED_STREAM, 100));
 
     ASSERT_EQ(15u, out.size);
     ASSERT_EQ(0, memcmp(out.data, "abcabcabcabcabc", 15));
     buffer_free(&out);
 }
 
-UTEST(zlib, decompress_reads_a_block_with_no_packing)
+UTEST(pack, unpack_reads_a_block_with_no_packing)
 {
     ByteBuffer out = {0};
 
-    ASSERT_TRUE(zlib_decompress(&out, STORED_STREAM, sizeof STORED_STREAM,
+    ASSERT_TRUE(unpack_zlib(&out, STORED_STREAM, sizeof STORED_STREAM,
         100));
 
     ASSERT_EQ(12u, out.size);
@@ -103,13 +103,13 @@ UTEST(zlib, decompress_reads_a_block_with_no_packing)
     buffer_free(&out);
 }
 
-UTEST(zlib, decompress_reads_a_block_with_its_own_code_tables)
+UTEST(pack, unpack_reads_a_block_with_its_own_code_tables)
 {
     uint8_t text[TEXT_SIZE];
     make_text(text);
     ByteBuffer out = {0};
 
-    ASSERT_TRUE(zlib_decompress(&out, DYNAMIC_STREAM, sizeof DYNAMIC_STREAM,
+    ASSERT_TRUE(unpack_zlib(&out, DYNAMIC_STREAM, sizeof DYNAMIC_STREAM,
         TEXT_SIZE));
 
     ASSERT_EQ((size_t)TEXT_SIZE, out.size);
@@ -117,12 +117,12 @@ UTEST(zlib, decompress_reads_a_block_with_its_own_code_tables)
     buffer_free(&out);
 }
 
-UTEST(zlib, decompress_adds_to_what_is_already_in_the_buffer)
+UTEST(pack, unpack_adds_to_what_is_already_in_the_buffer)
 {
     ByteBuffer out = {0};
     ASSERT_TRUE(buffer_push(&out, 0xab));
 
-    ASSERT_TRUE(zlib_decompress(&out, FIXED_STREAM, sizeof FIXED_STREAM, 100));
+    ASSERT_TRUE(unpack_zlib(&out, FIXED_STREAM, sizeof FIXED_STREAM, 100));
 
     ASSERT_EQ(16u, out.size);
     ASSERT_EQ(0xab, out.data[0]);
@@ -131,18 +131,18 @@ UTEST(zlib, decompress_adds_to_what_is_already_in_the_buffer)
     buffer_free(&out);
 }
 
-/* ---- zlib_decompress, on damaged streams ---- */
+/* ---- unpack_zlib, on damaged streams ---- */
 
-UTEST(zlib, decompress_refuses_more_output_than_allowed)
+UTEST(pack, unpack_refuses_more_output_than_allowed)
 {
     ByteBuffer out = {0};
     ASSERT_TRUE(buffer_push(&out, 0xab));
 
     /* Each stream unpacks to one byte more than is allowed here. */
-    ASSERT_FALSE(zlib_decompress(&out, FIXED_STREAM, sizeof FIXED_STREAM, 14));
-    ASSERT_FALSE(zlib_decompress(&out, STORED_STREAM, sizeof STORED_STREAM,
+    ASSERT_FALSE(unpack_zlib(&out, FIXED_STREAM, sizeof FIXED_STREAM, 14));
+    ASSERT_FALSE(unpack_zlib(&out, STORED_STREAM, sizeof STORED_STREAM,
         11));
-    ASSERT_FALSE(zlib_decompress(&out, DYNAMIC_STREAM, sizeof DYNAMIC_STREAM,
+    ASSERT_FALSE(unpack_zlib(&out, DYNAMIC_STREAM, sizeof DYNAMIC_STREAM,
         TEXT_SIZE - 1));
 
     ASSERT_EQ(1u, out.size);
@@ -150,24 +150,24 @@ UTEST(zlib, decompress_refuses_more_output_than_allowed)
     buffer_free(&out);
 }
 
-UTEST(zlib, decompress_of_a_stream_cut_off_anywhere_fails)
+UTEST(pack, unpack_of_a_stream_cut_off_anywhere_fails)
 {
     /* Every shorter version of the stream, from nothing at all up to one
      * byte short of whole. None may succeed, and none may crash. */
     ByteBuffer out = {0};
 
     for (size_t size = 0; size < sizeof DYNAMIC_STREAM; size++) {
-        ASSERT_FALSE(zlib_decompress(&out, DYNAMIC_STREAM, size, TEXT_SIZE));
+        ASSERT_FALSE(unpack_zlib(&out, DYNAMIC_STREAM, size, TEXT_SIZE));
         ASSERT_EQ(0u, out.size);
     }
     for (size_t size = 0; size < sizeof STORED_STREAM; size++) {
-        ASSERT_FALSE(zlib_decompress(&out, STORED_STREAM, size, 100));
+        ASSERT_FALSE(unpack_zlib(&out, STORED_STREAM, size, 100));
         ASSERT_EQ(0u, out.size);
     }
     buffer_free(&out);
 }
 
-UTEST(zlib, decompress_of_a_stream_with_one_byte_changed_never_crashes)
+UTEST(pack, unpack_of_a_stream_with_one_byte_changed_never_crashes)
 {
     /* Every byte of the stream in turn is changed in three ways. A changed
      * stream may fail, or by luck still unpack, but whatever it gives is
@@ -181,7 +181,7 @@ UTEST(zlib, decompress_of_a_stream_with_one_byte_changed_never_crashes)
             memcpy(stream, DYNAMIC_STREAM, sizeof stream);
             stream[i] ^= changes[c];
 
-            bool ok = zlib_decompress(&out, stream, sizeof stream, TEXT_SIZE);
+            bool ok = unpack_zlib(&out, stream, sizeof stream, TEXT_SIZE);
 
             ASSERT_TRUE(out.size <= TEXT_SIZE);
             if (!ok) {
@@ -193,20 +193,20 @@ UTEST(zlib, decompress_of_a_stream_with_one_byte_changed_never_crashes)
     buffer_free(&out);
 }
 
-UTEST(zlib, decompress_with_a_wrong_checksum_fails)
+UTEST(pack, unpack_with_a_wrong_checksum_fails)
 {
     uint8_t stream[sizeof FIXED_STREAM];
     memcpy(stream, FIXED_STREAM, sizeof stream);
     stream[sizeof stream - 1] ^= 0x01;
     ByteBuffer out = {0};
 
-    ASSERT_FALSE(zlib_decompress(&out, stream, sizeof stream, 100));
+    ASSERT_FALSE(unpack_zlib(&out, stream, sizeof stream, 100));
 
     ASSERT_EQ(0u, out.size);
     buffer_free(&out);
 }
 
-UTEST(zlib, decompress_with_a_bad_header_fails)
+UTEST(pack, unpack_with_a_bad_header_fails)
 {
     /* Not deflate, then a header that does not divide by 31, then one
      * that asks for a preset dictionary. */
@@ -218,13 +218,13 @@ UTEST(zlib, decompress_with_a_bad_header_fails)
         memcpy(stream, FIXED_STREAM, sizeof stream);
         stream[0] = headers[i][0];
         stream[1] = headers[i][1];
-        ASSERT_FALSE(zlib_decompress(&out, stream, sizeof stream, 100));
+        ASSERT_FALSE(unpack_zlib(&out, stream, sizeof stream, 100));
         ASSERT_EQ(0u, out.size);
     }
     buffer_free(&out);
 }
 
-UTEST(zlib, decompress_of_a_repeat_from_before_the_start_fails)
+UTEST(pack, unpack_of_a_repeat_from_before_the_start_fails)
 {
     /* A fixed-codes block whose first symbol says "copy 3 bytes from 1
      * byte back", when nothing has been produced yet. */
@@ -234,58 +234,58 @@ UTEST(zlib, decompress_of_a_repeat_from_before_the_start_fails)
     ByteBuffer out = {0};
     ASSERT_TRUE(buffer_push(&out, 0xab));
 
-    ASSERT_FALSE(zlib_decompress(&out, stream, sizeof stream, 100));
+    ASSERT_FALSE(unpack_zlib(&out, stream, sizeof stream, 100));
 
     ASSERT_EQ(1u, out.size);
     buffer_free(&out);
 }
 
-UTEST(zlib, decompress_refuses_one_plain_byte_more_than_allowed)
+UTEST(pack, unpack_refuses_one_plain_byte_more_than_allowed)
 {
     /* Three different bytes pack to three plain-byte symbols, so the
      * limit is reached by a plain byte and not by a repeat. */
     const uint8_t data[] = {1, 2, 3};
     ByteBuffer packed = {0};
     ByteBuffer out = {0};
-    ASSERT_TRUE(zlib_compress(&packed, data, sizeof data));
+    ASSERT_TRUE(pack_zlib(&packed, data, sizeof data));
 
-    ASSERT_FALSE(zlib_decompress(&out, packed.data, packed.size, 2));
+    ASSERT_FALSE(unpack_zlib(&out, packed.data, packed.size, 2));
     ASSERT_EQ(0u, out.size);
 
-    ASSERT_TRUE(zlib_decompress(&out, packed.data, packed.size, 3));
+    ASSERT_TRUE(unpack_zlib(&out, packed.data, packed.size, 3));
     ASSERT_EQ(3u, out.size);
     buffer_free(&packed);
     buffer_free(&out);
 }
 
-UTEST(zlib, decompress_of_a_length_symbol_that_does_not_exist_fails)
+UTEST(pack, unpack_of_a_length_symbol_that_does_not_exist_fails)
 {
     /* The fixed codes have room for symbols 286 and 287, but the format
      * gives them no meaning. This block's only symbol is 286. */
     const uint8_t stream[] = {0x78, 0x01, 0x1b, 0x03, 0x00, 0x00, 0x00, 0x01};
     ByteBuffer out = {0};
 
-    ASSERT_FALSE(zlib_decompress(&out, stream, sizeof stream, 100));
+    ASSERT_FALSE(unpack_zlib(&out, stream, sizeof stream, 100));
 
     ASSERT_EQ(0u, out.size);
     buffer_free(&out);
 }
 
-UTEST(zlib, decompress_of_an_unknown_kind_of_block_fails)
+UTEST(pack, unpack_of_an_unknown_kind_of_block_fails)
 {
     /* The three bits after the header say "last block, kind 3". */
     const uint8_t stream[] = {0x78, 0x01, 0x07, 0x00, 0x00, 0x00, 0x00, 0x01};
     ByteBuffer out = {0};
 
-    ASSERT_FALSE(zlib_decompress(&out, stream, sizeof stream, 100));
+    ASSERT_FALSE(unpack_zlib(&out, stream, sizeof stream, 100));
 
     ASSERT_EQ(0u, out.size);
     buffer_free(&out);
 }
 
-/* ---- zlib_compress ---- */
+/* ---- pack_zlib ---- */
 
-UTEST(zlib, compress_of_nothing_gives_a_stream_that_unpacks_to_nothing)
+UTEST(pack, pack_of_nothing_gives_a_stream_that_unpacks_to_nothing)
 {
     size_t packed_size = 0;
 
@@ -295,7 +295,7 @@ UTEST(zlib, compress_of_nothing_gives_a_stream_that_unpacks_to_nothing)
     ASSERT_TRUE(packed_size <= 8);
 }
 
-UTEST(zlib, compress_keeps_one_byte_of_every_value)
+UTEST(pack, pack_keeps_one_byte_of_every_value)
 {
     for (int value = 0; value < 256; value++) {
         const uint8_t byte = (uint8_t)value;
@@ -303,7 +303,7 @@ UTEST(zlib, compress_keeps_one_byte_of_every_value)
     }
 }
 
-UTEST(zlib, compress_keeps_text_with_repeats)
+UTEST(pack, pack_keeps_text_with_repeats)
 {
     uint8_t text[TEXT_SIZE];
     make_text(text);
@@ -314,7 +314,7 @@ UTEST(zlib, compress_keeps_text_with_repeats)
     ASSERT_TRUE(packed_size < sizeof text / 2);
 }
 
-UTEST(zlib, compress_keeps_every_length_of_repeat)
+UTEST(pack, pack_keeps_every_length_of_repeat)
 {
     /* A run of one byte value of every length from 0 to 600 covers each
      * repeat length from 3 to 258 and what happens just past it. */
@@ -326,7 +326,7 @@ UTEST(zlib, compress_keeps_every_length_of_repeat)
     }
 }
 
-UTEST(zlib, compress_keeps_repeats_at_every_distance_up_to_the_limit)
+UTEST(pack, pack_keeps_repeats_at_every_distance_up_to_the_limit)
 {
     /* The same 5 bytes twice with a growing stretch of other bytes in
      * between, from next to each other to further apart than the 32,768
@@ -347,10 +347,10 @@ UTEST(zlib, compress_keeps_repeats_at_every_distance_up_to_the_limit)
     }
 }
 
-UTEST(zlib, compress_keeps_data_with_no_repeats_at_all)
+UTEST(pack, pack_keeps_data_with_no_repeats_at_all)
 {
-    /* Scrambled bytes: nothing to find, so the stream comes out a little
-     * larger than the data. It must still unpack to the same bytes. */
+    /* Scrambled bytes have nothing to shorten. The stream must still
+     * unpack to the same bytes, and be only a little larger than them. */
     static uint8_t data[70000];
     uint32_t state = 12345;
     for (size_t i = 0; i < sizeof data; i++) {
@@ -358,10 +358,14 @@ UTEST(zlib, compress_keeps_data_with_no_repeats_at_all)
         data[i] = (uint8_t)(state >> 24);
     }
 
-    ASSERT_TRUE(survives(data, sizeof data, NULL));
+    size_t packed_size = 0;
+
+    ASSERT_TRUE(survives(data, sizeof data, &packed_size));
+
+    ASSERT_TRUE(packed_size <= sizeof data + sizeof data / 1000 + 64);
 }
 
-UTEST(zlib, compress_makes_a_mostly_empty_picture_very_small)
+UTEST(pack, pack_makes_a_mostly_empty_picture_very_small)
 {
     /* 64 by 64 zeros with a few other bytes in the middle, like a sprite
      * frame. It should shrink to a small part of its size. */
@@ -377,64 +381,11 @@ UTEST(zlib, compress_makes_a_mostly_empty_picture_very_small)
     ASSERT_TRUE(packed_size < sizeof data / 20);
 }
 
-/* The kind of the first block of a stream: 0 stored, 1 fixed codes,
- * 2 own code tables. It sits in bits 1 and 2 of the byte after the
- * 2-byte header. */
-static int first_block_kind(const ByteBuffer *packed)
-{
-    return (packed->data[2] >> 1) & 3;
-}
-
-UTEST(zlib, compress_stores_data_that_cannot_be_packed)
-{
-    /* Scrambled bytes have nothing to shorten. The block is then written
-     * as it is, and the stream is only a few bytes larger than the data:
-     * 5 bytes for each block of up to 65,535, and 6 for the stream. */
-    static uint8_t data[70000];
-    uint32_t state = 777;
-    for (size_t i = 0; i < sizeof data; i++) {
-        state = state * 1664525u + 1013904223u;
-        data[i] = (uint8_t)(state >> 24);
-    }
-    ByteBuffer packed = {0};
-
-    ASSERT_TRUE(zlib_compress(&packed, data, sizeof data));
-
-    ASSERT_EQ(0, first_block_kind(&packed));
-    ASSERT_TRUE(packed.size <= sizeof data + 2 * 5 + 6);
-    buffer_free(&packed);
-}
-
-UTEST(zlib, compress_uses_the_fixed_codes_for_very_little_data)
-{
-    /* Code tables of its own would cost more than they save here. */
-    const uint8_t data[] = {1, 2, 3};
-    ByteBuffer packed = {0};
-
-    ASSERT_TRUE(zlib_compress(&packed, data, sizeof data));
-
-    ASSERT_EQ(1, first_block_kind(&packed));
-    buffer_free(&packed);
-}
-
-UTEST(zlib, compress_uses_its_own_code_tables_when_they_pay_off)
-{
-    uint8_t text[TEXT_SIZE];
-    make_text(text);
-    ByteBuffer packed = {0};
-
-    ASSERT_TRUE(zlib_compress(&packed, text, sizeof text));
-
-    ASSERT_EQ(2, first_block_kind(&packed));
-    buffer_free(&packed);
-}
-
-UTEST(zlib, compress_keeps_data_whose_byte_values_are_very_uneven)
+UTEST(pack, pack_keeps_data_whose_byte_values_are_very_uneven)
 {
     /* 24 byte values, each used about 1.6 times as often as the one
-     * before, as in the Fibonacci numbers. Left alone, Huffman's method
-     * gives the rarest ones codes longer than the 15 bits the format
-     * allows, so this checks that the lengths are brought back in. */
+     * before, as in the Fibonacci numbers: the hardest kind of data to
+     * give codes to. */
     static uint8_t data[60000];
     uint32_t counts[24];
     counts[0] = 1;
@@ -461,7 +412,7 @@ UTEST(zlib, compress_keeps_data_whose_byte_values_are_very_uneven)
     ASSERT_TRUE(survives(data, at, NULL));
 }
 
-UTEST(zlib, compress_keeps_data_longer_than_one_block)
+UTEST(pack, pack_keeps_data_longer_than_one_block)
 {
     /* 200,000 bytes is four blocks. Repeats that reach back across a
      * block boundary must still be right. */
@@ -476,15 +427,88 @@ UTEST(zlib, compress_keeps_data_longer_than_one_block)
     ASSERT_TRUE(packed_size < sizeof data / 10);
 }
 
-UTEST(zlib, compress_adds_to_what_is_already_in_the_buffer)
+UTEST(pack, pack_adds_to_what_is_already_in_the_buffer)
 {
     const uint8_t data[] = {1, 2, 3};
     ByteBuffer packed = {0};
     ASSERT_TRUE(buffer_push(&packed, 0xab));
 
-    ASSERT_TRUE(zlib_compress(&packed, data, sizeof data));
+    ASSERT_TRUE(pack_zlib(&packed, data, sizeof data));
 
     ASSERT_EQ(0xab, packed.data[0]);
     ASSERT_EQ(0x78, packed.data[1]);
     buffer_free(&packed);
+}
+
+UTEST(pack, pack_and_unpack_refuse_more_than_the_size_limit)
+{
+    /* The data is never looked at: the size alone is refused. */
+    const uint8_t byte = 0;
+    ByteBuffer out = {0};
+    ASSERT_TRUE(buffer_push(&out, 0xab));
+
+    ASSERT_FALSE(pack_zlib(&out, &byte, PACK_MAX_SIZE + 1));
+    ASSERT_FALSE(unpack_zlib(&out, &byte, PACK_MAX_SIZE + 1, 100));
+    ASSERT_FALSE(unpack_zlib(&out, FIXED_STREAM, sizeof FIXED_STREAM,
+        PACK_MAX_SIZE + 1));
+
+    ASSERT_EQ(1u, out.size);
+    buffer_free(&out);
+}
+
+UTEST(pack, unpack_ignores_bytes_after_the_end_of_the_stream)
+{
+    uint8_t stream[sizeof FIXED_STREAM + 3];
+    memcpy(stream, FIXED_STREAM, sizeof FIXED_STREAM);
+    memset(stream + sizeof FIXED_STREAM, 0x55, 3);
+    ByteBuffer out = {0};
+
+    ASSERT_TRUE(unpack_zlib(&out, stream, sizeof stream, 100));
+
+    ASSERT_EQ(15u, out.size);
+    buffer_free(&out);
+}
+
+/* ---- pack_crc32 ---- */
+
+static const uint8_t *text(const char *s)
+{
+    return (const uint8_t *)s;
+}
+
+UTEST(pack, crc32_of_nothing_is_zero)
+{
+    ASSERT_EQ(0u, pack_crc32(PACK_CRC32_START, NULL, 0));
+}
+
+UTEST(pack, crc32_matches_the_published_check_values)
+{
+    /* "123456789" is the standard check input for every CRC. */
+    ASSERT_EQ(0xcbf43926u,
+        pack_crc32(PACK_CRC32_START, text("123456789"), 9));
+    ASSERT_EQ(0xe8b7be43u, pack_crc32(PACK_CRC32_START, text("a"), 1));
+    /* The chunk type "IEND" with no data: the last four bytes of every
+     * PNG file are this number. */
+    ASSERT_EQ(0xae426082u, pack_crc32(PACK_CRC32_START, text("IEND"), 4));
+}
+
+UTEST(pack, crc32_in_pieces_equals_crc32_in_one_go)
+{
+    uint32_t crc = pack_crc32(PACK_CRC32_START, text("1234"), 4);
+    crc = pack_crc32(crc, text(""), 0);
+    crc = pack_crc32(crc, text("56789"), 5);
+
+    ASSERT_EQ(0xcbf43926u, crc);
+}
+
+UTEST(pack, crc32_of_data_longer_than_one_piece)
+{
+    /* 200,000 bytes is handed to zlib in four pieces. The expected value
+     * was worked out with zlib directly, in one call. */
+    static uint8_t data[200000];
+    for (size_t i = 0; i < sizeof data; i++) {
+        data[i] = (uint8_t)(i * 7 + i / 1000);
+    }
+
+    ASSERT_EQ(0xb09d461du, pack_crc32(PACK_CRC32_START, data, sizeof data));
 }

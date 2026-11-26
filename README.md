@@ -14,6 +14,11 @@ holder of the Rage of Mages or Allods trademarks.
 
 You need a C11 compiler and CMake 3.20 or newer.
 
+ROM2 uses the zlib library. The first `cmake` command downloads zlib's
+source, at a fixed version, and builds it with ROM2, so that step needs an
+internet connection once. To use the zlib installed on your system instead,
+add `-DROM2_SYSTEM_ZLIB=ON` to that command.
+
 ```bash
 cmake -B build
 cmake --build build

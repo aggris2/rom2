@@ -1,7 +1,6 @@
 #include "import/png.h"
 
-#include "base/checksum.h"
-#include "base/zlib.h"
+#include "base/pack.h"
 
 /* Adds one chunk: the size of its data, its four-letter type, the data,
  * and a CRC of the type and the data. Numbers in a PNG are stored high
@@ -9,8 +8,8 @@
 static bool add_chunk(ByteBuffer *out, const char type[4],
     const uint8_t *data, size_t size)
 {
-    uint32_t crc = crc32_update(CRC32_START, (const uint8_t *)type, 4);
-    crc = crc32_update(crc, data, size);
+    uint32_t crc = pack_crc32(PACK_CRC32_START, (const uint8_t *)type, 4);
+    crc = pack_crc32(crc, data, size);
 
     return buffer_u32_be(out, (uint32_t)size)
         && buffer_append(out, (const uint8_t *)type, 4)
@@ -72,7 +71,7 @@ static bool add_pixels(ByteBuffer *out, uint32_t width, uint32_t height,
             && buffer_append(&rows, pixels + (size_t)y * width, width);
     }
     ok = ok
-        && zlib_compress(&stream, rows.data, rows.size)
+        && pack_zlib(&stream, rows.data, rows.size)
         && add_chunk(out, "IDAT", stream.data, stream.size);
 
     buffer_free(&rows);
