@@ -89,6 +89,9 @@ add_library(rom2_import STATIC
     tools/import/res.c
     tools/import/sheet.c
     tools/import/sprite256.c
+    tools/import/structure_sheet.c
+    tools/import/structure_toml.c
+    tools/import/structures.c
     tools/import/things.c
     tools/import/toml.c
     tools/import/unit_layout.c
@@ -116,6 +119,12 @@ add_executable(import_objects tools/import_objects/main.c)
 target_link_libraries(import_objects PRIVATE rom2_import)
 rom2_set_warnings(import_objects)
 
+# import_structures: writes the structures of the original game as ROM2
+# content.
+add_executable(import_structures tools/import_structures/main.c)
+target_link_libraries(import_structures PRIVATE rom2_import)
+rom2_set_warnings(import_structures)
+
 # Tests: one program, rom2_tests, built from every test file.
 enable_testing()
 
@@ -136,6 +145,9 @@ add_executable(rom2_tests
     tests/import/test_res.c
     tests/import/test_sheet.c
     tests/import/test_sprite256.c
+    tests/import/test_structure_sheet.c
+    tests/import/test_structure_toml.c
+    tests/import/test_structures.c
     tests/import/test_things.c
     tests/import/test_toml.c
     tests/import/test_unit_layout.c

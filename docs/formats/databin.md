@@ -8,8 +8,9 @@ other.
 Measured on the `data.bin` of the GOG release, 149,971 bytes. Read as
 described below, the tables end exactly at the last byte of the file.
 
-Read by `tools/import/databin.c`. So far ROM2 uses the monsters and the
-humans.
+Read by `tools/import/databin.c`. So far ROM2 uses the monsters, the
+humans and the buildings. The buildings are described with the
+structures, in [structures.md](structures.md).
 
 ## Building blocks
 

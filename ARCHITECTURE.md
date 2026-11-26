@@ -54,12 +54,14 @@ also lists the unit's kinds with their numbers, and its frames laid out as
 two sprite sheets, grids of cells of one size, in 8-bit indexed PNG
 pictures: a main sheet and one with its dying frames. Its colourings are a
 third picture, with one palette in each row. An object's folder is the same
-with less in it: `object.toml` and one row of frames. Next to every sheet
-is a picture of its soft edges.
+with less in it: `object.toml` and one row of frames. A structure's has
+`structure.toml` and its pictures, each put together whole from the tiles
+the original keeps it in, and its ruin. Next to every sheet is a picture of
+its soft edges.
 
-Three small programs run it. `res_list` prints the files in an archive,
-`import_units` writes the folders of all units, or of one, and
-`import_objects` does the same for objects.
+A few small programs run it. `res_list` prints the files in an archive.
+`import_units`, `import_objects` and `import_structures` each write the
+folders of all the things of their kind, or of one.
 
 ## Libraries
 

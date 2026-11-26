@@ -17,7 +17,7 @@
 /* A sprite file built by hand, without a palette: frames one after the
  * other and a trailer. */
 typedef struct MakeSprite {
-    uint8_t bytes[8192];
+    uint8_t bytes[65536];
     size_t size;
     uint32_t frames;
 } MakeSprite;
