@@ -70,4 +70,32 @@ typedef struct RegEntry {
  * list must be a multiple of 4. */
 bool reg_entry_at(const Reg *r, uint32_t index, RegEntry *out);
 
+/* Looking a value up by name. A value is named by its section and its
+ * key, for example section "Unit0", key "MovePhases". Names must match
+ * exactly, capitals included.
+ *
+ * Each of these returns false, and leaves its out-parameters alone, if
+ * there is no such section or key, the value is of another kind than was
+ * asked for, or the registry is damaged. */
+
+/* Finds the entry `key` in the section `section`. */
+bool reg_find(const Reg *r, const char *section, const char *key,
+    RegEntry *out);
+
+/* Reads a whole number. */
+bool reg_int(const Reg *r, const char *section, const char *key,
+    int32_t *out);
+
+/* Reads a text. `*out` is set to point at the text inside the registry's
+ * own bytes: it is not a copy, and it is valid for as long as those bytes
+ * are. */
+bool reg_text(const Reg *r, const char *section, const char *key,
+    const char **out);
+
+/* Reads a list of whole numbers into `out`, which has room for `capacity`
+ * numbers, and stores how many there are in `*out_count`. Also returns
+ * false if the list has more numbers than `capacity`. */
+bool reg_int_list(const Reg *r, const char *section, const char *key,
+    int32_t *out, size_t capacity, size_t *out_count);
+
 #endif

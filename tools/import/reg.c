@@ -1,5 +1,7 @@
 #include "import/reg.h"
 
+#include <string.h>
+
 #include "base/reader.h"
 #include "import/name.h"
 
@@ -90,5 +92,81 @@ bool reg_entry_at(const Reg *r, uint32_t index, RegEntry *out)
     entry.b = b;
     name_copy(entry.name, sizeof entry.name, name, REG_NAME_SIZE);
     *out = entry;
+    return true;
+}
+
+/* Looks among `count` entries starting at entry `first` for one named
+ * `name`. */
+static bool find_named(const Reg *r, uint32_t first, uint32_t count,
+    const char *name, RegEntry *out)
+{
+    for (uint32_t i = 0; i < count; i++) {
+        RegEntry entry;
+        if (!reg_entry_at(r, first + i, &entry)) {
+            return false;
+        }
+        if (strcmp(entry.name, name) == 0) {
+            *out = entry;
+            return true;
+        }
+    }
+    return false;
+}
+
+bool reg_find(const Reg *r, const char *section, const char *key,
+    RegEntry *out)
+{
+    RegEntry found;
+    if (!find_named(r, r->root_first, r->root_count, section, &found)) {
+        return false;
+    }
+    if (found.type != REG_SECTION) {
+        return false;
+    }
+    if (!find_named(r, found.a, found.b, key, &found)) {
+        return false;
+    }
+    *out = found;
+    return true;
+}
+
+bool reg_int(const Reg *r, const char *section, const char *key,
+    int32_t *out)
+{
+    RegEntry entry;
+    if (!reg_find(r, section, key, &entry) || entry.type != REG_INT) {
+        return false;
+    }
+    *out = (int32_t)entry.a;
+    return true;
+}
+
+bool reg_text(const Reg *r, const char *section, const char *key,
+    const char **out)
+{
+    RegEntry entry;
+    if (!reg_find(r, section, key, &entry) || entry.type != REG_TEXT) {
+        return false;
+    }
+    *out = (const char *)(r->data + r->values_offset + entry.a);
+    return true;
+}
+
+bool reg_int_list(const Reg *r, const char *section, const char *key,
+    int32_t *out, size_t capacity, size_t *out_count)
+{
+    RegEntry entry;
+    if (!reg_find(r, section, key, &entry) || entry.type != REG_INT_LIST) {
+        return false;
+    }
+    size_t count = entry.b / 4;
+    if (count > capacity) {
+        return false;
+    }
+    Reader l_read = reader_init(r->data + r->values_offset + entry.a, entry.b);
+    for (size_t i = 0; i < count; i++) {
+        out[i] = reader_i32(&l_read);
+    }
+    *out_count = count;
     return true;
 }

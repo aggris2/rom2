@@ -553,3 +553,273 @@ UTEST(reg, entry_at_checks_the_range_and_size_of_a_list)
     /* 4 + 0xfffffffc wraps round to 0 in 32 bits. */
     ASSERT_FALSE(entry_accepted(1, 6, 4, 0xfffffffcu));
 }
+
+/* ---- reg_find, reg_int, reg_text and reg_int_list ---- */
+
+/* A registry with two sections that both have a key called "Num".
+ *
+ *     entry 0   section  "One"   holds entries 2 and 3
+ *     entry 1   section  "Two"   holds entries 4 to 6
+ *     entry 2   number   "Num"   5
+ *     entry 3   text     "Txt"   "abc"          values 0 to 3
+ *     entry 4   number   "Num"   -2
+ *     entry 5   list     "Lst"   1, -1, 70000   values 4 to 15
+ *     entry 6   list     "None"  no numbers     values 16 to 15
+ */
+enum {
+    TWO_ENTRIES = 7,
+    TWO_VALUES = 16,
+    TWO_VALUES_OFFSET = 24 + TWO_ENTRIES * 32 + 4,
+    TWO_SIZE = TWO_VALUES_OFFSET + TWO_VALUES
+};
+
+static void make_two_sections(uint8_t bytes[TWO_SIZE])
+{
+    const uint8_t values[TWO_VALUES] = {
+        'a', 'b', 'c', 0,
+        1, 0, 0, 0,                 /* 1 */
+        0xff, 0xff, 0xff, 0xff,     /* -1 */
+        0x70, 0x11, 0x01, 0x00,     /* 70000 */
+    };
+    memset(bytes, 0, TWO_SIZE);
+    put_u32(bytes, AT_SIGNATURE, 0x31415926u);
+    put_u32(bytes, AT_ROOT_FIRST, 0);
+    put_u32(bytes, AT_ROOT_COUNT, 2);
+    put_u32(bytes, AT_FLAGS, 17);
+    put_u32(bytes, AT_ENTRY_COUNT, TWO_ENTRIES);
+    put_entry(bytes + 24 + 0 * 32, 1, 2, 2, "One");
+    put_entry(bytes + 24 + 1 * 32, 1, 4, 3, "Two");
+    put_entry(bytes + 24 + 2 * 32, 2, 5, 0, "Num");
+    put_entry(bytes + 24 + 3 * 32, 0, 0, 4, "Txt");
+    put_entry(bytes + 24 + 4 * 32, 2, 0xfffffffeu, 0, "Num");
+    put_entry(bytes + 24 + 5 * 32, 6, 4, 12, "Lst");
+    put_entry(bytes + 24 + 6 * 32, 6, 16, 0, "None");
+    put_u32(bytes, 24 + TWO_ENTRIES * 32, TWO_VALUES);
+    memcpy(bytes + TWO_VALUES_OFFSET, values, TWO_VALUES);
+}
+
+UTEST(reg, find_gives_the_entry_of_a_key_in_its_section)
+{
+    uint8_t bytes[TWO_SIZE];
+    make_two_sections(bytes);
+    Reg r;
+    ASSERT_TRUE(reg_open(bytes, sizeof bytes, &r));
+    RegEntry e = untouched_reg_entry();
+
+    ASSERT_TRUE(reg_find(&r, "Two", "Lst", &e));
+
+    ASSERT_EQ((int)REG_INT_LIST, (int)e.type);
+    ASSERT_EQ(4u, e.a);
+    ASSERT_EQ(12u, e.b);
+    ASSERT_STREQ("Lst", e.name);
+}
+
+UTEST(reg, find_of_a_missing_section_or_key_fails)
+{
+    uint8_t bytes[TWO_SIZE];
+    make_two_sections(bytes);
+    Reg r;
+    ASSERT_TRUE(reg_open(bytes, sizeof bytes, &r));
+    RegEntry e = untouched_reg_entry();
+
+    ASSERT_FALSE(reg_find(&r, "Three", "Num", &e));
+    ASSERT_FALSE(reg_find(&r, "One", "Nothing", &e));
+    ASSERT_FALSE(reg_find(&r, "", "", &e));
+    ASSERT_TRUE(reg_entry_is_untouched(&e));
+}
+
+UTEST(reg, find_matches_whole_names_and_capitals)
+{
+    uint8_t bytes[TWO_SIZE];
+    make_two_sections(bytes);
+    Reg r;
+    ASSERT_TRUE(reg_open(bytes, sizeof bytes, &r));
+    RegEntry e = untouched_reg_entry();
+
+    /* The start of a name, a name with more after it, other capitals. */
+    ASSERT_FALSE(reg_find(&r, "On", "Num", &e));
+    ASSERT_FALSE(reg_find(&r, "One", "Nu", &e));
+    ASSERT_FALSE(reg_find(&r, "One", "Numb", &e));
+    ASSERT_FALSE(reg_find(&r, "one", "Num", &e));
+    ASSERT_FALSE(reg_find(&r, "One", "num", &e));
+    ASSERT_TRUE(reg_entry_is_untouched(&e));
+}
+
+UTEST(reg, find_looks_only_in_the_section_it_was_given)
+{
+    uint8_t bytes[TWO_SIZE];
+    make_two_sections(bytes);
+    Reg r;
+    ASSERT_TRUE(reg_open(bytes, sizeof bytes, &r));
+    RegEntry e = untouched_reg_entry();
+
+    /* "Txt" is in One only, and "Lst" in Two only. */
+    ASSERT_FALSE(reg_find(&r, "Two", "Txt", &e));
+    ASSERT_FALSE(reg_find(&r, "One", "Lst", &e));
+    /* A key is not a section, and a section is not a key of itself. */
+    ASSERT_FALSE(reg_find(&r, "Num", "Num", &e));
+    ASSERT_FALSE(reg_find(&r, "One", "One", &e));
+    ASSERT_TRUE(reg_entry_is_untouched(&e));
+}
+
+UTEST(reg, find_of_a_root_entry_that_is_not_a_section_fails)
+{
+    /* The root entry "One" is turned into a number whose value happens to
+     * be 2, where its entries used to start. */
+    uint8_t bytes[TWO_SIZE];
+    make_two_sections(bytes);
+    put_entry(bytes + 24, 2, 2, 2, "One");
+    Reg r;
+    ASSERT_TRUE(reg_open(bytes, sizeof bytes, &r));
+    RegEntry e = untouched_reg_entry();
+
+    ASSERT_FALSE(reg_find(&r, "One", "Num", &e));
+    ASSERT_TRUE(reg_entry_is_untouched(&e));
+}
+
+UTEST(reg, find_in_a_damaged_section_fails)
+{
+    /* An entry of a type that does not exist sits before the key. */
+    uint8_t bytes[TWO_SIZE];
+    make_two_sections(bytes);
+    put_entry(bytes + 24 + 4 * 32, 3, 0, 0, "Broken");
+    Reg r;
+    ASSERT_TRUE(reg_open(bytes, sizeof bytes, &r));
+    RegEntry e = untouched_reg_entry();
+
+    ASSERT_FALSE(reg_find(&r, "Two", "Lst", &e));
+    ASSERT_TRUE(reg_entry_is_untouched(&e));
+}
+
+UTEST(reg, int_reads_the_number_of_the_right_section)
+{
+    uint8_t bytes[TWO_SIZE];
+    make_two_sections(bytes);
+    Reg r;
+    ASSERT_TRUE(reg_open(bytes, sizeof bytes, &r));
+    int32_t value = 12345;
+
+    ASSERT_TRUE(reg_int(&r, "One", "Num", &value));
+    ASSERT_EQ(5, value);
+
+    ASSERT_TRUE(reg_int(&r, "Two", "Num", &value));
+    ASSERT_EQ(-2, value);
+}
+
+UTEST(reg, int_of_a_missing_key_or_another_kind_fails)
+{
+    uint8_t bytes[TWO_SIZE];
+    make_two_sections(bytes);
+    Reg r;
+    ASSERT_TRUE(reg_open(bytes, sizeof bytes, &r));
+    int32_t value = 12345;
+
+    ASSERT_FALSE(reg_int(&r, "One", "Missing", &value));
+    ASSERT_FALSE(reg_int(&r, "One", "Txt", &value));
+    ASSERT_FALSE(reg_int(&r, "Two", "Lst", &value));
+    ASSERT_EQ(12345, value);
+}
+
+UTEST(reg, text_points_at_the_text_inside_the_registry)
+{
+    uint8_t bytes[TWO_SIZE];
+    make_two_sections(bytes);
+    Reg r;
+    ASSERT_TRUE(reg_open(bytes, sizeof bytes, &r));
+    const char *text = NULL;
+
+    ASSERT_TRUE(reg_text(&r, "One", "Txt", &text));
+
+    ASSERT_STREQ("abc", text);
+    ASSERT_TRUE((const uint8_t *)text == bytes + TWO_VALUES_OFFSET);
+}
+
+UTEST(reg, text_of_a_missing_key_or_another_kind_fails)
+{
+    uint8_t bytes[TWO_SIZE];
+    make_two_sections(bytes);
+    Reg r;
+    ASSERT_TRUE(reg_open(bytes, sizeof bytes, &r));
+    const char *marker = "untouched";
+    const char *text = marker;
+
+    ASSERT_FALSE(reg_text(&r, "One", "Missing", &text));
+    ASSERT_FALSE(reg_text(&r, "One", "Num", &text));
+    ASSERT_FALSE(reg_text(&r, "Two", "Lst", &text));
+    ASSERT_TRUE(text == marker);
+}
+
+UTEST(reg, int_list_reads_the_numbers_and_their_count)
+{
+    uint8_t bytes[TWO_SIZE];
+    make_two_sections(bytes);
+    Reg r;
+    ASSERT_TRUE(reg_open(bytes, sizeof bytes, &r));
+    int32_t numbers[5] = {99, 99, 99, 99, 99};
+    size_t count = 12345;
+
+    ASSERT_TRUE(reg_int_list(&r, "Two", "Lst", numbers, 5, &count));
+
+    ASSERT_EQ(3u, count);
+    ASSERT_EQ(1, numbers[0]);
+    ASSERT_EQ(-1, numbers[1]);
+    ASSERT_EQ(70000, numbers[2]);
+    ASSERT_EQ(99, numbers[3]); /* nothing written past the list */
+    ASSERT_EQ(99, numbers[4]);
+}
+
+UTEST(reg, int_list_fits_exactly_and_fails_when_one_too_small)
+{
+    uint8_t bytes[TWO_SIZE];
+    make_two_sections(bytes);
+    Reg r;
+    ASSERT_TRUE(reg_open(bytes, sizeof bytes, &r));
+    int32_t numbers[4] = {99, 99, 99, 99};
+    size_t count = 12345;
+
+    /* Room for 2 is not enough for 3. Nothing may be written. */
+    ASSERT_FALSE(reg_int_list(&r, "Two", "Lst", numbers, 2, &count));
+    ASSERT_EQ(99, numbers[0]);
+    ASSERT_EQ(99, numbers[1]);
+    ASSERT_EQ((size_t)12345, count);
+
+    ASSERT_TRUE(reg_int_list(&r, "Two", "Lst", numbers, 3, &count));
+    ASSERT_EQ(3u, count);
+    ASSERT_EQ(70000, numbers[2]);
+    ASSERT_EQ(99, numbers[3]);
+}
+
+UTEST(reg, int_list_with_no_numbers_gives_a_count_of_zero)
+{
+    uint8_t bytes[TWO_SIZE];
+    make_two_sections(bytes);
+    Reg r;
+    ASSERT_TRUE(reg_open(bytes, sizeof bytes, &r));
+    int32_t numbers[1] = {99};
+    size_t count = 12345;
+
+    ASSERT_TRUE(reg_int_list(&r, "Two", "None", numbers, 1, &count));
+    ASSERT_EQ(0u, count);
+    ASSERT_EQ(99, numbers[0]);
+
+    /* It also fits where there is room for nothing. */
+    count = 12345;
+    ASSERT_TRUE(reg_int_list(&r, "Two", "None", NULL, 0, &count));
+    ASSERT_EQ(0u, count);
+}
+
+UTEST(reg, int_list_of_a_missing_key_or_another_kind_fails)
+{
+    uint8_t bytes[TWO_SIZE];
+    make_two_sections(bytes);
+    Reg r;
+    ASSERT_TRUE(reg_open(bytes, sizeof bytes, &r));
+    int32_t numbers[4] = {99, 99, 99, 99};
+    size_t count = 12345;
+
+    ASSERT_FALSE(reg_int_list(&r, "Two", "Missing", numbers, 4, &count));
+    ASSERT_FALSE(reg_int_list(&r, "Two", "Num", numbers, 4, &count));
+    ASSERT_FALSE(reg_int_list(&r, "One", "Txt", numbers, 4, &count));
+    ASSERT_EQ(99, numbers[0]);
+    ASSERT_EQ((size_t)12345, count);
+}
