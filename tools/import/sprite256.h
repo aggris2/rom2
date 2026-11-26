@@ -30,6 +30,20 @@ typedef struct Sprite256 {
  * trailer claims. */
 bool sprite256_open(const uint8_t *data, size_t size, Sprite256 *out);
 
+/* One colour of a palette. */
+typedef struct Rgb {
+    uint8_t r;
+    uint8_t g;
+    uint8_t b;
+} Rgb;
+
+/* Reads the 256 colours of a sprite's palette into `out`. In a frame,
+ * pixel value `n` means colour `out[n]`, and 0 means transparent whatever
+ * colour the palette gives for it.
+ *
+ * Returns false, and leaves `out` alone, if the sprite has no palette. */
+bool sprite256_palette(const Sprite256 *s, Rgb out[256]);
+
 /* One decoded frame: `width * height` pixels, row after row from the top.
  * Each pixel is an index into the palette, and 0 means transparent. The
  * pixels are a block from malloc() that the frame owns. */

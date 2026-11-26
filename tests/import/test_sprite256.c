@@ -175,6 +175,55 @@ UTEST(sprite256, open_with_a_huge_frame_count_fails)
     ASSERT_TRUE(sprite_is_untouched(&s));
 }
 
+/* ---- sprite256_palette ---- */
+
+UTEST(sprite256, palette_reads_blue_green_red_and_skips_the_fourth_byte)
+{
+    /* A palette whose every byte is different from its neighbours, so a
+     * wrong order or a wrong step shows. Colour n is stored as the four
+     * bytes n, n + 1, n + 2 and 0xee. */
+    uint8_t bytes[1024 + 4];
+    for (size_t i = 0; i < 256; i++) {
+        bytes[i * 4] = (uint8_t)i;
+        bytes[i * 4 + 1] = (uint8_t)(i + 1);
+        bytes[i * 4 + 2] = (uint8_t)(i + 2);
+        bytes[i * 4 + 3] = 0xee;
+    }
+    put_trailer(bytes, sizeof bytes, 0x80000000u);
+    Sprite256 s;
+    ASSERT_TRUE(sprite256_open(bytes, sizeof bytes, &s));
+    Rgb palette[256];
+    memset(palette, 0x55, sizeof palette);
+
+    ASSERT_TRUE(sprite256_palette(&s, palette));
+
+    ASSERT_EQ(0, palette[0].b);
+    ASSERT_EQ(1, palette[0].g);
+    ASSERT_EQ(2, palette[0].r);
+    ASSERT_EQ(100, palette[100].b);
+    ASSERT_EQ(101, palette[100].g);
+    ASSERT_EQ(102, palette[100].r);
+    ASSERT_EQ(255, palette[255].b);
+    ASSERT_EQ(0, palette[255].g);
+    ASSERT_EQ(1, palette[255].r);
+}
+
+UTEST(sprite256, palette_of_a_sprite_without_one_fails)
+{
+    uint8_t bytes[12 + 4];
+    memset(bytes, 0, sizeof bytes);
+    put_trailer(bytes, sizeof bytes, 1);
+    Sprite256 s;
+    ASSERT_TRUE(sprite256_open(bytes, sizeof bytes, &s));
+    Rgb palette[256];
+    memset(palette, 0x55, sizeof palette);
+
+    ASSERT_FALSE(sprite256_palette(&s, palette));
+
+    ASSERT_EQ(0x55, palette[0].r);
+    ASSERT_EQ(0x55, palette[255].b);
+}
+
 /* ---- sprite256_frames, sprite256_frame_read and frame256_free ---- */
 
 /* The code bytes used below. The top two bits are the kind, the low six

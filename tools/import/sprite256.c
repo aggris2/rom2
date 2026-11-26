@@ -56,6 +56,24 @@ bool sprite256_open(const uint8_t *data, size_t size, Sprite256 *out)
     return true;
 }
 
+bool sprite256_palette(const Sprite256 *s, Rgb out[256])
+{
+    if (!s->has_palette) {
+        return false;
+    }
+
+    /* sprite256_open() checked that the 1024 bytes are there. Each colour
+     * is stored as blue, green, red and one unused byte. */
+    Reader r = reader_init(s->data, SPRITE256_PALETTE_SIZE);
+    for (size_t i = 0; i < 256; i++) {
+        out[i].b = reader_u8(&r);
+        out[i].g = reader_u8(&r);
+        out[i].r = reader_u8(&r);
+        reader_skip(&r, 1);
+    }
+    return true;
+}
+
 Reader sprite256_frames(const Sprite256 *s)
 {
     size_t start = s->has_palette ? SPRITE256_PALETTE_SIZE : 0;
