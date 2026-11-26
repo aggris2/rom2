@@ -35,6 +35,35 @@ UTEST(checksum, crc32_in_pieces_equals_crc32_in_one_go)
     ASSERT_EQ(0xcbf43926u, crc);
 }
 
+/* The CRC worked out one bit at a time, straight from its definition. */
+static uint32_t crc32_bit_by_bit(const uint8_t *data, size_t size)
+{
+    uint32_t crc = 0xffffffffu;
+    for (size_t i = 0; i < size; i++) {
+        crc ^= data[i];
+        for (int bit = 0; bit < 8; bit++) {
+            crc = (crc & 1u) != 0 ? (crc >> 1) ^ 0xedb88320u : crc >> 1;
+        }
+    }
+    return ~crc;
+}
+
+UTEST(checksum, crc32_table_agrees_with_the_definition_for_every_byte)
+{
+    /* Every byte value on its own, and then all 256 in a row, which
+     * takes the working value through many different states. */
+    uint8_t all[256];
+    for (int value = 0; value < 256; value++) {
+        const uint8_t byte = (uint8_t)value;
+        all[value] = byte;
+        ASSERT_EQ(crc32_bit_by_bit(&byte, 1),
+            crc32_update(CRC32_START, &byte, 1));
+    }
+
+    ASSERT_EQ(crc32_bit_by_bit(all, sizeof all),
+        crc32_update(CRC32_START, all, sizeof all));
+}
+
 /* ---- adler32_update ---- */
 
 UTEST(checksum, adler32_of_nothing_is_one)

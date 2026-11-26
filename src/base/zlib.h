@@ -5,9 +5,10 @@
  * A zlib stream is a 2-byte header, the data in "deflate" form, and an
  * Adler-32 checksum of the unpacked data.
  *
- * zlib_compress() always writes one kind of stream, chosen to be simple.
- * zlib_decompress() reads every kind, so that pictures made by other
- * programs can be read as well.
+ * zlib_compress() looks for runs of bytes that came before and writes
+ * them as "copy that again", then gives the values that occur most the
+ * shortest codes. zlib_decompress() reads every kind of stream, so that
+ * pictures made by other programs can be read as well.
  */
 #ifndef ROM2_BASE_ZLIB_H
 #define ROM2_BASE_ZLIB_H

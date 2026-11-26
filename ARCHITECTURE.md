@@ -40,8 +40,7 @@ and Adler-32.
 back. It is the only code in `base` that touches the file system.
 
 `src/base/zlib` packs and unpacks data in the zlib format, the lossless
-compression inside a PNG. It writes one simple kind of stream and reads
-every kind.
+compression inside a PNG.
 
 `tools/import` reads the original game's files: the `.res` archives and
 the `.256` sprites so far. It is the only code that knows those formats.

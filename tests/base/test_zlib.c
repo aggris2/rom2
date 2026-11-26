@@ -377,6 +377,105 @@ UTEST(zlib, compress_makes_a_mostly_empty_picture_very_small)
     ASSERT_TRUE(packed_size < sizeof data / 20);
 }
 
+/* The kind of the first block of a stream: 0 stored, 1 fixed codes,
+ * 2 own code tables. It sits in bits 1 and 2 of the byte after the
+ * 2-byte header. */
+static int first_block_kind(const ByteBuffer *packed)
+{
+    return (packed->data[2] >> 1) & 3;
+}
+
+UTEST(zlib, compress_stores_data_that_cannot_be_packed)
+{
+    /* Scrambled bytes have nothing to shorten. The block is then written
+     * as it is, and the stream is only a few bytes larger than the data:
+     * 5 bytes for each block of up to 65,535, and 6 for the stream. */
+    static uint8_t data[70000];
+    uint32_t state = 777;
+    for (size_t i = 0; i < sizeof data; i++) {
+        state = state * 1664525u + 1013904223u;
+        data[i] = (uint8_t)(state >> 24);
+    }
+    ByteBuffer packed = {0};
+
+    ASSERT_TRUE(zlib_compress(&packed, data, sizeof data));
+
+    ASSERT_EQ(0, first_block_kind(&packed));
+    ASSERT_TRUE(packed.size <= sizeof data + 2 * 5 + 6);
+    buffer_free(&packed);
+}
+
+UTEST(zlib, compress_uses_the_fixed_codes_for_very_little_data)
+{
+    /* Code tables of its own would cost more than they save here. */
+    const uint8_t data[] = {1, 2, 3};
+    ByteBuffer packed = {0};
+
+    ASSERT_TRUE(zlib_compress(&packed, data, sizeof data));
+
+    ASSERT_EQ(1, first_block_kind(&packed));
+    buffer_free(&packed);
+}
+
+UTEST(zlib, compress_uses_its_own_code_tables_when_they_pay_off)
+{
+    uint8_t text[TEXT_SIZE];
+    make_text(text);
+    ByteBuffer packed = {0};
+
+    ASSERT_TRUE(zlib_compress(&packed, text, sizeof text));
+
+    ASSERT_EQ(2, first_block_kind(&packed));
+    buffer_free(&packed);
+}
+
+UTEST(zlib, compress_keeps_data_whose_byte_values_are_very_uneven)
+{
+    /* 24 byte values, each used about 1.6 times as often as the one
+     * before, as in the Fibonacci numbers. Left alone, Huffman's method
+     * gives the rarest ones codes longer than the 15 bits the format
+     * allows, so this checks that the lengths are brought back in. */
+    static uint8_t data[60000];
+    uint32_t counts[24];
+    counts[0] = 1;
+    counts[1] = 1;
+    for (int i = 2; i < 24; i++) {
+        counts[i] = counts[i - 1] + counts[i - 2];
+    }
+    size_t at = 0;
+    for (int value = 0; value < 24; value++) {
+        for (uint32_t n = 0; n < counts[value] && at < sizeof data; n++) {
+            data[at++] = (uint8_t)value;
+        }
+    }
+    /* Shuffle, so that repeats do not hide the uneven counts. */
+    uint32_t state = 4242;
+    for (size_t i = at - 1; i > 0; i--) {
+        state = state * 1664525u + 1013904223u;
+        size_t j = (state >> 8) % (i + 1);
+        uint8_t swap = data[i];
+        data[i] = data[j];
+        data[j] = swap;
+    }
+
+    ASSERT_TRUE(survives(data, at, NULL));
+}
+
+UTEST(zlib, compress_keeps_data_longer_than_one_block)
+{
+    /* 200,000 bytes is four blocks. Repeats that reach back across a
+     * block boundary must still be right. */
+    static uint8_t data[200000];
+    for (size_t i = 0; i < sizeof data; i++) {
+        data[i] = (uint8_t)((i % 1000) * 7 + i / 50000);
+    }
+    size_t packed_size = 0;
+
+    ASSERT_TRUE(survives(data, sizeof data, &packed_size));
+
+    ASSERT_TRUE(packed_size < sizeof data / 10);
+}
+
 UTEST(zlib, compress_adds_to_what_is_already_in_the_buffer)
 {
     const uint8_t data[] = {1, 2, 3};
