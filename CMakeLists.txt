@@ -91,6 +91,7 @@ add_library(rom2_import STATIC
     tools/import/reg.c
     tools/import/res.c
     tools/import/sheet.c
+    tools/import/spell_toml.c
     tools/import/sprite16a.c
     tools/import/sprite256.c
     tools/import/structure_sheet.c
@@ -135,6 +136,11 @@ add_executable(import_projectiles tools/import_projectiles/main.c)
 target_link_libraries(import_projectiles PRIVATE rom2_import)
 rom2_set_warnings(import_projectiles)
 
+# import_spells: writes the spells of the original game as ROM2 content.
+add_executable(import_spells tools/import_spells/main.c)
+target_link_libraries(import_spells PRIVATE rom2_import)
+rom2_set_warnings(import_spells)
+
 # Tests: one program, rom2_tests, built from every test file.
 enable_testing()
 
@@ -157,6 +163,7 @@ add_executable(rom2_tests
     tests/import/test_reg.c
     tests/import/test_res.c
     tests/import/test_sheet.c
+    tests/import/test_spell_toml.c
     tests/import/test_sprite16a.c
     tests/import/test_sprite256.c
     tests/import/test_structure_sheet.c

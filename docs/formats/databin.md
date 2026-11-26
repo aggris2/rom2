@@ -9,7 +9,7 @@ Measured on the `data.bin` of the GOG release, 149,971 bytes. Read as
 described below, the tables end exactly at the last byte of the file.
 
 Read by `tools/import/databin.c`. So far ROM2 uses the monsters, the
-humans and the buildings. The buildings are described with the
+humans, the buildings and the spells. The buildings are described with the
 structures, in [structures.md](structures.md).
 
 ## Building blocks
@@ -86,7 +86,22 @@ that ROM2 leaves out: the monsters `Root` (78), `Sheep` (107) and `Human`
 
 A spell row is its name, the short number 22, 22 numbers, and a text. An
 empty row is the name, the short number 0, and 2 more bytes of 0. 4 of
-the 33 rows are empty.
+the 33 rows are empty: the last 4.
+
+A spell's number is the place of its row, counted from 1: Fire Arrow is
+1 and Slow is 29. A monster kind's columns `Spell 1` to `Spell 3` name
+the spells it casts by that number, with -1 for none. Every number they
+use is from 1 to 29. `knownSpells` looks like the same numbers as bits
+of one number.
+
+The text is what the spell does to its target, in a small language of
+its own: `speed=+2: duration 30`, `health=-2:continuous 8`. 14 spells
+have one. Reading it is not done yet.
+
+ROM2 writes a folder for every spell with `import_spells`: its numbers
+under ROM2's names and its text as it is, in `spell.toml`, described at
+the top of `tools/import/spell_toml.h`. A spell's picture, and which
+projectile it sends, are not in this table.
 
 ## Not known
 
