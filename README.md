@@ -29,6 +29,19 @@ See [ARCHITECTURE.md](ARCHITECTURE.md) for how the code is organised, and
 [docs/formats](docs/formats/README.md) for the original game's file
 formats.
 
+## Importing the game's files
+
+ROM2 does not read the original game's files directly. An importer turns
+them into ROM2's own content folder, once. So far it imports the units:
+
+```bash
+./build/import_units /path/to/game/graphics.res content
+```
+
+This writes a folder for each unit into `content/units`, with its
+definition and its sprite sheets. The `content` folder is yours and is
+not part of this repository.
+
 ## Licence
 
 GPL-3.0. See [LICENSE](LICENSE).

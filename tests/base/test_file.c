@@ -155,3 +155,39 @@ UTEST(file, write_all_into_a_missing_folder_fails)
 
     ASSERT_FALSE(file_write_all("rom2_no_such_folder/file.tmp", bytes, 1));
 }
+
+/* ---- file_make_folder ---- */
+
+/* The test folder is removed again, so a test run leaves nothing behind.
+ * The C library has no call for that, so this asks the system. */
+#ifdef _WIN32
+#include <direct.h>
+#define remove_folder _rmdir
+#else
+#include <unistd.h>
+#define remove_folder rmdir
+#endif
+
+UTEST(file, make_folder_makes_a_folder_a_file_can_be_written_in)
+{
+    const uint8_t bytes[] = {1, 2, 3};
+    remove("rom2_test_folder/file.tmp");
+
+    ASSERT_TRUE(file_make_folder("rom2_test_folder"));
+    ASSERT_TRUE(file_write_all("rom2_test_folder/file.tmp", bytes, 3));
+
+    remove("rom2_test_folder/file.tmp");
+    remove_folder("rom2_test_folder");
+}
+
+UTEST(file, make_folder_of_an_existing_folder_succeeds)
+{
+    ASSERT_TRUE(file_make_folder("rom2_test_folder"));
+    ASSERT_TRUE(file_make_folder("rom2_test_folder"));
+    remove_folder("rom2_test_folder");
+}
+
+UTEST(file, make_folder_inside_a_missing_folder_fails)
+{
+    ASSERT_FALSE(file_make_folder("rom2_no_such_folder/inside"));
+}

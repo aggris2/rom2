@@ -378,3 +378,29 @@ UTEST(units, int_list_that_nobody_states_fails)
     ASSERT_FALSE(units_int_list(&r, 14, "Width", numbers, 8, &count));
     ASSERT_EQ((size_t)12345, count);
 }
+
+/* ---- units_has ---- */
+
+UTEST(units, has_is_true_for_a_value_of_the_unit_or_a_parent)
+{
+    static MakeReg m;
+    Reg reg;
+    ASSERT_TRUE(reg_open(m.bytes, make_three_units(&m), &reg));
+
+    ASSERT_TRUE(units_has(&reg, 3, "MovePhases"));
+    ASSERT_TRUE(units_has(&reg, 3, "DescText"));
+    /* The grandchild has it from the swordsman. */
+    ASSERT_TRUE(units_has(&reg, 20, "MovePhases"));
+}
+
+UTEST(units, has_is_false_for_a_value_nobody_states)
+{
+    static MakeReg m;
+    Reg reg;
+    ASSERT_TRUE(reg_open(m.bytes, make_three_units(&m), &reg));
+
+    ASSERT_FALSE(units_has(&reg, 3, "NoSuchKey"));
+    ASSERT_FALSE(units_has(&reg, 20, "NoSuchKey"));
+    /* And for a unit that is not there. */
+    ASSERT_FALSE(units_has(&reg, 99, "MovePhases"));
+}

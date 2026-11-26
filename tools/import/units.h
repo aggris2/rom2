@@ -26,6 +26,10 @@
  * Returns false, and leaves `out` alone, if no unit has that ID. */
 bool units_section(const Reg *r, int32_t id, char out[UNITS_SECTION_SIZE]);
 
+/* Says whether the unit with the given ID, or one of its parents, states
+ * a value called `key`, of any kind. */
+bool units_has(const Reg *r, int32_t id, const char *key);
+
 /* Reads the whole number `key` of the unit with the given ID. If the unit
  * does not state it, its parent's value is used, and so on up.
  *

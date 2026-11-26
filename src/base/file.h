@@ -26,4 +26,10 @@ bool file_read_all(const char *path, uint8_t **out_data, size_t *out_size);
  * written. A file may then be left behind with only part of the bytes. */
 bool file_write_all(const char *path, const uint8_t *data, size_t size);
 
+/* Makes a folder. The folder it is to be in must exist already.
+ *
+ * Returns true if the folder was made or was there already, and false if
+ * it could not be made. */
+bool file_make_folder(const char *path);
+
 #endif

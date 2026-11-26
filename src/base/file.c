@@ -1,7 +1,14 @@
 #include "base/file.h"
 
+#include <errno.h>
 #include <stdio.h>
 #include <stdlib.h>
+
+#ifdef _WIN32
+#include <direct.h>
+#else
+#include <sys/stat.h>
+#endif
 
 bool file_read_all(const char *path, uint8_t **out_data, size_t *out_size)
 {
@@ -55,4 +62,14 @@ bool file_write_all(const char *path, const uint8_t *data, size_t size)
      * counts as well. */
     bool closed = fclose(f) == 0;
     return written == size && closed;
+}
+
+bool file_make_folder(const char *path)
+{
+#ifdef _WIN32
+    int result = _mkdir(path);
+#else
+    int result = mkdir(path, 0777);
+#endif
+    return result == 0 || errno == EEXIST;
 }

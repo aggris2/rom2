@@ -35,8 +35,9 @@ failure sticks, so a parser checks once at the end.
 `src/base/buffer` is a block of bytes that grows as bytes are added. A
 file to be written is built in one first.
 
-`src/base/file` reads a whole file from disk into memory and writes one
-back. It is the only code in `base` that touches the file system.
+`src/base/file` reads a whole file from disk into memory, writes one
+back, and makes folders. It is the only code in `base` that touches the
+file system.
 
 `src/base/pack` packs and unpacks data in the zlib format, the lossless
 compression inside a PNG, and has the CRC that goes with it. The work is
@@ -47,13 +48,13 @@ archives, the `.reg` registries and the `.256` sprites. It is the only
 code that knows those formats. The game itself never opens an original
 file. The formats are described in
 [docs/formats](docs/formats/README.md). It also writes what the
-import produces, which so far is 8-bit indexed PNG pictures: a unit's
-frames are laid out as sprite sheets, grids of cells of one size. A unit
-has two, a main sheet and one with its dying frames.
+import produces: ROM2's own content, one folder for each thing. So far
+that is units. A unit's folder has its definition, `unit.toml`, and its
+frames laid out as two sprite sheets, grids of cells of one size, in
+8-bit indexed PNG pictures: a main sheet and one with its dying frames.
 
-Two small programs let you look at what the importer reads. `res_list`
-prints the files in an archive, and `unit_sheet` writes the sprite sheets
-of one unit.
+Two small programs run it. `res_list` prints the files in an archive,
+and `import_units` writes the folders of all units, or of one.
 
 ## Libraries
 

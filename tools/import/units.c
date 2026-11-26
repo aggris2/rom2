@@ -56,6 +56,12 @@ static bool find_stated(const Reg *r, int32_t id, const char *key,
     return false;
 }
 
+bool units_has(const Reg *r, int32_t id, const char *key)
+{
+    char section[UNITS_SECTION_SIZE];
+    return find_stated(r, id, key, section);
+}
+
 bool units_int(const Reg *r, int32_t id, const char *key, int32_t *out)
 {
     char section[UNITS_SECTION_SIZE];

@@ -164,8 +164,10 @@ are in `.pal` files, which ROM2 does not read yet. Measured on the 159
 
 ## What ROM2 writes for a unit
 
-Written by `tools/import/unit_sheet.c`. Every unit gets two pictures, both
-8-bit indexed PNGs. A picture is a grid of cells of one size.
+`import_units` writes a folder for every unit, named after its ID and
+its name: `003_human_swordsman`. In it are the unit's definition,
+`unit.toml`, and two pictures, `sprites.png` and `dying.png`. Both are
+8-bit indexed PNGs, and each is a grid of cells of one size.
 
 - **The main sheet.** Row 0 has the 16 standing steps. Rows 1 to 8 are
   the 8 directions, and each has the moving, attack and idle frames one
@@ -183,6 +185,15 @@ sheet, kept the same distance from the left and the right edge of the box
 so that a mirrored frame fits. The anchor of a sheet is `CenterX`,
 `CenterY` counted from the corner of the cell. For the Swordsman the main
 sheet has cells of 88 by 72 with the anchor at 44, 50.
+
+`unit.toml` has the unit's values from the registry, with those of its
+parent written out, so a folder does not depend on another unit. The
+file is described at the top of `tools/import/unit_toml.h`. Places inside
+the unit's box, which are the selection box and the points a shot leaves
+from, are written counted from `CenterX`, `CenterY`.
+
+59 of the 61 units are written. The two whose frame count does not fit
+are left out with a message.
 
 ## Not known
 
