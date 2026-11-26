@@ -36,4 +36,38 @@ typedef struct Reg {
  * table. */
 bool reg_open(const uint8_t *data, size_t size, Reg *out);
 
+/* What kind of thing an entry is. The numbers are the ones in the file. */
+typedef enum RegType {
+    REG_TEXT = 0,     /* a text */
+    REG_SECTION = 1,  /* a section holding other entries */
+    REG_INT = 2,      /* a whole number */
+    REG_FLOAT = 4,    /* a decimal number */
+    REG_INT_LIST = 6  /* a list of whole numbers */
+} RegType;
+
+/* One entry of the table. What `a` and `b` mean depends on the type:
+ *
+ *     REG_TEXT      a: offset in the values area   b: bytes, with the
+ *                                                     closing zero
+ *     REG_SECTION   a: index of its first entry    b: number of entries
+ *     REG_INT       a: the number itself           b: not used
+ *     REG_FLOAT     a: the number's four bytes     b: not used
+ *     REG_INT_LIST  a: offset in the values area   b: bytes, 4 for each
+ *                                                     number
+ */
+typedef struct RegEntry {
+    RegType type;
+    uint32_t a;
+    uint32_t b;
+    char name[17];  /* up to 16 characters and the closing zero */
+} RegEntry;
+
+/* Reads entry number `index` of the table and checks it.
+ *
+ * Returns false, and leaves `*out` alone, if there is no such entry, its
+ * type is not one of the five, or it points outside the table or the
+ * values area. A text must also end with a zero byte, and the size of a
+ * list must be a multiple of 4. */
+bool reg_entry_at(const Reg *r, uint32_t index, RegEntry *out);
+
 #endif
