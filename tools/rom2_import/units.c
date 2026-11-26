@@ -28,6 +28,7 @@
 #include "import/pal.h"
 #include "import/png.h"
 #include "import/reg.h"
+#include "import/toml.h"
 #include "import/res.h"
 #include "import/sprite256.h"
 #include "import/unit_layout.h"
@@ -453,5 +454,248 @@ int import_units(const ResArchive *graphics, const ResArchive *world,
         printf("%u kinds in data.bin belong to no unit that was written\n",
             count_kinds(&bin) - kinds);
     }
+    return failed;
+}
+
+/* ---- The heroes ---- */
+
+/* A hero has no unit of its own in the registry. It has a look for each
+ * way of being armed, and a look is drawn as one unit is: it has that
+ * unit's frames in that unit's order, in a sprite file of its own. */
+typedef struct HeroLook {
+    const char *folder;   /* in units/heroes and units/heroes_l */
+    const char *name;     /* its folder in content/heroes */
+    int32_t unit;         /* the unit it is laid out as */
+} HeroLook;
+
+static const HeroLook HERO_LOOKS[] = {
+    {"unarmed", "unarmed", 1},
+    {"unarmed_", "unarmed_with_shield", 2},
+    {"swordsman", "swordsman", 3},
+    {"swordsman_", "swordsman_with_shield", 4},
+    {"swordsman2h", "two_handed_swordsman", 5},
+    {"axeman", "axeman", 7},
+    {"axeman_", "axeman_with_shield", 8},
+    {"axeman2h", "two_handed_axeman", 9},
+    {"clubman", "clubman", 10},
+    {"clubman_", "clubman_with_shield", 11},
+    {"pikeman", "pikeman", 12},
+    {"pikeman_", "pikeman_with_shield", 13},
+    {"archer", "archer", 14},
+    {"xbowman", "crossbowman", 15},
+    {"mage", "mage", 23},
+    {"mage_st", "mage_with_staff", 24}
+};
+#define HERO_LOOK_COUNT (sizeof HERO_LOOKS / sizeof HERO_LOOKS[0])
+
+/* Reads one look of the hero: in armour from units/heroes, or without
+ * from units/heroes_l. Returns a message saying what went wrong, NULL
+ * if all is well, and "" if the original has no such sprite, which is
+ * so for the mages without armour. */
+static const char *hero_read(const ResArchive *archive, const Reg *reg,
+    const HeroLook *look, bool armour, Unit *out)
+{
+    ResEntry entry;
+    memset(out, 0, sizeof *out);
+    out->id = look->unit;
+    out->name = look->name;
+    if (!unit_layout_read(reg, look->unit, &out->layout)
+        || !units_int(reg, look->unit, "Width", &out->width)
+        || out->width <= 0
+        || !units_int(reg, look->unit, "Height", &out->height)
+        || out->height <= 0
+        || !units_int(reg, look->unit, "CenterX", &out->center_x)
+        || !units_int(reg, look->unit, "CenterY", &out->center_y)) {
+        return "the unit it is laid out as cannot be read";
+    }
+
+    const char *set = armour ? "heroes" : "heroes_l";
+    snprintf(out->path, sizeof out->path, "units/%s/%s/sprites.256", set,
+        look->folder);
+    if (!res_find(archive, out->path, &entry) || entry.is_folder) {
+        return "";
+    }
+    if (!sprite256_open(archive->data + entry.offset, entry.size,
+            &out->sprite)) {
+        return "its sprite file cannot be read";
+    }
+
+    /* The unit may keep dying frames after its other frames, and the
+     * hero's file stop before them. The layout is then the unit's
+     * without its dying. */
+    UnitLayout *layout = &out->layout;
+    if (out->sprite.frame_count != layout->frame_count
+        && layout->own_dying
+        && out->sprite.frame_count == layout->first[UNIT_ANIM_DYING]) {
+        layout->phases[UNIT_ANIM_DYING] = 0;
+        layout->phases[UNIT_ANIM_BONES] = 0;
+        layout->first[UNIT_ANIM_BONES] = layout->first[UNIT_ANIM_DYING];
+        layout->first[UNIT_ANIM_IDLE] = layout->first[UNIT_ANIM_DYING];
+        layout->own_dying = false;
+        layout->frame_count = out->sprite.frame_count;
+    }
+    if (out->sprite.frame_count != layout->frame_count) {
+        return "its sprite file does not have the unit's number of frames";
+    }
+
+    char edges_path[sizeof out->path + 1];
+    snprintf(edges_path, sizeof edges_path, "units/%s/%s/spritesb.256",
+        set, look->folder);
+    out->has_edges = res_find(archive, edges_path, &entry)
+        && !entry.is_folder
+        && sprite256_open(archive->data + entry.offset, entry.size,
+            &out->edges)
+        && out->edges.frame_count == out->sprite.frame_count;
+
+    /* The colours are the 16 a player may have. Without armour they
+     * are in units/heroes_l/human.pal. units/heroes has no such file,
+     * and the one the human units have is taken. */
+    if (!sprite256_palette(&out->sprite, out->palettes)) {
+        return "its sprite file has no palette";
+    }
+    out->palette_rows = 1;
+    const char *table = armour ? "units/humans/human.pal"
+        : "units/heroes_l/human.pal";
+    if (res_find(archive, table, &entry) && !entry.is_folder) {
+        const uint8_t *data = archive->data + entry.offset;
+        uint32_t rows = pal_table_count(entry.size);
+        if (rows == 0 || rows > MAX_PALETTES) {
+            return "human.pal is not a table of palettes";
+        }
+        for (uint32_t i = 0; i < rows; i++) {
+            pal_table_read(data, entry.size, i, out->palettes + i * 256);
+        }
+        out->palette_rows = rows;
+        out->by_player = true;
+    }
+    return NULL;
+}
+
+/* Writes one look of the hero, in armour or without, into its folder.
+ * The messages are as hero_read's. */
+static const char *hero_write(const ResArchive *archive, const Reg *reg,
+    const HeroLook *look, bool armour, const char *look_folder)
+{
+    /* static: too large for the stack to be at ease. */
+    static Unit hero;
+    const char *problem = hero_read(archive, reg, look, armour, &hero);
+    if (problem != NULL) {
+        return problem;
+    }
+    char folder[1100];
+    char path[1140];
+    int written = snprintf(folder, sizeof folder, "%s/%s", look_folder,
+        armour ? "armour" : "light");
+    if (written < 0 || (size_t)written >= sizeof folder) {
+        return "the name of the content folder is too long";
+    }
+
+    bool has_dying = hero.layout.own_dying
+        && (hero.layout.phases[UNIT_ANIM_DYING] > 0
+            || hero.layout.phases[UNIT_ANIM_BONES] > 0);
+    UnitSheet sheet;
+    UnitSheet dying;
+    const Sprite256 *edges = hero.has_edges ? &hero.edges : NULL;
+    if (!unit_sheet_build(&hero.layout, &hero.sprite, edges,
+            (uint32_t)hero.width, (uint32_t)hero.height, hero.center_x,
+            hero.center_y, &sheet)) {
+        return "the main sheet could not be built";
+    }
+    if (has_dying && !unit_sheet_build_dying(&hero.layout, &hero.sprite,
+            edges, (uint32_t)hero.width, (uint32_t)hero.height,
+            hero.center_x, hero.center_y, &dying)) {
+        unit_sheet_free(&sheet);
+        return "the dying sheet could not be built";
+    }
+
+    UnitTomlPalettes palettes;
+    palettes.file = "palettes.png";
+    palettes.rows = hero.palette_rows;
+    palettes.by_player = hero.by_player;
+    palettes.dying_file = "palettes.png";
+    palettes.dying_rows = hero.palette_rows;
+
+    ByteBuffer toml = {0};
+    char comment[160];
+    snprintf(comment, sizeof comment, "The hero as %s, %s. Laid out as "
+        "the unit named here.", look->name,
+        armour ? "in armour" : "without armour");
+    bool ok = toml_comment(&toml, comment)
+        && toml_text(&toml, "look", look->name)
+        && toml_bool(&toml, "armour", armour)
+        && toml_int(&toml, "unit", look->unit);
+    if (ok && !has_dying) {
+        /* The hero's file has no dying frames. This is the unit whose
+         * dying frames the registry names for the unit above. */
+        ok = toml_int(&toml, "dying_unit", hero.layout.dying_id);
+    }
+    ok = ok && unit_toml_write_sprite(&toml, reg, look->unit, &hero.layout,
+        &sheet, has_dying ? &dying : NULL, &palettes);
+    snprintf(path, sizeof path, "%s/hero.toml", folder);
+    if (!ok) {
+        problem = "its values could not be written out";
+    } else if (!file_make_folder(look_folder) || !file_make_folder(folder)
+        || !file_write_all(path, toml.data, toml.size)
+        || !sheet_write(&sheet.sheet, hero.palettes, folder, "sprites.png")
+        || !sheet_write(&sheet.edges, hero.palettes, folder, "edges.png")
+        || !palettes_write(&hero, folder, "palettes.png")
+        || (has_dying
+            && (!sheet_write(&dying.sheet, hero.palettes, folder,
+                    "dying.png")
+                || !sheet_write(&dying.edges, hero.palettes, folder,
+                    "dying_edges.png")))) {
+        problem = "its folder could not be written";
+    }
+    buffer_free(&toml);
+    unit_sheet_free(&sheet);
+    if (has_dying) {
+        unit_sheet_free(&dying);
+    }
+    return problem;
+}
+
+int import_heroes(const ResArchive *graphics, const char *content_folder)
+{
+    ResEntry entry;
+    Reg reg;
+    if (!res_find(graphics, "units/units.reg", &entry) || entry.is_folder
+        || !reg_open(graphics->data + entry.offset, entry.size, &reg)) {
+        fprintf(stderr, "heroes: no units/units.reg in graphics.res\n");
+        return -1;
+    }
+    char heroes_folder[1000];
+    int written = snprintf(heroes_folder, sizeof heroes_folder, "%s/heroes",
+        content_folder);
+    if (written < 0 || (size_t)written >= sizeof heroes_folder
+        || !file_make_folder(content_folder)
+        || !file_make_folder(heroes_folder)) {
+        fprintf(stderr, "heroes: cannot make the folder %s/heroes\n",
+            content_folder);
+        return -1;
+    }
+
+    int done = 0;
+    int failed = 0;
+    printf("%s\n", heroes_folder);
+    for (size_t i = 0; i < HERO_LOOK_COUNT; i++) {
+        const HeroLook *look = &HERO_LOOKS[i];
+        char folder[1060];
+        snprintf(folder, sizeof folder, "%s/%s", heroes_folder, look->name);
+        int here = 0;
+        for (int armour = 1; armour >= 0; armour--) {
+            const char *problem = hero_write(graphics, &reg, look,
+                armour != 0, folder);
+            if (problem == NULL) {
+                here++;
+            } else if (problem[0] != '\0') {
+                fprintf(stderr, "  hero %s %s left out: %s\n", look->name,
+                    armour != 0 ? "in armour" : "without armour", problem);
+                failed++;
+            }
+        }
+        printf("  %s, %d\n", look->name, here);
+        done += here;
+    }
+    printf("%d looks of the hero written, %d left out\n", done, failed);
     return failed;
 }

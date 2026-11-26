@@ -122,6 +122,15 @@ bool unit_toml_write(ByteBuffer *b, const Reg *reg, int32_t id,
     const UnitLayout *layout, const UnitSheet *sheet,
     const UnitSheet *dying, const UnitTomlPalettes *palettes);
 
+/* Adds the part of unit.toml that describes the pictures: the tables
+ * "sprite", "anim.move" and the other animations, and "dying". This is
+ * what unit_toml_write() writes after the unit's own lines, and it
+ * fails where that does. It is of use alone for the pictures of a hero,
+ * which are laid out as a unit's are. */
+bool unit_toml_write_sprite(ByteBuffer *b, const Reg *reg, int32_t id,
+    const UnitLayout *layout, const UnitSheet *sheet,
+    const UnitSheet *dying, const UnitTomlPalettes *palettes);
+
 /* Adds the kinds of the unit with the given ID to `b`, after the text
  * unit_toml_write() made. A kind is a row of data.bin's monsters or
  * humans: one set of numbers for a unit, such as a weak and a strong

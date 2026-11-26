@@ -230,3 +230,75 @@ are left out with a message.
   checked.
 - `Index` is 0 wherever a unit states it.
 - Why the WarSheep has 8 more frames than its numbers give.
+
+## The hero
+
+The player's own character has no unit in the registry. Its sprites are
+in two folders beside those of the units, and no file names them:
+
+```
+units/heroes/<look>/sprites.256      the hero in armour
+units/heroes_l/<look>/sprites.256    the hero without armour
+```
+
+A look is a way of being armed, and each is drawn as one unit of the
+registry is: its file has that unit's frames in that unit's order.
+
+| Look | Unit | Look | Unit |
+|---|---|---|---|
+| `unarmed` | 1 | `clubman` | 10 |
+| `unarmed_` | 2 | `clubman_` | 11 |
+| `swordsman` | 3 | `pikeman` | 12 |
+| `swordsman_` | 4 | `pikeman_` | 13 |
+| `swordsman2h` | 5 | `archer` | 14 |
+| `axeman` | 7 | `xbowman` | 15 |
+| `axeman_` | 8 | `mage` | 23 |
+| `axeman2h` | 9 | `mage_st` | 24 |
+
+A `_` at the end of a name is a shield, and `2h` a weapon for two hands.
+The two mages have no file in `heroes_l`. That is 30 sprite files, each
+with its soft edges in `spritesb.256`.
+
+What was measured: every one of the 30 files has the number of frames
+its unit's layout asks for, with two things to know.
+
+- `swordsman_` has 152 frames and unit 4 asks for 208. Unit 4 keeps its
+  dying frames in its own file, after the first 152. The hero's file
+  stops before them, and is unit 4's layout without its dying.
+- `unarmed_` has 152 frames, which is what unit 2 asks for. The registry
+  points unit 2 at the file of unit 1, which has 129, so unit 2 itself
+  cannot be read. Its layout fits the hero's file. Unit 2 gives its
+  attack lists as empty texts, and so has no order of attack frames.
+
+Unit 12 is itself pointed at `heroes/pikeman` by the registry.
+
+Only `unarmed` and `mage_st` have dying frames in the hero's own file.
+For the other looks the registry names a unit whose dying frames a unit
+borrows, 1, 4 or 24. Whether the game shows that unit's frames when a
+hero dies, or the hero's own from `unarmed` or `mage_st`, is not known.
+
+All the sprites in `heroes`, `heroes_l` and `humans` have one and the
+same palette. The colours of the 16 players are in `human.pal`:
+`heroes_l` has one of its own, which differs from that of `humans` in
+every row, and `heroes` has none.
+
+Not measured: how the game picks a look. The names say it is by what
+the hero holds, and that armour picks `heroes` over `heroes_l`.
+
+## What ROM2 writes for the hero
+
+The importer writes a folder for every look into `content/heroes`, named
+in words, such as `swordsman_with_shield`. In it is a folder `armour`
+and, but for the mages, a folder `light`. Each of those is as a unit's
+folder: `hero.toml`, `sprites.png`, `edges.png`, `palettes.png`, and
+`dying.png` with `dying_edges.png` where the hero's file has dying
+frames.
+
+`hero.toml` starts with the look, whether it is in armour, and the unit
+it is laid out as. Then come the same tables as in a `unit.toml`, written
+out in full. A look whose file has no dying frames says in `dying_unit`
+which unit the registry names for them.
+
+The palettes of a look without armour are those of
+`heroes_l/human.pal`. For a look in armour the `human.pal` of `humans`
+is taken, since `heroes` has none: this is a guess.

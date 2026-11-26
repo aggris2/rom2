@@ -6,8 +6,8 @@
  * world.res and the others. Every step is run in turn, and each writes
  * one kind of thing into a folder of the content folder:
  *
- *     units, objects, structures, projectiles, spells, items, terrain,
- *     interface, campaign, maps, sounds, texts, videos
+ *     units, heroes, objects, structures, projectiles, spells, items,
+ *     terrain, interface, campaign, maps, sounds, texts, videos
  *
  * Then it says how many of the original's files were read and how many
  * were not, and lists the files not read in not_imported.txt in the
@@ -44,8 +44,8 @@ typedef struct Archives {
 } Archives;
 
 static const char *const STEP_NAMES[] = {
-    "units", "objects", "structures", "projectiles", "spells", "items",
-    "terrain", "interface", "campaign", "maps", "sounds", "texts",
+    "units", "heroes", "objects", "structures", "projectiles", "spells",
+    "items", "terrain", "interface", "campaign", "maps", "sounds", "texts",
     "videos"
 };
 #define STEP_COUNT (sizeof STEP_NAMES / sizeof STEP_NAMES[0])
@@ -98,21 +98,22 @@ static int step_run(const Archives *a, size_t step,
     const ResArchive *world = archive_of(a, WORLD);
     switch (step) {
     case 0: return import_units(graphics, world, content, only);
-    case 1: return import_objects(graphics, content, only);
-    case 2: return import_structures(graphics, world, content, only);
-    case 3: return import_projectiles(graphics, content, only);
-    case 4: return import_spells(world, content, only);
-    case 5: return import_items(graphics, world, content);
-    case 6: return import_terrain(graphics, content);
-    case 7: return import_interface(graphics, archive_of(a, MAIN),
+    case 1: return import_heroes(graphics, content);
+    case 2: return import_objects(graphics, content, only);
+    case 3: return import_structures(graphics, world, content, only);
+    case 4: return import_projectiles(graphics, content, only);
+    case 5: return import_spells(world, content, only);
+    case 6: return import_items(graphics, world, content);
+    case 7: return import_terrain(graphics, content);
+    case 8: return import_interface(graphics, archive_of(a, MAIN),
         archive_of(a, MOVIES), content);
-    case 8: return import_campaign(archive_of(a, SCENARIO),
+    case 9: return import_campaign(archive_of(a, SCENARIO),
         archive_of(a, MAIN), content);
-    case 9: return import_maps(game_folder, content);
-    case 10: return import_sounds(archive_of(a, SFX), archive_of(a, MUSIC),
+    case 10: return import_maps(game_folder, content);
+    case 11: return import_sounds(archive_of(a, SFX), archive_of(a, MUSIC),
         archive_of(a, SPEECH), content);
-    case 11: return import_texts(archive_of(a, MAIN), content);
-    case 12: return import_videos(archive_of(a, VIDEO), content);
+    case 12: return import_texts(archive_of(a, MAIN), content);
+    case 13: return import_videos(archive_of(a, VIDEO), content);
     default: return -1;
     }
 }

@@ -41,9 +41,15 @@ static bool copy_text(ByteBuffer *b, const Reg *reg, int32_t id,
 static bool read_list(const Reg *reg, int32_t id, const char *key,
     int32_t out[UNIT_MAX_PHASES], size_t *count)
 {
+    const char *text = NULL;
     *count = 0;
-    return units_int_list(reg, id, key, out, UNIT_MAX_PHASES, count)
-        || !units_has(reg, id, key);
+    if (units_int_list(reg, id, key, out, UNIT_MAX_PHASES, count)
+        || !units_has(reg, id, key)) {
+        return true;
+    }
+    /* The original writes a list it wants empty as an empty text: unit
+     * 2 has its attack lists so. */
+    return units_text(reg, id, key, &text) && text[0] == '\0';
 }
 
 /* Adds a pair of numbers as a list: "key = [first, second]". */
@@ -180,8 +186,22 @@ bool unit_toml_write(ByteBuffer *b, const Reg *reg, int32_t id,
         && copy_int(b, reg, id, "Z", "z")
         && (sound_count == 0
             || toml_int_list(b, "sounds", sounds, sound_count));
+    return ok && unit_toml_write_sprite(b, reg, id, layout, sheet, dying,
+        palettes);
+}
 
-    ok = ok && toml_table(b, "sprite")
+bool unit_toml_write_sprite(ByteBuffer *b, const Reg *reg, int32_t id,
+    const UnitLayout *layout, const UnitSheet *sheet,
+    const UnitSheet *dying, const UnitTomlPalettes *palettes)
+{
+    int32_t center_x = 0;
+    int32_t center_y = 0;
+    if (!units_int(reg, id, "CenterX", &center_x)
+        || !units_int(reg, id, "CenterY", &center_y)) {
+        return false;
+    }
+
+    bool ok = toml_table(b, "sprite")
         && put_sheet(b, "sprites.png", "edges.png", sheet)
         && (palettes == NULL
             || (put_palettes(b, palettes->file, palettes->rows)

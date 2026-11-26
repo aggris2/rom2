@@ -46,6 +46,7 @@ thing into a folder of `content`:
 | Folder | What is in it |
 |---|---|
 | `units`, `objects`, `structures`, `projectiles`, `spells` | a folder for each thing, with its definition and its pictures |
+| `heroes` | a folder for each look of the player's hero, in armour and without |
 | `items`, `characters` | the items with their pictures, and the characters they are drawn on |
 | `terrain` | the ground tiles |
 | `interface` | the pictures and sprites of the interface, the menus, the shops and the cursors |

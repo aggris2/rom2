@@ -238,6 +238,104 @@ UTEST(unit_toml, write_gives_the_whole_file_of_a_unit)
     buffer_free(&b);
 }
 
+UTEST(unit_toml, write_sprite_gives_the_part_about_the_pictures_alone)
+{
+    static MakeReg m;
+    Reg reg;
+    UnitLayout layout;
+    UnitSheet sheet = make_main_sheet(&layout);
+    UnitSheet dying = make_dying_sheet();
+    ByteBuffer whole = {0};
+    ByteBuffer part = {0};
+    ASSERT_TRUE(reg_open(m.bytes, make_two_units(&m), &reg));
+    ASSERT_TRUE(unit_toml_write(&whole, &reg, 3, &layout, &sheet, &dying,
+        NULL));
+
+    ASSERT_TRUE(unit_toml_write_sprite(&part, &reg, 3, &layout, &sheet,
+        &dying, NULL));
+
+    /* It is the end of the whole file, from the table "sprite" on, and
+     * has none of the unit's own lines. */
+    const char *start = "\n[sprite]\n";
+    ASSERT_TRUE(part.size > strlen(start) && part.size < whole.size);
+    ASSERT_EQ(0, memcmp(part.data, start, strlen(start)));
+    ASSERT_EQ(0, memcmp(part.data, whole.data + whole.size - part.size,
+        part.size));
+    ASSERT_EQ('\n', whole.data[whole.size - part.size - 1]);
+    buffer_free(&whole);
+    buffer_free(&part);
+}
+
+UTEST(unit_toml, write_sprite_refuses_a_unit_without_a_centre)
+{
+    static MakeReg m;
+    Reg reg;
+    UnitLayout layout;
+    UnitSheet sheet = make_main_sheet(&layout);
+    ByteBuffer b = {0};
+    ASSERT_TRUE(reg_open(m.bytes, make_two_units(&m), &reg));
+
+    ASSERT_FALSE(unit_toml_write_sprite(&b, &reg, 99, &layout, &sheet,
+        NULL, NULL));
+    buffer_free(&b);
+}
+
+UTEST(unit_toml, a_list_written_as_an_empty_text_is_an_empty_list)
+{
+    /* A unit that has its parent's attack lists, but states its own as
+     * empty texts: its attack has columns and no frames or ticks. A
+     * text that is not empty in the place of a list is still refused. */
+    static MakeReg m;
+    Reg reg;
+    UnitLayout layout;
+    UnitSheet sheet = make_main_sheet(&layout);
+    ByteBuffer b = {0};
+    const int32_t frames[] = {0, 1, 2};
+    make_reg_start(&m);
+    make_reg_section(&m, "Global");
+    make_reg_int(&m, "UnitCount", 3);
+    make_reg_section(&m, "Unit0");
+    make_reg_int(&m, "ID", 3);
+    make_reg_int(&m, "CenterX", 64);
+    make_reg_int(&m, "CenterY", 78);
+    make_reg_int_list(&m, "AttackAnimFrame", frames, 3);
+    make_reg_int_list(&m, "AttackAnimTime", frames, 3);
+    make_reg_section(&m, "Unit1");
+    make_reg_int(&m, "ID", 2);
+    make_reg_int(&m, "Parent", 3);
+    make_reg_text(&m, "AttackAnimFrame", "");
+    make_reg_text(&m, "AttackAnimTime", "");
+    make_reg_section(&m, "Unit2");
+    make_reg_int(&m, "ID", 5);
+    make_reg_int(&m, "Parent", 3);
+    make_reg_text(&m, "AttackAnimFrame", "x");
+    make_reg_text(&m, "AttackAnimTime", "x");
+    ASSERT_TRUE(reg_open(m.bytes, make_reg_finish(&m), &reg));
+
+    ASSERT_TRUE(unit_toml_write_sprite(&b, &reg, 2, &layout, &sheet, NULL,
+        NULL));
+
+    ASSERT_TRUE(holds(&b,
+        "\n"
+        "[sprite]\n"
+        "sheet = \"sprites.png\"\n"
+        "cell = [88, 72]\n"
+        "anchor = [44, 50]\n"
+        "\n"
+        "[anim.move]\n"
+        "column = 0\n"
+        "columns = 4\n"
+        "begin = 2\n"
+        "\n"
+        "[anim.attack]\n"
+        "column = 4\n"
+        "columns = 3\n"));
+    b.size = 0;
+    ASSERT_FALSE(unit_toml_write_sprite(&b, &reg, 5, &layout, &sheet, NULL,
+        NULL));
+    buffer_free(&b);
+}
+
 UTEST(unit_toml, write_takes_missing_values_from_the_parent)
 {
     static MakeReg m;

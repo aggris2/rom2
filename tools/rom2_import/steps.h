@@ -19,6 +19,10 @@
 int import_units(const ResArchive *graphics, const ResArchive *world,
     const char *content_folder, int32_t only);
 
+/* content/heroes: a folder for each look of the hero, with the look in
+ * armour and without. */
+int import_heroes(const ResArchive *graphics, const char *content_folder);
+
 /* content/objects: a folder for each object. */
 int import_objects(const ResArchive *graphics, const char *content_folder,
     int32_t only);
