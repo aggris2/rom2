@@ -90,8 +90,9 @@ static bool add_pixels(ByteBuffer *out, size_t row_size, uint32_t height,
     return ok;
 }
 
-bool png_write_indexed(ByteBuffer *out, uint32_t width, uint32_t height,
-    const uint8_t *pixels, const Rgb palette[256])
+/* Writes an indexed picture, with index 0 transparent or not. */
+static bool write_indexed(ByteBuffer *out, uint32_t width, uint32_t height,
+    const uint8_t *pixels, const Rgb palette[256], bool transparent)
 {
     if (width == 0 || width > PNG_MAX_SIDE
         || height == 0 || height > PNG_MAX_SIDE) {
@@ -102,7 +103,7 @@ bool png_write_indexed(ByteBuffer *out, uint32_t width, uint32_t height,
     bool ok = buffer_append(out, SIGNATURE, sizeof SIGNATURE)
         && add_header(out, width, height, COLOUR_INDEXED)
         && add_palette(out, palette)
-        && add_transparency(out)
+        && (!transparent || add_transparency(out))
         && add_pixels(out, width, height, pixels)
         && add_chunk(out, "IEND", NULL, 0);
     if (!ok) {
@@ -110,6 +111,18 @@ bool png_write_indexed(ByteBuffer *out, uint32_t width, uint32_t height,
         out->size = size_before;
     }
     return ok;
+}
+
+bool png_write_indexed(ByteBuffer *out, uint32_t width, uint32_t height,
+    const uint8_t *pixels, const Rgb palette[256])
+{
+    return write_indexed(out, width, height, pixels, palette, true);
+}
+
+bool png_write_indexed_solid(ByteBuffer *out, uint32_t width,
+    uint32_t height, const uint8_t *pixels, const Rgb palette[256])
+{
+    return write_indexed(out, width, height, pixels, palette, false);
 }
 
 bool png_write_rgb(ByteBuffer *out, uint32_t width, uint32_t height,

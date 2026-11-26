@@ -31,6 +31,12 @@
 bool png_write_indexed(ByteBuffer *out, uint32_t width, uint32_t height,
     const uint8_t *pixels, const Rgb palette[256]);
 
+/* As png_write_indexed(), but with no transparent index: index 0 is a
+ * colour like the others. ROM2 uses this for the ground, which has no
+ * holes. */
+bool png_write_indexed_solid(ByteBuffer *out, uint32_t width,
+    uint32_t height, const uint8_t *pixels, const Rgb palette[256]);
+
 /* Adds a complete PNG file in full colour to the end of `out`: every
  * pixel has its own colour and none is transparent. ROM2 uses this for
  * pictures of palettes, where a row of 256 pixels is one palette.

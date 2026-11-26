@@ -411,3 +411,50 @@ UTEST(png, grey_picture_with_no_size_or_too_large_is_refused)
     ASSERT_EQ(2u, png.size);
     buffer_free(&png);
 }
+
+/* ---- png_write_indexed_solid ---- */
+
+UTEST(png, indexed_solid_has_no_transparency_chunk)
+{
+    const uint8_t pixels[4] = {0, 1, 2, 0};
+    Rgb palette[256];
+    make_palette(palette);
+    ByteBuffer png = {0};
+    ASSERT_TRUE(png_write_indexed_solid(&png, 2, 2, pixels, palette));
+
+    /* The header, the palette, the pixels and the end: no tRNS. */
+    Reader r = reader_init(png.data, png.size);
+    reader_skip(&r, 8);
+    Chunk c = {0};
+    ASSERT_TRUE(read_chunk(&r, &c));
+    ASSERT_STREQ("IHDR", c.type);
+    ASSERT_EQ(3, c.data[9]);
+    ASSERT_TRUE(read_chunk(&r, &c));
+    ASSERT_STREQ("PLTE", c.type);
+    ASSERT_TRUE(read_chunk(&r, &c));
+    ASSERT_STREQ("IDAT", c.type);
+    ASSERT_TRUE(c.crc_ok);
+    ByteBuffer raw = {0};
+    ASSERT_TRUE(unpack_zlib(&raw, c.data, c.size, 6));
+    const uint8_t expected[6] = {0, 0, 1, 0, 2, 0};
+    ASSERT_EQ(6u, raw.size);
+    ASSERT_EQ(0, memcmp(expected, raw.data, 6));
+    ASSERT_TRUE(read_chunk(&r, &c));
+    ASSERT_STREQ("IEND", c.type);
+    ASSERT_EQ(0u, reader_remaining(&r));
+    buffer_free(&raw);
+    buffer_free(&png);
+}
+
+UTEST(png, indexed_solid_refuses_a_picture_of_no_size)
+{
+    const uint8_t pixels[1] = {0};
+    Rgb palette[256];
+    make_palette(palette);
+    ByteBuffer png = {0};
+    ASSERT_FALSE(png_write_indexed_solid(&png, 0, 1, pixels, palette));
+    ASSERT_FALSE(png_write_indexed_solid(&png, 1, PNG_MAX_SIDE + 1, pixels,
+        palette));
+    ASSERT_EQ(0u, png.size);
+    buffer_free(&png);
+}

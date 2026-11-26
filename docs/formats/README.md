@@ -23,13 +23,14 @@ and a few lines of values as examples.
 | | | how a structure's values and tiles fit together | [structures.md](structures.md) |
 | | | how a projectile's values and frames fit together | [projectiles.md](projectiles.md) |
 | | | how items are put together, and their pictures | [items.md](items.md) |
+| `.bmp` | 53 | the ground tiles, in `terrain/` | [terrain.md](terrain.md) |
+| `.alm` | 46 | maps: the layout and the ground | [alm.md](alm.md) |
 
 ## Not described yet
 
 | Format | Files | What it is |
 |---|---|---|
 | `.16` | 3 | fonts |
-| `.alm` | 46 | maps |
 | `.dat`, `itemname.*` | 8 | small tables |
 
 ## Standard formats

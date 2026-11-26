@@ -44,33 +44,35 @@ compression inside a PNG, and has the CRC that goes with it. The work is
 done by the zlib library, and this is the only file that calls it.
 
 `tools/import` reads the original game's files: so far the `.res` archives,
-the `.reg` registries, the `.256` and `.16a` sprites, the `.pal` palettes
-and the tables of `data.bin`. It is the only code that knows those formats.
-The game itself never opens an original file. The formats are described in
-[docs/formats](docs/formats/README.md). It also writes what the import
-produces: ROM2's own content, one folder for each thing. So far that is
-units, objects, structures, projectiles, spells and items. A unit's folder
-has its definition, `unit.toml`, which also lists the unit's kinds with
-their numbers, and its frames laid out as two sprite sheets, grids of cells
-of one size, in 8-bit indexed PNG pictures: a main sheet and one with its
-dying frames. Its colourings are a third picture, with one palette in each
-row. An object's folder is the same with less in it: `object.toml` and one
-row of frames. A structure's has `structure.toml` and its pictures, each
-put together whole from the tiles the original keeps it in, and its ruin.
-Next to every sheet is a picture of its soft edges. A projectile's has
-`projectile.toml`, a sheet, its palette, and a picture in shades of grey
-that says how solid each pixel is, since most projectiles are fire and
-light. A spell's has `spell.toml` alone: the original keeps no picture with
-a spell's numbers. An item's folder is one shape, such as a dagger, with
-`item.toml` and a folder for each of its variants, which has the variant's
-picture for the inventory and its pictures as worn on a character. The
-materials, the classes and the modifiers, which have no pictures, are a
-file each.
+the `.reg` registries, the `.256` and `.16a` sprites, the `.pal` palettes,
+the `.bmp` pictures of the ground and the tables of `data.bin`. It is the
+only code that knows those formats. The game itself never opens an original
+file. The formats are described in [docs/formats](docs/formats/README.md).
+It also writes what the import produces: ROM2's own content, one folder for
+each thing. So far that is units, objects, structures, projectiles, spells
+and items. A unit's folder has its definition, `unit.toml`, which also
+lists the unit's kinds with their numbers, and its frames laid out as two
+sprite sheets, grids of cells of one size, in 8-bit indexed PNG pictures: a
+main sheet and one with its dying frames. Its colourings are a third
+picture, with one palette in each row. An object's folder is the same with
+less in it: `object.toml` and one row of frames. A structure's has
+`structure.toml` and its pictures, each put together whole from the tiles
+the original keeps it in, and its ruin. Next to every sheet is a picture of
+its soft edges. A projectile's has `projectile.toml`, a sheet, its palette,
+and a picture in shades of grey that says how solid each pixel is, since
+most projectiles are fire and light. A spell's has `spell.toml` alone: the
+original keeps no picture with a spell's numbers. An item's folder is one
+shape, such as a dagger, with `item.toml` and a folder for each of its
+variants, which has the variant's picture for the inventory and its
+pictures as worn on a character. The materials, the classes and the
+modifiers, which have no pictures, are a file each. The ground is one
+picture of all its tiles, which a map names by column and row.
 
 A few small programs run it. `res_list` prints the files in an archive.
 `import_units`, `import_objects`, `import_structures`,
 `import_projectiles`, `import_spells` and `import_items` each write the
 folders of all the things of their kind, and most can write one alone.
+`import_terrain` writes the ground.
 
 ## Libraries
 

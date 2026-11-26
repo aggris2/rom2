@@ -77,6 +77,7 @@ rom2_set_warnings(rom2_core)
 # rom2_import: readers for the original game's file formats. Only the
 # importer uses them; the game itself never reads an original file.
 add_library(rom2_import STATIC
+    tools/import/bmp.c
     tools/import/databin.c
     tools/import/frames.c
     tools/import/icon_strip.c
@@ -149,6 +150,12 @@ add_executable(import_items tools/import_items/main.c)
 target_link_libraries(import_items PRIVATE rom2_import)
 rom2_set_warnings(import_items)
 
+# import_terrain: writes the ground tiles of the original game as ROM2
+# content.
+add_executable(import_terrain tools/import_terrain/main.c)
+target_link_libraries(import_terrain PRIVATE rom2_import)
+rom2_set_warnings(import_terrain)
+
 # Tests: one program, rom2_tests, built from every test file.
 enable_testing()
 
@@ -158,6 +165,7 @@ add_executable(rom2_tests
     tests/base/test_file.c
     tests/base/test_pack.c
     tests/base/test_reader.c
+    tests/import/test_bmp.c
     tests/import/test_databin.c
     tests/import/test_icon_strip.c
     tests/import/test_item_toml.c
