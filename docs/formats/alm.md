@@ -1,12 +1,18 @@
 # `.alm` map files
 
 A map is one file: its ground, what stands on it, who plays on it, and
-what happens when. The 46 maps of the game are in `scenario.res`.
+what happens when. The 46 maps of the campaign's missions are in
+`scenario.res`, named by number. The maps for several players lie loose
+in the game's folder, named in words: the GOG release has 12.
 
-Measured on those 46 maps of the GOG release. Each was read to its
-exact end. All numbers are 32-bit, low byte first, unless said.
+Measured on those 58 maps. Each was read to its exact end. All numbers
+are 32-bit, low byte first, unless said.
 
-ROM2 does not import maps. The game is to read them as they are.
+ROM2 does not change maps. The importer copies them, and the game is to
+read them as they are. A mission's map goes to
+`campaign/missions/010/map.alm`, next to `mission.txt`, the text with
+the same number from `main.res`, `text/mission10.txt`. A loose map goes
+to `maps/` with its name in small letters.
 
 ## Layout
 
@@ -21,9 +27,9 @@ header, 20 bytes
 |---|---|---|
 | 0 | signature | `0x0052374D`, the bytes `M7R` and a zero |
 | 4 | header size | 20 |
-| 8 | unknown | 25,672 in every map of 80 by 80, 83,016 in every one of 144 by 144 |
+| 8 | unknown | 25,672 in every map of 80 by 80, 83,016 in every one of 144 by 144, 262,216 in every one of 256 by 256 |
 | 12 | sections | 13 |
-| 16 | version | 1300 in 41 maps, 1600 in 5 |
+| 16 | version | 1300 in 41 missions; 1600 in 5 missions and in all 12 loose maps |
 
 ## Section header, 20 bytes
 
@@ -51,9 +57,23 @@ The sections come in the same order in every map, by their ids: 0, 1,
 | 3 | width × height | the object on each square, a byte: 0 for none |
 | 4 to 12 | differ | players, units, structures, triggers and more |
 
-The maps are 144 by 144 squares (32 of them), 80 by 80 (13) or 256 by
-256 (1). The sizes of sections 1, 2 and 3 are as the table says in all
-46.
+The missions are 144 by 144 squares (32 of them), 80 by 80 (13) or 256
+by 256 (1). The loose maps are 144 by 144 (6), 80 by 80 (3) or 256 by
+256 (3). The sizes of sections 1, 2 and 3 are as the table says in all
+58.
+
+## Missions and loose maps
+
+The two kinds are one format and differ in what they hold:
+
+| Section | Missions | Loose maps |
+|---|---|---|
+| 7 | large: 5,156 to 94,256 bytes | small: 808 to 3,564 bytes |
+| 8 | 20 to 140 bytes in 25, empty in 21 | empty in all |
+| 10 | empty in all | 224 to 3,808 bytes in all |
+
+What sections 7, 8 and 10 are is not known yet. What follows about
+objects was measured on the 46 missions.
 
 A byte of section 3 that is not 0 is taken to be an object's `ID` from
 `objects.reg`, plus 1. Drawing a map that way puts trees and rocks

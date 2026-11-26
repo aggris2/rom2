@@ -14,6 +14,7 @@ typedef struct Walk {
     const char *ending;
     const char *new_ending;
     TreeWriter *writer;
+    TreeSkip *skip;
     TreeCount *count;
 } Walk;
 
@@ -64,7 +65,8 @@ static void walk(const Walk *w, uint32_t first, uint32_t count,
         if (!res_entry_at(w->archive, first + i, &entry)) {
             continue;
         }
-        if (!entry.is_folder && !ends_in(entry.name, w->ending)) {
+        if (!entry.is_folder && (!ends_in(entry.name, w->ending)
+                || (w->skip != NULL && w->skip(entry.name)))) {
             continue;
         }
         int written = snprintf(path, sizeof path, "%s/%s", folder,
@@ -87,7 +89,8 @@ static void walk(const Walk *w, uint32_t first, uint32_t count,
             res_note(w->archive, first + i);
             w->count->written++;
         } else {
-            fprintf(stderr, "  %s could not be written\n", path);
+            fprintf(stderr, "  %s left out: it could not be written\n",
+                path);
             w->count->failed++;
         }
     }
@@ -97,7 +100,15 @@ void tree_write(const ResArchive *archive, const char *inside,
     const char *folder, const char *ending, const char *new_ending,
     TreeWriter *writer, TreeCount *count)
 {
-    Walk w = {archive, ending, new_ending, writer, count};
+    tree_write_but(archive, inside, folder, ending, new_ending, writer,
+        NULL, count);
+}
+
+void tree_write_but(const ResArchive *archive, const char *inside,
+    const char *folder, const char *ending, const char *new_ending,
+    TreeWriter *writer, TreeSkip *skip, TreeCount *count)
+{
+    Walk w = {archive, ending, new_ending, writer, skip, count};
     uint32_t first = archive->header.root_first;
     uint32_t entries = archive->header.root_count;
     if (strlen(ending) != strlen(new_ending)) {

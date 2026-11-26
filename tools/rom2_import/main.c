@@ -7,7 +7,7 @@
  * one kind of thing into a folder of the content folder:
  *
  *     units, objects, structures, projectiles, spells, items, terrain,
- *     interface, maps, sounds, texts, videos
+ *     interface, campaign, maps, sounds, texts, videos
  *
  * Then it says how many of the original's files were read and how many
  * were not, and lists the files not read in not_imported.txt in the
@@ -45,7 +45,8 @@ typedef struct Archives {
 
 static const char *const STEP_NAMES[] = {
     "units", "objects", "structures", "projectiles", "spells", "items",
-    "terrain", "interface", "maps", "sounds", "texts", "videos"
+    "terrain", "interface", "campaign", "maps", "sounds", "texts",
+    "videos"
 };
 #define STEP_COUNT (sizeof STEP_NAMES / sizeof STEP_NAMES[0])
 
@@ -90,8 +91,8 @@ static const ResArchive *archive_of(const Archives *a, int which)
 }
 
 /* Runs step number `step`. Returns what the step returns. */
-static int step_run(const Archives *a, size_t step, const char *content,
-    int32_t only)
+static int step_run(const Archives *a, size_t step,
+    const char *game_folder, const char *content, int32_t only)
 {
     const ResArchive *graphics = archive_of(a, GRAPHICS);
     const ResArchive *world = archive_of(a, WORLD);
@@ -105,11 +106,13 @@ static int step_run(const Archives *a, size_t step, const char *content,
     case 6: return import_terrain(graphics, content);
     case 7: return import_interface(graphics, archive_of(a, MAIN),
         archive_of(a, MOVIES), content);
-    case 8: return import_maps(archive_of(a, SCENARIO), content);
-    case 9: return import_sounds(archive_of(a, SFX), archive_of(a, MUSIC),
+    case 8: return import_campaign(archive_of(a, SCENARIO),
+        archive_of(a, MAIN), content);
+    case 9: return import_maps(game_folder, content);
+    case 10: return import_sounds(archive_of(a, SFX), archive_of(a, MUSIC),
         archive_of(a, SPEECH), content);
-    case 10: return import_texts(archive_of(a, MAIN), content);
-    case 11: return import_videos(archive_of(a, VIDEO), content);
+    case 11: return import_texts(archive_of(a, MAIN), content);
+    case 12: return import_videos(archive_of(a, VIDEO), content);
     default: return -1;
     }
 }
@@ -295,7 +298,7 @@ int main(int argc, char **argv)
             archives.res[i].mark = (uint8_t)(step + 1);
         }
         printf("\n%s\n", STEP_NAMES[step]);
-        int left_out = step_run(&archives, step, content, only);
+        int left_out = step_run(&archives, step, argv[1], content, only);
         if (left_out < 0 || (only >= 0 && left_out > 0)) {
             failed = true;
         }

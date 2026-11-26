@@ -69,9 +69,12 @@ modifiers, which have no pictures, are a file each. The ground is one
 picture of all its tiles, which a map names by column and row.
 
 The plain pictures of the interface, the menus and the shops are
-written as PNG files under the names the original gives them. The maps,
+written as PNG files under the names the original gives them, and the
+sprites of the interface and the cursors each as a sheet of their
+frames with a small definition. The maps,
 the sounds and the videos are copied as they are, and the texts are
-written as UTF-8.
+written as UTF-8. A mission of the campaign is a folder with its map
+and its text. The maps for several players are apart from those.
 
 One program runs it, `rom2_import`, in `tools/rom2_import`. Each kind of
 thing is a step, in a file of its own: `units.c`, `objects.c` and so on,

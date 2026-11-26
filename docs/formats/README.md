@@ -25,6 +25,7 @@ and a few lines of values as examples.
 | | | how items are put together, and their pictures | [items.md](items.md) |
 | `.bmp` | 53 | the ground tiles, in `terrain/` | [terrain.md](terrain.md) |
 | `.bmp` | 1,462 | plain pictures: interface, menus, shops | [pictures.md](pictures.md) |
+| | | the sprites of the interface and the cursors | [pictures.md](pictures.md) |
 | `.alm` | 46 | maps: the layout and the ground | [alm.md](alm.md) |
 
 ## Not described yet

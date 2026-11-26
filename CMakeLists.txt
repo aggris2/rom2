@@ -88,6 +88,7 @@ add_library(rom2_import STATIC
     tools/import/object_toml.c
     tools/import/objects.c
     tools/import/pal.c
+    tools/import/plain_sheet.c
     tools/import/png.c
     tools/import/projectile_sheet.c
     tools/import/projectile_toml.c
@@ -158,6 +159,7 @@ add_executable(rom2_tests
     tests/import/test_object_toml.c
     tests/import/test_objects.c
     tests/import/test_pal.c
+    tests/import/test_plain_sheet.c
     tests/import/test_png.c
     tests/import/test_projectile_sheet.c
     tests/import/test_projectile_toml.c

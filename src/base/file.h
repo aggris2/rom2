@@ -32,4 +32,17 @@ bool file_write_all(const char *path, const uint8_t *data, size_t size);
  * it could not be made. */
 bool file_make_folder(const char *path);
 
+/* Lists what is in a folder: the names of its files and of the folders
+ * in it, without "." and "..", in no order that can be relied on.
+ *
+ * On success `*out_names` is one block the caller owns and must free():
+ * the names one after the other, each closed by a zero, `*out_count` of
+ * them. An empty folder gives a block with nothing in it and a count
+ * of 0.
+ *
+ * Returns false, and leaves the out-pointers alone, if the folder
+ * cannot be read or memory runs out. */
+bool file_list_folder(const char *path, char **out_names,
+    size_t *out_count);
+
 #endif

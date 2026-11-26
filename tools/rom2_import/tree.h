@@ -36,7 +36,16 @@ void tree_write(const ResArchive *archive, const char *inside,
     const char *folder, const char *ending, const char *new_ending,
     TreeWriter *writer, TreeCount *count);
 
-/* The same, into the folder `to` of `folder`. */
+/* Says whether a file of this name is to be passed over. */
+typedef bool TreeSkip(const char *name);
+
+/* The same, but for the files `skip` says to pass over, which are
+ * neither written nor counted. */
+void tree_write_but(const ResArchive *archive, const char *inside,
+    const char *folder, const char *ending, const char *new_ending,
+    TreeWriter *writer, TreeSkip *skip, TreeCount *count);
+
+/* The same as tree_write, into the folder `to` of `folder`. */
 void tree_write_in(const ResArchive *archive, const char *inside,
     const char *folder, const char *to, const char *ending,
     const char *new_ending, TreeWriter *writer, TreeCount *count);

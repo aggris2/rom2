@@ -48,9 +48,11 @@ thing into a folder of `content`:
 | `units`, `objects`, `structures`, `projectiles`, `spells` | a folder for each thing, with its definition and its pictures |
 | `items`, `characters` | the items with their pictures, and the characters they are drawn on |
 | `terrain` | the ground tiles |
-| `interface` | the pictures of the interface, the menus and the shops |
-| `maps`, `sounds`, `videos` | the original's files, as they are |
-| `texts` | the texts, as UTF-8 |
+| `interface` | the pictures and sprites of the interface, the menus, the shops and the cursors |
+| `campaign` | a folder for each mission, with its map and its text |
+| `maps` | the maps for several players, which lie loose in the game folder |
+| `sounds`, `videos` | the original's files, as they are |
+| `texts` | the other texts, as UTF-8 |
 
 At the end it says how many of the original's files it read and how
 many it did not, and lists the ones it did not read in

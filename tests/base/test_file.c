@@ -2,6 +2,7 @@
 
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 
 #include "utest.h"
 
@@ -190,4 +191,97 @@ UTEST(file, make_folder_of_an_existing_folder_succeeds)
 UTEST(file, make_folder_inside_a_missing_folder_fails)
 {
     ASSERT_FALSE(file_make_folder("rom2_no_such_folder/inside"));
+}
+
+/* ---- file_list_folder ---- */
+
+/* Says whether `name` is one of the `count` names in the block. */
+static bool lists(const char *names, size_t count, const char *name)
+{
+    for (size_t i = 0; i < count; i++) {
+        if (strcmp(names, name) == 0) {
+            return true;
+        }
+        names += strlen(names) + 1;
+    }
+    return false;
+}
+
+UTEST(file, list_folder_gives_the_files_and_the_folders_in_it)
+{
+    const uint8_t bytes[] = {1};
+    char *names = NULL;
+    size_t count = 0;
+    ASSERT_TRUE(file_make_folder("rom2_test_list"));
+    ASSERT_TRUE(file_make_folder("rom2_test_list/inner"));
+    ASSERT_TRUE(file_write_all("rom2_test_list/a.tmp", bytes, 1));
+    ASSERT_TRUE(file_write_all("rom2_test_list/b.tmp", bytes, 1));
+
+    ASSERT_TRUE(file_list_folder("rom2_test_list", &names, &count));
+
+    /* Three names, and neither "." nor "..". */
+    ASSERT_EQ(3u, (unsigned)count);
+    ASSERT_TRUE(lists(names, count, "a.tmp"));
+    ASSERT_TRUE(lists(names, count, "b.tmp"));
+    ASSERT_TRUE(lists(names, count, "inner"));
+    free(names);
+    remove("rom2_test_list/a.tmp");
+    remove("rom2_test_list/b.tmp");
+    remove_folder("rom2_test_list/inner");
+    remove_folder("rom2_test_list");
+}
+
+UTEST(file, list_folder_of_an_empty_folder_gives_no_names)
+{
+    char *names = NULL;
+    size_t count = 99;
+    ASSERT_TRUE(file_make_folder("rom2_test_empty"));
+
+    ASSERT_TRUE(file_list_folder("rom2_test_empty", &names, &count));
+
+    ASSERT_EQ(0u, (unsigned)count);
+    ASSERT_TRUE(names != NULL);
+    free(names);
+    remove_folder("rom2_test_empty");
+}
+
+UTEST(file, list_folder_holds_many_long_names)
+{
+    /* Enough names to make the block grow more than once. */
+    const uint8_t bytes[] = {1};
+    char path[128];
+    char *names = NULL;
+    size_t count = 0;
+    ASSERT_TRUE(file_make_folder("rom2_test_many"));
+    for (int i = 0; i < 40; i++) {
+        snprintf(path, sizeof path, "rom2_test_many/a_rather_long_name_"
+            "to_fill_the_block_sooner_%02d.tmp", i);
+        ASSERT_TRUE(file_write_all(path, bytes, 1));
+    }
+
+    ASSERT_TRUE(file_list_folder("rom2_test_many", &names, &count));
+
+    ASSERT_EQ(40u, (unsigned)count);
+    ASSERT_TRUE(lists(names, count,
+        "a_rather_long_name_to_fill_the_block_sooner_00.tmp"));
+    ASSERT_TRUE(lists(names, count,
+        "a_rather_long_name_to_fill_the_block_sooner_39.tmp"));
+    free(names);
+    for (int i = 0; i < 40; i++) {
+        snprintf(path, sizeof path, "rom2_test_many/a_rather_long_name_"
+            "to_fill_the_block_sooner_%02d.tmp", i);
+        remove(path);
+    }
+    remove_folder("rom2_test_many");
+}
+
+UTEST(file, list_folder_of_a_missing_folder_fails)
+{
+    char *names = (char *)1;
+    size_t count = 99;
+
+    ASSERT_FALSE(file_list_folder("rom2_no_such_folder", &names, &count));
+
+    ASSERT_TRUE(names == (char *)1);
+    ASSERT_EQ(99u, (unsigned)count);
 }

@@ -1,4 +1,4 @@
-# Plain pictures
+# Pictures and sprites of the interface
 
 The pictures of the interface, of the menus and of the shops are
 ordinary `.bmp` files. There are 1,462 of them besides the 53 of the
@@ -53,3 +53,45 @@ pictures come to the same place.
 A picture of 24 bits becomes a PNG in full colour, one of 8 bits an
 8-bit indexed PNG with the same palette and the same indices. Every
 pixel of all 1,462 was compared with its original and is the same.
+
+## The sprites
+
+Next to the pictures the interface has 139 sprite files, `.256` and
+`.16a`, which no registry describes: the cursors, the frames of the
+windows, and the things that move in the town and the inn.
+
+| Folder of `graphics.res` | Sprites | What they are |
+|---|---|---|
+| `interface/` | 85 | window frames, buttons, the people and carts of the town |
+| `cursors/` | 46 | the cursors: 23 `.16a`, and 23 older `.256` |
+| `global.map/` | 6 | the flags on the map of the campaign |
+| `backpack/` | 2 | the backpack that lies on the ground, and its soft edges |
+
+The frames of one file are mostly all of one size. Two files have
+frames of several sizes, `interface/lm.256` and `interface/radiob.256`.
+The largest is `interface/town_druid/bug/sprites.16a`, 183 frames of
+640 by 268.
+
+Four of the `.256` cursors are empty files: `cast`, `defend`, `move`
+and `patrol`. Two more, `attack.256` and `pickup.256`, keep their pixels
+in some way that is not known: read as a `.256` they have the right
+number of frames of the right size, and come out as noise. Each of the
+six has a `.16a` cursor of the same name beside it, which is the one the
+game shows.
+
+The importer writes a sprite as three files named after it, here for
+`cursors/wait/sprites.16a`:
+
+| File | What it is |
+|---|---|
+| `sprites.toml` | how many frames, the size of a cell, how many in a row |
+| `sprites_sheet.png` | the frames in a grid, row by row, as indices with the sprite's palette |
+| `sprites_alpha.png` | for a `.16a`: how solid each pixel is |
+
+The folders are those of the pictures, with `cursors/` and `backpack/`
+going to `interface/cursors/` and `interface/backpack/`. The sheet has
+`_sheet` in its name because the original has pictures and sprites of
+one name, such as `shopframe.bmp` and `shopframe.256`. A row holds as
+many frames as fit in 4,096 pixels. Where the frames are not all of one
+size, each lies in the top left corner of its cell and the definition
+lists their sizes. The two cursors that cannot be read are left out.

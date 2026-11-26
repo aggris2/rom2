@@ -43,16 +43,22 @@ int import_items(const ResArchive *graphics, const ResArchive *world,
 /* content/terrain: the ground tiles. */
 int import_terrain(const ResArchive *graphics, const char *content_folder);
 
-/* content/interface: the plain pictures of the interface, the menus and
- * the shops. `main_archive` and `movies` may be NULL, and their pictures
- * are then not written. */
+/* content/interface: the pictures and the sprites of the interface, the
+ * menus, the shops and the cursors. `main_archive` and `movies` may be
+ * NULL, and their pictures are then not written. */
 int import_interface(const ResArchive *graphics,
     const ResArchive *main_archive, const ResArchive *movies,
     const char *content_folder);
 
-/* content/maps: the maps, as they are. `scenario` may be NULL, and the
- * step then fails; so it is with the texts and the videos. */
-int import_maps(const ResArchive *scenario, const char *content_folder);
+/* content/campaign: a folder for each mission, with its map as it is and
+ * its text as UTF-8. Either archive may be NULL, and the step then
+ * fails; so it is with the texts and the videos. */
+int import_campaign(const ResArchive *scenario,
+    const ResArchive *main_archive, const char *content_folder);
+
+/* content/maps: the maps that lie loose in the game folder, as they
+ * are. */
+int import_maps(const char *game_folder, const char *content_folder);
 
 /* content/sounds: the sound effects, the music and the speech, as they
  * are. Any of the three archives may be NULL, and its sounds are then
@@ -60,7 +66,7 @@ int import_maps(const ResArchive *scenario, const char *content_folder);
 int import_sounds(const ResArchive *sfx, const ResArchive *music,
     const ResArchive *speech, const char *content_folder);
 
-/* content/texts: the texts, as UTF-8. */
+/* content/texts: the texts, as UTF-8, but for those of the missions. */
 int import_texts(const ResArchive *main_archive, const char *content_folder);
 
 /* content/videos: the videos, as they are. */

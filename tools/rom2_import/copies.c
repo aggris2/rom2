@@ -1,21 +1,33 @@
-/* The maps, sounds, texts and videos steps of rom2_import: the files of
- * the original game that ROM2 takes as they are.
+/* The campaign, maps, sounds, texts and videos steps of rom2_import:
+ * the files of the original game that ROM2 takes as they are, or nearly.
  *
- *     maps      scenario.res  *.alm          to  maps/
+ *     campaign  scenario.res  N.alm             to  campaign/missions/N/
+ *               main.res      text/missionN.txt
+ *     maps      the game folder  *.alm       to  maps/
  *     sounds    sfx.res       *.wav          to  sounds/effects/
  *               music.res     *.wav          to  sounds/music/
  *               speech.res    *.wav          to  sounds/speech/
  *     texts     main.res      text/ *.txt    to  texts/
  *     videos    video.res     *.smk          to  videos/
  *
- * Each file keeps its name and the folders it is in. The maps, the
- * sounds and the videos are copied byte for byte. The texts are written
- * as UTF-8 with plain line ends: the original has them in the Windows
- * code page 1251, with a carriage return before each line feed.
+ * A mission is a map and a text with one number. Each gets a folder
+ * named after the number, written with three digits, with map.alm and
+ * mission.txt in it. The maps that lie loose in the game folder, which
+ * are the ones played by several players, go to maps/ with their names
+ * in small letters.
+ *
+ * The sounds, the texts and the videos keep their names and the folders
+ * they are in. The maps, the sounds and the videos are copied byte for
+ * byte. The texts are written as UTF-8 with plain line ends: the
+ * original has them in the Windows code page 1251, with a carriage
+ * return before each line feed. The texts of the missions are left out
+ * of texts/, since the campaign has them.
  */
 #include "rom2_import/steps.h"
 
 #include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
 
 #include "base/buffer.h"
 #include "base/file.h"
@@ -54,21 +66,163 @@ static int no_archive(const char *step, const char *archive)
     return -1;
 }
 
-int import_maps(const ResArchive *scenario, const char *content_folder)
+/* Reads the number of a mission from a name such as "10.alm": digits
+ * and then `ending`, with nothing else. Returns -1 for any other name. */
+static int mission_number(const char *name, const char *ending)
+{
+    int number = 0;
+    int digits = 0;
+    while (name[digits] >= '0' && name[digits] <= '9' && digits < 6) {
+        number = number * 10 + (name[digits] - '0');
+        digits++;
+    }
+    return digits > 0 && strcmp(name + digits, ending) == 0 ? number : -1;
+}
+
+int import_campaign(const ResArchive *scenario,
+    const ResArchive *main_archive, const char *content_folder)
+{
+    char campaign[1000];
+    char missions[1040];
+    if (scenario == NULL) {
+        return no_archive("campaign", "scenario.res");
+    }
+    if (main_archive == NULL) {
+        return no_archive("campaign", "main.res");
+    }
+    if (!step_folder("campaign", content_folder, "campaign", campaign,
+            sizeof campaign)
+        || !step_folder("campaign", campaign, "missions", missions,
+            sizeof missions)) {
+        return -1;
+    }
+
+    /* The missions are the maps in the root of scenario.res. */
+    int written = 0;
+    int failed = 0;
+    for (uint32_t i = 0; i < scenario->header.root_count; i++) {
+        ResEntry map;
+        ResEntry text;
+        char folder[1100];
+        char path[1150];
+        char text_path[64];
+        uint32_t index = scenario->header.root_first + i;
+        if (!res_entry_at(scenario, index, &map) || map.is_folder) {
+            continue;
+        }
+        int number = mission_number(map.name, ".alm");
+        if (number < 0) {
+            continue;
+        }
+        snprintf(folder, sizeof folder, "%s/%03d", missions, number);
+        snprintf(path, sizeof path, "%s/map.alm", folder);
+        snprintf(text_path, sizeof text_path, "text/mission%d.txt", number);
+        bool ok = file_make_folder(folder)
+            && file_write_all(path, scenario->data + map.offset, map.size);
+        if (ok) {
+            res_note(scenario, index);
+        }
+        snprintf(path, sizeof path, "%s/mission.txt", folder);
+        ok = ok && res_find(main_archive, text_path, &text)
+            && !text.is_folder
+            && text_write(main_archive->data + text.offset, text.size,
+                path);
+        if (ok) {
+            written++;
+        } else {
+            fprintf(stderr, "  mission %d left out: its map or its text "
+                "could not be written\n", number);
+            failed++;
+        }
+    }
+    printf("%s\n%d missions written, %d left out\n", missions, written,
+        failed);
+    return failed;
+}
+
+/* Orders two names for qsort. */
+static int by_name(const void *a, const void *b)
+{
+    return strcmp(*(const char *const *)a, *(const char *const *)b);
+}
+
+/* Says whether `name` ends in ".alm", in small or capital letters. */
+static bool is_map(const char *name)
+{
+    size_t length = strlen(name);
+    if (length <= 4 || name[length - 4] != '.') {
+        return false;
+    }
+    const char *end = name + length - 3;
+    return (end[0] == 'a' || end[0] == 'A') && (end[1] == 'l'
+        || end[1] == 'L') && (end[2] == 'm' || end[2] == 'M');
+}
+
+int import_maps(const char *game_folder, const char *content_folder)
 {
     char folder[1000];
-    if (scenario == NULL) {
-        return no_archive("maps", "scenario.res");
+    char *names = NULL;
+    size_t count = 0;
+    if (!file_list_folder(game_folder, &names, &count)) {
+        fprintf(stderr, "maps: cannot read the folder %s\n", game_folder);
+        return -1;
     }
     if (!step_folder("maps", content_folder, "maps", folder,
             sizeof folder)) {
+        free(names);
         return -1;
     }
-    TreeCount total = {0, 0};
-    tree_write(scenario, NULL, folder, ".alm", ".alm", tree_copy, &total);
-    printf("%s\n%d maps written, %d left out\n", folder, total.written,
-        total.failed);
-    return total.failed;
+
+    /* A folder is listed in no order, so the names are sorted: a run
+     * then says the same thing every time. */
+    const char **sorted = malloc((count + 1) * sizeof *sorted);
+    if (sorted == NULL) {
+        free(names);
+        return -1;
+    }
+    size_t maps = 0;
+    const char *name = names;
+    for (size_t i = 0; i < count; i++) {
+        if (is_map(name)) {
+            sorted[maps++] = name;
+        }
+        name += strlen(name) + 1;
+    }
+    qsort(sorted, maps, sizeof *sorted, by_name);
+
+    int written = 0;
+    int failed = 0;
+    for (size_t i = 0; i < maps; i++) {
+        char from[1300];
+        char to[1300];
+        uint8_t *data = NULL;
+        size_t size = 0;
+        int a = snprintf(from, sizeof from, "%s/%s", game_folder,
+            sorted[i]);
+        int b = snprintf(to, sizeof to, "%s/%s", folder, sorted[i]);
+        bool ok = a > 0 && (size_t)a < sizeof from && b > 0
+            && (size_t)b < sizeof to;
+        /* The name in small letters: "CROSS2.ALM" becomes "cross2.alm". */
+        for (char *c = to + strlen(folder); ok && *c != '\0'; c++) {
+            if (*c >= 'A' && *c <= 'Z') {
+                *c = (char)(*c - 'A' + 'a');
+            }
+        }
+        ok = ok && file_read_all(from, &data, &size)
+            && file_write_all(to, data, size);
+        free(data);
+        if (ok) {
+            written++;
+        } else {
+            fprintf(stderr, "  %s left out: it could not be copied\n",
+                sorted[i]);
+            failed++;
+        }
+    }
+    free(sorted);
+    free(names);
+    printf("%s\n%d maps written, %d left out\n", folder, written, failed);
+    return failed;
 }
 
 int import_sounds(const ResArchive *sfx, const ResArchive *music,
@@ -102,6 +256,14 @@ int import_sounds(const ResArchive *sfx, const ResArchive *music,
     return missing == 3 ? -1 : total.failed + missing;
 }
 
+/* Says whether a text is that of a mission, such as "mission10.txt".
+ * The campaign step writes those. */
+static bool mission_text(const char *name)
+{
+    return strncmp(name, "mission", 7) == 0
+        && mission_number(name + 7, ".txt") >= 0;
+}
+
 int import_texts(const ResArchive *main_archive, const char *content_folder)
 {
     char folder[1000];
@@ -113,8 +275,8 @@ int import_texts(const ResArchive *main_archive, const char *content_folder)
         return -1;
     }
     TreeCount total = {0, 0};
-    tree_write(main_archive, "text", folder, ".txt", ".txt", text_write,
-        &total);
+    tree_write_but(main_archive, "text", folder, ".txt", ".txt",
+        text_write, mission_text, &total);
     printf("%s\n%d texts written, %d left out\n", folder, total.written,
         total.failed);
     return total.failed;
