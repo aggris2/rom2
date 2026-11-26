@@ -24,14 +24,18 @@ if(MSVC)
     add_compile_definitions(_CRT_SECURE_NO_WARNINGS)
 endif()
 
+# -fno-sanitize-recover makes the program stop at the first thing the
+# sanitizers find, so a test run cannot pass with a finding in its output.
 if(ROM2_SANITIZE AND NOT MSVC)
-    add_compile_options(-fsanitize=address,undefined -fno-omit-frame-pointer)
+    add_compile_options(-fsanitize=address,undefined
+        -fno-sanitize-recover=all -fno-omit-frame-pointer)
     add_link_options(-fsanitize=address,undefined)
 endif()
 
 # rom2_core: code with no dependency on a window, a network or the clock.
 add_library(rom2_core STATIC
     src/base/reader.c
+    src/base/zlib.c
     src/base/buffer.c
     src/base/checksum.c
     src/base/file.c
@@ -64,6 +68,7 @@ add_executable(rom2_tests
     tests/base/test_checksum.c
     tests/base/test_file.c
     tests/base/test_reader.c
+    tests/base/test_zlib.c
     tests/import/test_png.c
     tests/import/test_res.c
     tests/import/test_sprite256.c

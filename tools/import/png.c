@@ -1,9 +1,7 @@
 #include "import/png.h"
 
 #include "base/checksum.h"
-
-/* The largest amount of data one "stored" block of a zlib stream holds. */
-#define STORED_BLOCK_MAX 65535u
+#include "base/zlib.h"
 
 /* Adds one chunk: the size of its data, its four-letter type, the data,
  * and a CRC of the type and the data. Numbers in a PNG are stored high
@@ -57,12 +55,11 @@ static bool add_transparency(ByteBuffer *out)
     return add_chunk(out, "tRNS", data, sizeof data);
 }
 
-/* IDAT: the pixels, wrapped as a zlib stream.
+/* IDAT: the pixels, packed as a zlib stream.
  *
- * What goes into the stream is each row of pixels with one extra byte in
- * front of it, the row's "filter", which is 0 for "these are the pixels
- * as they are". The stream itself is a 2-byte header, the data cut into
- * stored blocks of at most 65535 bytes, and an Adler-32 of the data. */
+ * What gets packed is each row of pixels with one extra byte in front of
+ * it, the row's "filter", which is 0 for "these are the pixels as they
+ * are". */
 static bool add_pixels(ByteBuffer *out, uint32_t width, uint32_t height,
     const uint8_t *pixels)
 {
@@ -74,36 +71,8 @@ static bool add_pixels(ByteBuffer *out, uint32_t width, uint32_t height,
         ok = buffer_push(&rows, 0)
             && buffer_append(&rows, pixels + (size_t)y * width, width);
     }
-
     ok = ok
-        && buffer_push(&stream, 0x78)  /* zlib: deflate, 32K window */
-        && buffer_push(&stream, 0x01); /* zlib: no preset, check bits */
-
-    size_t done = 0;
-    while (ok && done < rows.size) {
-        size_t length = rows.size - done;
-        if (length > STORED_BLOCK_MAX) {
-            length = STORED_BLOCK_MAX;
-        }
-        bool last = done + length == rows.size;
-
-        /* A stored block: one byte saying whether it is the last, its
-         * length low byte first, the same length with every bit flipped,
-         * and then the bytes themselves. */
-        uint16_t len = (uint16_t)length;
-        uint16_t flipped = (uint16_t)~len;
-        ok = buffer_push(&stream, last ? 1 : 0)
-            && buffer_push(&stream, (uint8_t)(len & 0xff))
-            && buffer_push(&stream, (uint8_t)(len >> 8))
-            && buffer_push(&stream, (uint8_t)(flipped & 0xff))
-            && buffer_push(&stream, (uint8_t)(flipped >> 8))
-            && buffer_append(&stream, rows.data + done, length);
-        done += length;
-    }
-
-    ok = ok
-        && buffer_u32_be(&stream,
-            adler32_update(ADLER32_START, rows.data, rows.size))
+        && zlib_compress(&stream, rows.data, rows.size)
         && add_chunk(out, "IDAT", stream.data, stream.size);
 
     buffer_free(&rows);

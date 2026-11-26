@@ -1,10 +1,10 @@
 #include "import/png.h"
 
-#include <stdlib.h>
 #include <string.h>
 
 #include "base/checksum.h"
 #include "base/reader.h"
+#include "base/zlib.h"
 #include "utest.h"
 
 /* The tests read back what the writer wrote, with a small PNG reader of
@@ -48,47 +48,6 @@ static bool read_chunk(Reader *r, Chunk *out)
     return true;
 }
 
-/* Undoes the zlib wrapping of an IDAT chunk made of stored blocks. Returns
- * a malloc()ed block of `*out_size` bytes, or NULL if the stream is not
- * what the writer should have made. */
-static uint8_t *unwrap_stored(const uint8_t *data, size_t size,
-    size_t *out_size)
-{
-    Reader r = reader_init(data, size);
-    if (reader_u8(&r) != 0x78 || reader_u8(&r) != 0x01) {
-        return NULL;
-    }
-    uint8_t *raw = malloc(size);
-    size_t raw_size = 0;
-    bool last = false;
-    while (raw != NULL && !last) {
-        uint8_t flag = reader_u8(&r);
-        uint16_t len = reader_u16(&r);
-        uint16_t flipped = reader_u16(&r);
-        const uint8_t *bytes = reader_bytes(&r, len);
-        if (!reader_ok(&r) || flag > 1 || (uint16_t)~len != flipped) {
-            free(raw);
-            return NULL;
-        }
-        if (len > 0) {
-            memcpy(raw + raw_size, bytes, len);
-        }
-        raw_size += len;
-        last = flag == 1;
-    }
-    if (raw == NULL) {
-        return NULL;
-    }
-    uint32_t adler = read_u32_be(&r);
-    if (!reader_ok(&r) || reader_remaining(&r) != 0
-        || adler != adler32_update(ADLER32_START, raw, raw_size)) {
-        free(raw);
-        return NULL;
-    }
-    *out_size = raw_size;
-    return raw;
-}
-
 /* A palette in which every colour differs: index n is (n, 255 - n, n / 2). */
 static void make_palette(Rgb palette[256])
 {
@@ -118,7 +77,7 @@ UTEST(png, a_file_is_the_signature_and_five_chunks_in_order)
 
     const char *const expected[5] = {"IHDR", "PLTE", "tRNS", "IDAT", "IEND"};
     for (size_t i = 0; i < 5; i++) {
-        Chunk c;
+        Chunk c = {0};
         ASSERT_TRUE(read_chunk(&r, &c));
         ASSERT_STREQ(expected[i], c.type);
         ASSERT_TRUE(c.crc_ok);
@@ -136,7 +95,7 @@ UTEST(png, the_header_gives_the_size_and_says_8_bit_indexed)
     ASSERT_TRUE(png_write_indexed(&png, 3, 2, pixels, palette));
     Reader r = reader_init(png.data, png.size);
     reader_skip(&r, 8);
-    Chunk c;
+    Chunk c = {0};
 
     ASSERT_TRUE(read_chunk(&r, &c));
 
@@ -161,7 +120,7 @@ UTEST(png, the_palette_is_256_colours_red_first)
     ASSERT_TRUE(png_write_indexed(&png, 1, 1, pixels, palette));
     Reader r = reader_init(png.data, png.size);
     reader_skip(&r, 8);
-    Chunk c;
+    Chunk c = {0};
     ASSERT_TRUE(read_chunk(&r, &c)); /* IHDR */
 
     ASSERT_TRUE(read_chunk(&r, &c));
@@ -189,7 +148,7 @@ UTEST(png, only_index_0_is_made_transparent)
     ASSERT_TRUE(png_write_indexed(&png, 1, 1, pixels, palette));
     Reader r = reader_init(png.data, png.size);
     reader_skip(&r, 8);
-    Chunk c;
+    Chunk c = {0};
     ASSERT_TRUE(read_chunk(&r, &c)); /* IHDR */
     ASSERT_TRUE(read_chunk(&r, &c)); /* PLTE */
 
@@ -215,22 +174,24 @@ static bool pixels_survive(uint32_t width, uint32_t height,
 
     Reader r = reader_init(png.data, png.size);
     reader_skip(&r, 8);
-    Chunk c;
+    Chunk c = {0};
     bool found = false;
     while (!found && read_chunk(&r, &c)) {
         found = strcmp(c.type, "IDAT") == 0;
     }
-    size_t raw_size = 0;
-    uint8_t *raw = found ? unwrap_stored(c.data, c.size, &raw_size) : NULL;
+    size_t expected_size = (size_t)height * (width + 1);
+    ByteBuffer raw = {0};
+    bool same = found
+        && zlib_decompress(&raw, c.data, c.size, expected_size)
+        && raw.size == expected_size;
 
     /* Each row is one filter byte, which must be 0, and then its pixels. */
-    bool same = raw != NULL && raw_size == (size_t)height * (width + 1);
     for (uint32_t y = 0; same && y < height; y++) {
-        const uint8_t *row = raw + (size_t)y * (width + 1);
+        const uint8_t *row = raw.data + (size_t)y * (width + 1);
         same = row[0] == 0
             && memcmp(row + 1, pixels + (size_t)y * width, width) == 0;
     }
-    free(raw);
+    buffer_free(&raw);
     buffer_free(&png);
     return same;
 }
@@ -253,10 +214,10 @@ UTEST(png, every_pixel_of_a_one_pixel_picture_comes_back)
     ASSERT_TRUE(pixels_survive(1, 1, &pixel));
 }
 
-UTEST(png, every_pixel_of_a_picture_needing_several_blocks_comes_back)
+UTEST(png, every_pixel_of_a_large_picture_comes_back)
 {
-    /* 300 by 300 is 90,300 bytes with the filter bytes: more than one
-     * stored block of 65,535 holds, so the data is split in two. */
+    /* 300 by 300 is 90,300 bytes with the filter bytes, more than the
+     * 32,768 bytes the packer can look back over. */
     static uint8_t pixels[300 * 300];
     for (size_t i = 0; i < sizeof pixels; i++) {
         pixels[i] = (uint8_t)((i * 7 + i / 300) % 256);
@@ -265,14 +226,14 @@ UTEST(png, every_pixel_of_a_picture_needing_several_blocks_comes_back)
     ASSERT_TRUE(pixels_survive(300, 300, pixels));
 }
 
-UTEST(png, a_picture_that_fills_one_block_exactly_comes_back)
+UTEST(png, every_pixel_of_a_mostly_empty_picture_comes_back)
 {
-    /* 65,535 bytes with the filter bytes: 255 rows of 256 pixels and one
-     * filter byte each. Exactly one full block, and it must be marked as
-     * the last. */
+    /* Like a sprite: nearly all transparent, with a little in the
+     * middle. This is what packs down to almost nothing. */
     static uint8_t pixels[256 * 255];
-    for (size_t i = 0; i < sizeof pixels; i++) {
-        pixels[i] = (uint8_t)(i % 253);
+    memset(pixels, 0, sizeof pixels);
+    for (size_t i = 0; i < 40; i++) {
+        pixels[256 * 120 + 100 + i] = (uint8_t)(i + 1);
     }
 
     ASSERT_TRUE(pixels_survive(256, 255, pixels));

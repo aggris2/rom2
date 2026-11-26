@@ -5,8 +5,8 @@
  * numbers are exactly the ones in the original game's files, so nothing is
  * lost and a sprite can still be recoloured by swapping its palette.
  *
- * The pixel data is stored without compression. Any PNG reader accepts
- * that; the files are simply larger than they could be.
+ * The pixel data is packed with zlib, which is lossless: a reader gets
+ * back exactly the pixel numbers that were written.
  */
 #ifndef ROM2_IMPORT_PNG_H
 #define ROM2_IMPORT_PNG_H

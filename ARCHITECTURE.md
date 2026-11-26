@@ -39,6 +39,10 @@ and Adler-32.
 `src/base/file` reads a whole file from disk into memory and writes one
 back. It is the only code in `base` that touches the file system.
 
+`src/base/zlib` packs and unpacks data in the zlib format, the lossless
+compression inside a PNG. It writes one simple kind of stream and reads
+every kind.
+
 `tools/import` reads the original game's files: the `.res` archives and
 the `.256` sprites so far. It is the only code that knows those formats.
 The game itself never opens an original file. It also writes what the
