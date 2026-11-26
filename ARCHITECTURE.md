@@ -30,6 +30,9 @@ tests/
 it instead of touching a pointer. A read past the end fails, and the
 failure sticks, so a parser checks once at the end.
 
+`src/base/buffer` is a block of bytes that grows as bytes are added. A
+file to be written is built in one first.
+
 `src/base/file` reads a whole file from disk into memory. It is the only
 code in `base` that touches the file system.
 

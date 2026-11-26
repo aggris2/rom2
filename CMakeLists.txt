@@ -32,6 +32,7 @@ endif()
 # rom2_core: code with no dependency on a window, a network or the clock.
 add_library(rom2_core STATIC
     src/base/reader.c
+    src/base/buffer.c
     src/base/file.c
 )
 target_include_directories(rom2_core PUBLIC src)
@@ -57,6 +58,7 @@ enable_testing()
 
 add_executable(rom2_tests
     tests/main.c
+    tests/base/test_buffer.c
     tests/base/test_file.c
     tests/base/test_reader.c
     tests/import/test_res.c
