@@ -33,19 +33,20 @@ formats.
 
 ROM2 does not read the original game's files directly. An importer turns
 them into ROM2's own content folder, once. So far it imports the units,
-the objects and the structures.
+the objects, the structures and the projectiles.
 With the original game's files in a folder called `game`:
 
 ```bash
 ./build/import_units game/graphics.res game/world.res content
 ./build/import_objects game/graphics.res content
 ./build/import_structures game/graphics.res game/world.res content
+./build/import_projectiles game/graphics.res content
 ```
 
-This writes a folder for each unit, object and structure into
-`content/units`, `content/objects` and `content/structures`, with its
-definition and its pictures. The `content` folder is yours and is not
-part of this repository.
+This writes a folder for each unit, object, structure and projectile
+into `content/units`, `content/objects`, `content/structures` and
+`content/projectiles`, with its definition and its pictures. The
+`content` folder is yours and is not part of this repository.
 
 ## Licence
 

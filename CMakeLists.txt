@@ -85,6 +85,9 @@ add_library(rom2_import STATIC
     tools/import/objects.c
     tools/import/pal.c
     tools/import/png.c
+    tools/import/projectile_sheet.c
+    tools/import/projectile_toml.c
+    tools/import/projectiles.c
     tools/import/reg.c
     tools/import/res.c
     tools/import/sheet.c
@@ -126,6 +129,12 @@ add_executable(import_structures tools/import_structures/main.c)
 target_link_libraries(import_structures PRIVATE rom2_import)
 rom2_set_warnings(import_structures)
 
+# import_projectiles: writes the projectiles of the original game as
+# ROM2 content.
+add_executable(import_projectiles tools/import_projectiles/main.c)
+target_link_libraries(import_projectiles PRIVATE rom2_import)
+rom2_set_warnings(import_projectiles)
+
 # Tests: one program, rom2_tests, built from every test file.
 enable_testing()
 
@@ -142,6 +151,9 @@ add_executable(rom2_tests
     tests/import/test_objects.c
     tests/import/test_pal.c
     tests/import/test_png.c
+    tests/import/test_projectile_sheet.c
+    tests/import/test_projectile_toml.c
+    tests/import/test_projectiles.c
     tests/import/test_reg.c
     tests/import/test_res.c
     tests/import/test_sheet.c

@@ -360,3 +360,54 @@ UTEST(png, rgb_picture_with_no_size_or_too_large_is_refused)
     ASSERT_EQ(2u, png.size);
     buffer_free(&png);
 }
+
+/* ---- png_write_grey ---- */
+
+UTEST(png, grey_every_shade_comes_back)
+{
+    /* 3 by 2. */
+    const uint8_t pixels[6] = {0, 17, 128, 200, 254, 255};
+    ByteBuffer png = {0};
+    ASSERT_TRUE(png_write_grey(&png, 3, 2, pixels));
+
+    Reader r = reader_init(png.data, png.size);
+    reader_skip(&r, 8);
+    Chunk c = {0};
+    ASSERT_TRUE(read_chunk(&r, &c));
+    ASSERT_STREQ("IHDR", c.type);
+    ASSERT_TRUE(c.crc_ok);
+    /* Width 3, height 2, 8 bits, colour type 0: shades of grey. */
+    ASSERT_EQ(3, c.data[3]);
+    ASSERT_EQ(2, c.data[7]);
+    ASSERT_EQ(8, c.data[8]);
+    ASSERT_EQ(0, c.data[9]);
+    ASSERT_TRUE(read_chunk(&r, &c));
+    ASSERT_STREQ("IDAT", c.type);
+    ByteBuffer raw = {0};
+    ASSERT_TRUE(unpack_zlib(&raw, c.data, c.size, 8));
+    /* Two rows of a filter byte and 3 pixels. */
+    ASSERT_EQ(8u, raw.size);
+    const uint8_t expected[8] = {0, 0, 17, 128, 0, 200, 254, 255};
+    ASSERT_EQ(0, memcmp(expected, raw.data, 8));
+    ASSERT_TRUE(read_chunk(&r, &c));
+    ASSERT_STREQ("IEND", c.type);
+    ASSERT_EQ(0u, reader_remaining(&r));
+    buffer_free(&raw);
+    buffer_free(&png);
+}
+
+UTEST(png, grey_picture_with_no_size_or_too_large_is_refused)
+{
+    const uint8_t pixels[1] = {1};
+    const uint8_t before[2] = {7, 8};
+    ByteBuffer png = {0};
+    ASSERT_TRUE(buffer_append(&png, before, 2));
+
+    ASSERT_FALSE(png_write_grey(&png, 0, 1, pixels));
+    ASSERT_FALSE(png_write_grey(&png, 1, 0, pixels));
+    ASSERT_FALSE(png_write_grey(&png, PNG_MAX_SIDE + 1, 1, pixels));
+    ASSERT_FALSE(png_write_grey(&png, 1, PNG_MAX_SIDE + 1, pixels));
+
+    ASSERT_EQ(2u, png.size);
+    buffer_free(&png);
+}

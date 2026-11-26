@@ -21,6 +21,7 @@ and a few lines of values as examples.
 | | | how a unit's values and frames fit together | [units.md](units.md) |
 | | | how an object's values and frames fit together | [objects.md](objects.md) |
 | | | how a structure's values and tiles fit together | [structures.md](structures.md) |
+| | | how a projectile's values and frames fit together | [projectiles.md](projectiles.md) |
 
 ## Not described yet
 

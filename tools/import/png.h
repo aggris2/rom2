@@ -42,4 +42,16 @@ bool png_write_indexed(ByteBuffer *out, uint32_t width, uint32_t height,
 bool png_write_rgb(ByteBuffer *out, uint32_t width, uint32_t height,
     const Rgb *pixels);
 
+/* Adds a complete PNG file in shades of grey to the end of `out`. ROM2
+ * uses this for a picture that says how solid each pixel of a sprite
+ * is: black for not there, white for solid.
+ *
+ * `pixels` holds `width * height` bytes, row after row from the top,
+ * from 0 for black to 255 for white.
+ *
+ * Returns false, and leaves `out` as it was, if the width or height is 0
+ * or more than PNG_MAX_SIDE, or memory runs out. */
+bool png_write_grey(ByteBuffer *out, uint32_t width, uint32_t height,
+    const uint8_t *pixels);
+
 #endif

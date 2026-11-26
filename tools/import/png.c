@@ -20,6 +20,7 @@ static bool add_chunk(ByteBuffer *out, const char type[4],
 /* Colour types: what the bytes of a pixel are. */
 #define COLOUR_RGB 2u      /* three bytes: red, green, blue */
 #define COLOUR_INDEXED 3u  /* one byte: an index into the palette */
+#define COLOUR_GREY 0u     /* one byte: a shade from black to white */
 
 /* Every PNG file starts with these eight bytes. */
 static const uint8_t SIGNATURE[8] = {
@@ -139,5 +140,23 @@ bool png_write_rgb(ByteBuffer *out, uint32_t width, uint32_t height,
         out->size = size_before;
     }
     buffer_free(&bytes);
+    return ok;
+}
+
+bool png_write_grey(ByteBuffer *out, uint32_t width, uint32_t height,
+    const uint8_t *pixels)
+{
+    if (width == 0 || width > PNG_MAX_SIDE
+        || height == 0 || height > PNG_MAX_SIDE) {
+        return false;
+    }
+    size_t size_before = out->size;
+    bool ok = buffer_append(out, SIGNATURE, sizeof SIGNATURE)
+        && add_header(out, width, height, COLOUR_GREY)
+        && add_pixels(out, width, height, pixels)
+        && add_chunk(out, "IEND", NULL, 0);
+    if (!ok) {
+        out->size = size_before;
+    }
     return ok;
 }
