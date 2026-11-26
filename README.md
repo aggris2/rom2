@@ -25,7 +25,9 @@ cmake --build build
 ctest --test-dir build
 ```
 
-See [ARCHITECTURE.md](ARCHITECTURE.md) for how the code is organised.
+See [ARCHITECTURE.md](ARCHITECTURE.md) for how the code is organised, and
+[docs/formats](docs/formats/README.md) for the original game's file
+formats.
 
 ## Licence
 

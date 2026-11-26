@@ -19,6 +19,8 @@ src/
   base/      small building blocks with no dependencies
 tools/
   import/    readers for the original game's file formats
+docs/
+  formats/   the original game's file formats, as measured
 tests/
   utest.h    the test framework, one header
   main.c     the test runner
@@ -43,7 +45,8 @@ done by the zlib library, and this is the only file that calls it.
 `tools/import` reads the original game's files: so far the `.res`
 archives, the `.reg` registries and the `.256` sprites. It is the only
 code that knows those formats. The game itself never opens an original
-file. It also writes what the
+file. The formats are described in
+[docs/formats](docs/formats/README.md). It also writes what the
 import produces, which so far is 8-bit indexed PNG pictures: a unit's
 frames are laid out as sprite sheets, grids of cells of one size. A unit
 has two, a main sheet and one with its dying frames.
