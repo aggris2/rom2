@@ -84,6 +84,43 @@ slot 14: `0014001.16a` to `0014096.16a`.
 The pictures of one shape are not one picture in other colours. An iron
 dagger and a gold one differ in their pixels and in their palettes.
 
+## The pictures of items worn
+
+In the inventory the character is drawn with what it wears. The
+pictures for that are `.256` files in `equipment/`, 1,104 of them:
+
+```
+equipment/mfighter/1.256 ... 54.256         the characters themselves
+equipment/mfighter/primary/0001002.256      an item, as worn
+equipment/mfighter/secondary/0009020.256    its second part
+```
+
+There are four kinds of character: `mfighter`, `ffighter`, `mmage` and
+`fmage`, a man or a woman who fights or does magic, with 54, 22, 20 and
+20 characters to choose from.
+
+Every file is one frame of 160 by 240 pixels, the size of the whole
+character, with its own palette. An item's picture has the item at the
+place it is worn and nothing else, so the pictures are laid over the
+character one on the other. None has a `b` file.
+
+An item's files are named as its picture for the inventory is. Measured
+on the 395 variants of the 60 shapes that have any:
+
+- Every variant has a worn picture for at least one kind of character.
+- Which kinds is the same for all variants of a shape. 47 shapes are
+  drawn on the two fighters, 11 on the two mages, and 2 on all four.
+- 10 shapes also have a file in `secondary` for each of their kinds:
+  the ring, the bracers, the gauntlets and gloves, and the cloaks. It is
+  the item's second part. Drawn on a character, the first picture of
+  bracers, of gloves or of a ring is on one hand and the second on the
+  other, and a cloak's second picture is its shoulders.
+- The picture for a man and for a woman is the same file byte for byte
+  for 66 of the 335 fighter items.
+
+This was checked by laying the pictures of a helm, a cuirass, bracers,
+boots, a sword and a shield over a fighter: they sit where they belong.
+
 ## What does not fit
 
 - **Two amulets are drawn as helms.** The pictures of the common amulet
@@ -91,6 +128,8 @@ dagger and a gold one differ in their pixels and in their palettes.
   files byte for byte as those of the common helm in iron and in bronze,
   `0006006.16a` and `0106006.16a`. The other 12 amulets are amulets.
   ROM2 writes them as they are.
+  Their worn pictures for the fighters, four files, are empty: 0 bytes.
+  So these two are not real items, and nothing wears them.
 - **Magic items share pictures.** Every scroll of one kind of magic has
   the same picture, and so have the potions of one kind: 10 groups of 4
   to 10 files that are the same byte for byte.
@@ -127,7 +166,11 @@ not done yet.
   and a folder for each variant, named after its material and its
   class: `iron_common`. A variant's folder has its picture for the
   inventory: `icon.png`, an 8-bit indexed PNG with its own palette, and
-  `icon_alpha.png`, which says how solid each pixel is.
+  `icon_alpha.png`, which says how solid each pixel is. It also has a
+  folder `worn` with the variant's pictures as worn, one for each kind
+  of character that wears it, named after the character:
+  `worn/fighter_man.png`, and `worn/fighter_man_second.png` for the item's
+  second part. These are 8-bit indexed PNGs with their own palette.
 - A folder for every magic item in `magic`, with `item.toml`,
   `icon.png` and `icon_alpha.png`.
 - `materials.toml`, `classes.toml` and `modifiers.toml`: the three
@@ -135,17 +178,23 @@ not done yet.
 
 A variant has pictures of its own because it has colours of its own,
 and a PNG holds one palette: put side by side in one picture, only the
-first would look right in a viewer. Its folder is also where the
-pictures of the item worn will go.
+first would look right in a viewer.
+
+The characters themselves go to `content/characters`, a folder for each of
+the four kinds, under ROM2's names for them: `fighter_man`,
+`fighter_woman`, `mage_man` and `mage_woman`. So the first fighter is
+`characters/fighter_man/001.png`.
 
 The files are described at the top of `tools/import/item_toml.h`.
 
-65 shapes and 96 magic items are written, with all 491 pictures.
-
-The pictures of items worn on a character, in `equipment/`, are not
-written yet.
+65 shapes and 96 magic items are written, with all 491 pictures for the
+inventory, 984 pictures of items worn, and 116 characters.
 
 ## Not known
+
+- In what order the worn pictures are laid over each other.
+- How a character's number here goes with the `face` of a kind of
+  human in `data.bin`.
 
 - What the 9 fractions of a material or a class are, beyond the reading
   above, and how exactly a variant's numbers are worked out from them.

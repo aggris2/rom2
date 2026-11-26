@@ -215,3 +215,12 @@ UTEST(toml, float_refuses_a_number_that_is_not_finite)
     ASSERT_EQ(0u, b.size);
     buffer_free(&b);
 }
+
+UTEST(toml, bool_writes_true_or_false)
+{
+    ByteBuffer b = {0};
+    ASSERT_TRUE(toml_bool(&b, "second", true));
+    ASSERT_TRUE(toml_bool(&b, "flat", false));
+    ASSERT_TRUE(holds(&b, "second = true\nflat = false\n"));
+    buffer_free(&b);
+}

@@ -80,9 +80,20 @@ static bool put_icon(ByteBuffer *b, uint32_t width, uint32_t height)
         && toml_int_list(b, "size", size, 2);
 }
 
+/* Adds which characters a shape is drawn on. */
+static bool put_worn(ByteBuffer *b, const ItemTomlWorn *worn)
+{
+    const int32_t size[2] = {(int32_t)worn->width, (int32_t)worn->height};
+    return toml_table(b, "worn")
+        && toml_text_list(b, "characters", worn->characters,
+            worn->character_count)
+        && (!worn->has_second || toml_bool(b, "second", true))
+        && toml_int_list(b, "size", size, 2);
+}
+
 bool item_toml_write_shape(ByteBuffer *b, const DataBin *bin,
     DataBinTable table, const DataBinRow *row, int32_t place,
-    uint32_t icon_width, uint32_t icon_height)
+    uint32_t icon_width, uint32_t icon_height, const ItemTomlWorn *worn)
 {
     const char *kind;
     if (table == DATABIN_WEAPONS) {
@@ -110,34 +121,30 @@ bool item_toml_write_shape(ByteBuffer *b, const DataBin *bin,
     }
 
     ItemVariant variants[ITEM_MAX_VARIANTS];
-    int32_t materials[ITEM_MAX_VARIANTS];
-    int32_t classes[ITEM_MAX_VARIANTS];
     uint32_t count = items_variants(row, variants);
-    for (uint32_t i = 0; i < count; i++) {
-        materials[i] = variants[i].material;
-        classes[i] = variants[i].item_class;
-    }
-    if (!toml_int_list(b, "variant_materials", materials, count)
-        || !toml_int_list(b, "variant_classes", classes, count)) {
-        return false;
-    }
     if (count == 0) {
         return true;
     }
+    if ((icon_width != 0 && icon_height != 0
+            && !put_icon(b, icon_width, icon_height))
+        || (worn != NULL && worn->character_count > 0 && !put_worn(b, worn))) {
+        return false;
+    }
 
-    /* The name of each variant's folder. */
-    static char names[ITEM_MAX_VARIANTS][ITEM_TOML_VARIANT_NAME_SIZE];
-    const char *list[ITEM_MAX_VARIANTS];
+    /* An entry for each variant: the folder with its pictures, and its
+     * material and class as numbers of the rows of their tables. */
     for (uint32_t i = 0; i < count; i++) {
+        char folder[ITEM_TOML_VARIANT_NAME_SIZE];
         if (!item_toml_variant_name(bin, variants[i].material,
-                variants[i].item_class, names[i])) {
+                variants[i].item_class, folder)
+            || !toml_table_list(b, "variant")
+            || !toml_text(b, "folder", folder)
+            || !toml_int(b, "material", variants[i].material)
+            || !toml_int(b, "class", variants[i].item_class)) {
             return false;
         }
-        list[i] = names[i];
     }
-    return toml_text_list(b, "variant_folders", list, count)
-        && (icon_width == 0 || icon_height == 0
-            || put_icon(b, icon_width, icon_height));
+    return true;
 }
 
 bool item_toml_write_magic(ByteBuffer *b, const DataBinRow *row,

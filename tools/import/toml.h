@@ -11,7 +11,7 @@
  *
  * Each function here adds one line to a buffer. This writes only the
  * small part of TOML that ROM2 needs: whole numbers, numbers with a
- * fraction, texts, and lists of whole numbers or texts.
+ * fraction, yes and no, texts, and lists of whole numbers or texts.
  *
  * A key or a header is written as it is given, so it may hold only
  * letters, digits, '_' and '-', and a header also '.' between names.
@@ -42,6 +42,9 @@ bool toml_table_list(ByteBuffer *b, const char *name);
 
 /* Adds a whole number: "key = 3". */
 bool toml_int(ByteBuffer *b, const char *key, int32_t value);
+
+/* Adds a yes or a no: "key = true" or "key = false". */
+bool toml_bool(ByteBuffer *b, const char *key, bool value);
 
 /* Adds a number with a fraction: "key = 0.25". It is written with as
  * many digits as it takes to read back the same 64-bit number, and

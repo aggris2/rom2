@@ -9,12 +9,17 @@
  *         and its name, with item.toml and a folder for each of its
  *         variants, such as iron_common, with the variant's picture for
  *         the inventory: icon.png and icon_alpha.png
+ *         and a folder `worn` with its pictures as worn, such as
+ *         fighter_man.png
  *     magic/
  *         a folder for every magic item, with item.toml, icon.png and
  *         icon_alpha.png
  *     materials.toml, classes.toml, modifiers.toml
  *         the tables a shape's numbers are multiplied by, and the
  *         changes magic can make
+ *
+ * and in <content folder>/characters a folder for each kind of character,
+ * with the pictures of the characters the items are drawn on.
  *
  * The numbers come from data.bin in world.res, the pictures from
  * graphics.res.
@@ -41,7 +46,7 @@
 static bool write_in(const char *folder, const char *name,
     const ByteBuffer *bytes)
 {
-    char path[1300];
+    char path[1400];
     int written = snprintf(path, sizeof path, "%s/%s", folder, name);
     return written > 0 && (size_t)written < sizeof path
         && file_write_all(path, bytes->data, bytes->size);
@@ -88,11 +93,169 @@ static bool icon_write(const ResArchive *archive, int32_t material,
     return ok;
 }
 
+/* The kinds of character an item is drawn on: the names of their folders
+ * in the original, and the names ROM2 gives them, in the same order. And
+ * the size of a character. */
+static const char *const CHARACTER_FOLDERS[] = {
+    "mfighter", "ffighter", "mmage", "fmage"
+};
+static const char *const CHARACTER_NAMES[] = {
+    "fighter_man", "fighter_woman", "mage_man", "mage_woman"
+};
+#define CHARACTER_COUNT (sizeof CHARACTER_FOLDERS / sizeof CHARACTER_FOLDERS[0])
+#define CHARACTER_WIDTH 160
+#define CHARACTER_HEIGHT 240
+
+/* Says whether the archive has a file at `path`. */
+static bool has_file(const ResArchive *archive, const char *path)
+{
+    ResEntry entry;
+    return res_find(archive, path, &entry) && !entry.is_folder;
+}
+
+/* Writes the first frame of the .256 file at `path` as the 8-bit indexed
+ * PNG `name` in a folder, with the file's own palette. A file that is
+ * not there, or is empty, writes nothing: `*written` says whether a
+ * picture was written. Returns false only if a file that is there
+ * cannot be read or written. */
+static bool picture_write(const ResArchive *archive, const char *path,
+    const char *folder, const char *name, bool *written)
+{
+    ResEntry entry;
+    Sprite256 sprite;
+    Rgb palette[256];
+    Frame256 frame;
+    *written = false;
+    if (!res_find(archive, path, &entry) || entry.is_folder
+        || entry.size == 0) {
+        return true;
+    }
+    if (!sprite256_open(archive->data + entry.offset, entry.size, &sprite)
+        || sprite.frame_count == 0
+        || !sprite256_palette(&sprite, palette)) {
+        return false;
+    }
+    Reader r = sprite256_frames(&sprite);
+    if (!sprite256_frame_read(&r, &frame)) {
+        return false;
+    }
+    ByteBuffer png = {0};
+    bool ok = png_write_indexed(&png, frame.width, frame.height,
+            frame.pixels, palette)
+        && write_in(folder, name, &png);
+    buffer_free(&png);
+    frame256_free(&frame);
+    *written = ok;
+    return ok;
+}
+
+/* Writes the pictures of one item as worn, for every kind of character
+ * that has one, into the folder `worn` of the variant's folder: a
+ * picture named after the character, and one with "_second" for the item's
+ * second part. `*count` counts them. */
+static bool worn_write(const ResArchive *archive, const char *item,
+    const char *variant_folder, int *count)
+{
+    char folder[1300];
+    bool made = false;
+    for (size_t i = 0; i < CHARACTER_COUNT; i++) {
+        char first[96];
+        char second[96];
+        char name[48];
+        bool written = false;
+        snprintf(first, sizeof first, "equipment/%s/primary/%s.256",
+            CHARACTER_FOLDERS[i], item);
+        snprintf(second, sizeof second, "equipment/%s/secondary/%s.256",
+            CHARACTER_FOLDERS[i], item);
+        /* The folder is made when the first picture turns up. */
+        if (!made && (has_file(archive, first)
+                || has_file(archive, second))) {
+            if (!make_folder(variant_folder, "worn", folder,
+                    sizeof folder)) {
+                return false;
+            }
+            made = true;
+        }
+        snprintf(name, sizeof name, "%s.png", CHARACTER_NAMES[i]);
+        if (!picture_write(archive, first, folder, name, &written)) {
+            return false;
+        }
+        *count += written ? 1 : 0;
+        snprintf(name, sizeof name, "%s_second.png", CHARACTER_NAMES[i]);
+        if (!picture_write(archive, second, folder, name, &written)) {
+            return false;
+        }
+        *count += written ? 1 : 0;
+    }
+    return true;
+}
+
+/* Finds which kinds of character an item is drawn on, and whether it
+ * has a second picture, by the files the archive has for it. */
+static void worn_find(const ResArchive *archive, const char *item,
+    const char *characters[CHARACTER_COUNT], ItemTomlWorn *out)
+{
+    out->characters = characters;
+    out->character_count = 0;
+    out->has_second = false;
+    out->width = CHARACTER_WIDTH;
+    out->height = CHARACTER_HEIGHT;
+    for (size_t i = 0; i < CHARACTER_COUNT; i++) {
+        char path[96];
+        snprintf(path, sizeof path, "equipment/%s/primary/%s.256",
+            CHARACTER_FOLDERS[i], item);
+        if (has_file(archive, path)) {
+            characters[out->character_count++] = CHARACTER_NAMES[i];
+        }
+        snprintf(path, sizeof path, "equipment/%s/secondary/%s.256",
+            CHARACTER_FOLDERS[i], item);
+        if (has_file(archive, path)) {
+            out->has_second = true;
+        }
+    }
+}
+
+/* Writes the characters themselves, without anything on, into
+ * <content folder>/characters/<kind>: 001.png, 002.png and so on, for
+ * as long as the archive has the next number. Returns how many. */
+static int characters_write(const ResArchive *archive,
+    const char *content_folder)
+{
+    char parent[1024];
+    int count = 0;
+    if (!make_folder(content_folder, "characters", parent,
+            sizeof parent)) {
+        return 0;
+    }
+    for (size_t i = 0; i < CHARACTER_COUNT; i++) {
+        char folder[1100];
+        if (!make_folder(parent, CHARACTER_NAMES[i], folder,
+                sizeof folder)) {
+            continue;
+        }
+        for (int number = 1; number <= 999; number++) {
+            char path[96];
+            char name[16];
+            bool written = false;
+            snprintf(path, sizeof path, "equipment/%s/%d.256",
+                CHARACTER_FOLDERS[i], number);
+            snprintf(name, sizeof name, "%03d.png", number);
+            if (!has_file(archive, path)
+                || !picture_write(archive, path, folder, name, &written)
+                || !written) {
+                break;
+            }
+            count++;
+        }
+    }
+    return count;
+}
+
 /* Writes the folders of the shapes of one table. Returns how many could
  * not be written. `*done` and `*icons` count shapes and pictures. */
 static int shapes_write(const ResArchive *archive, const DataBin *bin,
     DataBinTable table, const char *items_folder, const char *kind_folder,
-    int *done, int *icons)
+    int *done, int *icons, int *worn_count)
 {
     static DataBinRow row;
     char parent[1024];
@@ -112,13 +275,24 @@ static int shapes_write(const ResArchive *archive, const DataBin *bin,
 
         ItemVariant variants[ITEM_MAX_VARIANTS];
         uint32_t count = items_variants(&row, variants);
+        /* Which characters the shape is drawn on is the same for all its
+         * variants, so the first one tells. */
+        const char *characters[CHARACTER_COUNT];
+        ItemTomlWorn worn;
+        char item[ITEM_FILE_NAME_SIZE] = "";
+        if (count > 0) {
+            items_file_name(variants[0].material, slot,
+                variants[0].item_class, place, item);
+        }
+        worn_find(archive, item, characters, &worn);
+
         char name[NAME_FOLDER_SIZE];
         char folder[1100];
         ByteBuffer toml = {0};
         bool ok = name_folder(place, row.name, name)
             && make_folder(parent, name, folder, sizeof folder)
             && item_toml_write_shape(&toml, bin, table, &row, place,
-                ICON_SIDE, ICON_SIDE)
+                ICON_SIDE, ICON_SIDE, &worn)
             && write_in(folder, "item.toml", &toml);
         buffer_free(&toml);
 
@@ -132,7 +306,10 @@ static int shapes_write(const ResArchive *archive, const DataBin *bin,
                 && make_folder(folder, variant, variant_folder,
                     sizeof variant_folder)
                 && icon_write(archive, variants[i].material, slot,
-                    variants[i].item_class, place, variant_folder);
+                    variants[i].item_class, place, variant_folder)
+                && items_file_name(variants[i].material, slot,
+                    variants[i].item_class, place, item)
+                && worn_write(archive, item, variant_folder, worn_count);
         }
         if (ok) {
             printf("  %s/%s, %u variants\n", kind_folder, name, count);
@@ -248,14 +425,15 @@ static int import_items(const uint8_t *data, size_t size,
     int shapes = 0;
     int magic = 0;
     int icons = 0;
+    int worn = 0;
     int failed = 0;
     printf("%s\n", items_folder);
     failed += shapes_write(&archive, &bin, DATABIN_WEAPONS, items_folder,
-        "weapons", &shapes, &icons);
+        "weapons", &shapes, &icons, &worn);
     failed += shapes_write(&archive, &bin, DATABIN_SHIELDS, items_folder,
-        "shields", &shapes, &icons);
+        "shields", &shapes, &icons, &worn);
     failed += shapes_write(&archive, &bin, DATABIN_ARMOUR, items_folder,
-        "armour", &shapes, &icons);
+        "armour", &shapes, &icons, &worn);
     failed += magic_write(&archive, &bin, items_folder, &magic, &icons);
     if (!table_write(items_folder, "materials.toml", &bin,
             item_toml_write_materials)
@@ -266,8 +444,12 @@ static int import_items(const uint8_t *data, size_t size,
         fprintf(stderr, "  the three tables could not be written\n");
         failed++;
     }
-    printf("%d shapes and %d magic items written with %d pictures, %d "
-        "left out\n", shapes, magic, icons, failed);
+    int characters = characters_write(&archive, content_folder);
+    printf("%d shapes and %d magic items written with %d pictures for the "
+        "inventory and %d of items worn, %d left out\n", shapes, magic,
+        icons, worn, failed);
+    printf("%d characters written to %s/characters\n", characters,
+        content_folder);
     return failed;
 }
 

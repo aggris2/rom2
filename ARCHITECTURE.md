@@ -62,7 +62,8 @@ Next to every sheet is a picture of its soft edges. A projectile's has
 that says how solid each pixel is, since most projectiles are fire and
 light. A spell's has `spell.toml` alone: the original keeps no picture with
 a spell's numbers. An item's folder is one shape, such as a dagger, with
-`item.toml` and a picture for the inventory of each of its variants. The
+`item.toml` and a folder for each of its variants, which has the variant's
+picture for the inventory and its pictures as worn on a character. The
 materials, the classes and the modifiers, which have no pictures, are a
 file each.
 

@@ -120,7 +120,7 @@ UTEST(item_toml, write_shape_gives_the_numbers_and_the_variants)
     ASSERT_TRUE(first_row(&bin, DATABIN_WEAPONS, &row));
 
     ASSERT_TRUE(item_toml_write_shape(&b, &bin, DATABIN_WEAPONS, &row, 2,
-        0, 0));
+        0, 0, NULL));
 
     /* The column ROM2 does not know is left out. Class 0 in materials 0
      * and 1, class 1 in material 1. */
@@ -133,10 +133,18 @@ UTEST(item_toml, write_shape_gives_the_numbers_and_the_variants)
         "weight = 5\n"
         "slot = 1\n"
         "damage_min = 18\n"
-        "variant_materials = [0, 1, 1]\n"
-        "variant_classes = [0, 0, 1]\n"
-        "variant_folders = [\"iron_common\", \"gold_common\", "
-        "\"gold_rare\"]\n"));
+        "\n[[variant]]\n"
+        "folder = \"iron_common\"\n"
+        "material = 0\n"
+        "class = 0\n"
+        "\n[[variant]]\n"
+        "folder = \"gold_common\"\n"
+        "material = 1\n"
+        "class = 0\n"
+        "\n[[variant]]\n"
+        "folder = \"gold_rare\"\n"
+        "material = 1\n"
+        "class = 1\n"));
     buffer_free(&b);
     buffer_free(&file);
 }
@@ -152,29 +160,28 @@ UTEST(item_toml, write_shape_names_the_kind_by_its_table)
 
     ASSERT_TRUE(first_row(&bin, DATABIN_SHIELDS, &row));
     ASSERT_TRUE(item_toml_write_shape(&b, &bin, DATABIN_SHIELDS, &row, 1,
-        0, 0));
+        0, 0, NULL));
     ASSERT_TRUE(has(&b, "name = \"Buckler\"\nkind = \"shield\"\n"));
-    ASSERT_TRUE(has(&b, "variant_materials = [0, 1]\n"));
-    /* The folders are named even when no picture is asked for. */
-    ASSERT_TRUE(has(&b, "variant_folders = [\"iron_common\", "
-        "\"gold_common\"]\n"));
+    /* The variants are listed even when no picture is asked for. */
+    ASSERT_TRUE(has(&b, "\n[[variant]]\nfolder = \"iron_common\"\n"
+        "material = 0\nclass = 0\n"));
+    ASSERT_TRUE(has(&b, "\n[[variant]]\nfolder = \"gold_common\"\n"));
     ASSERT_FALSE(has(&b, "[icon]"));
     b.size = 0;
 
-    /* A shape without variants has two empty lists, and no pictures
-     * even when asked for them. */
+    /* A shape without variants has none listed, and no pictures even
+     * when asked for them. */
     ASSERT_TRUE(first_row(&bin, DATABIN_ARMOUR, &row));
     ASSERT_TRUE(item_toml_write_shape(&b, &bin, DATABIN_ARMOUR, &row, 1,
-        80, 80));
+        80, 80, NULL));
     ASSERT_TRUE(has(&b, "name = \"Ring\"\nkind = \"armour\"\n"));
-    ASSERT_TRUE(has(&b, "variant_materials = []\nvariant_classes = []\n"));
+    ASSERT_FALSE(has(&b, "variant"));
     ASSERT_FALSE(has(&b, "icon"));
-    ASSERT_FALSE(has(&b, "variant_folders"));
     b.size = 0;
 
     /* Any other table is not a table of shapes. */
     ASSERT_FALSE(item_toml_write_shape(&b, &bin, DATABIN_SPELLS, &row, 1,
-        0, 0));
+        0, 0, NULL));
     ASSERT_EQ(0u, b.size);
     buffer_free(&b);
     buffer_free(&file);
@@ -191,18 +198,65 @@ UTEST(item_toml, write_shape_names_the_folder_of_each_variant)
     ASSERT_TRUE(first_row(&bin, DATABIN_SHIELDS, &row));
 
     ASSERT_TRUE(item_toml_write_shape(&b, &bin, DATABIN_SHIELDS, &row, 1,
-        80, 64));
+        80, 64, NULL));
 
     /* The buckler is common, in iron and in gold. */
+    /* The pictures' files first, then the variants. */
     ASSERT_TRUE(has(&b,
-        "variant_materials = [0, 1]\n"
-        "variant_classes = [0, 0]\n"
-        "variant_folders = [\"iron_common\", \"gold_common\"]\n"
         "\n"
         "[icon]\n"
         "sheet = \"icon.png\"\n"
         "alpha = \"icon_alpha.png\"\n"
-        "size = [80, 64]\n"));
+        "size = [80, 64]\n"
+        "\n[[variant]]\n"
+        "folder = \"iron_common\"\n"
+        "material = 0\n"
+        "class = 0\n"
+        "\n[[variant]]\n"
+        "folder = \"gold_common\"\n"
+        "material = 1\n"
+        "class = 0\n"));
+    buffer_free(&b);
+    buffer_free(&file);
+}
+
+UTEST(item_toml, write_shape_says_which_characters_it_is_drawn_on)
+{
+    static DataBinRow row;
+    const char *const characters[] = {"fighter_man", "fighter_woman"};
+    ItemTomlWorn worn = {characters, 2, true, 160, 240};
+    ByteBuffer file = {0};
+    ByteBuffer b = {0};
+    DataBin bin;
+    make_items(&file);
+    ASSERT_TRUE(databin_open(file.data, file.size, &bin));
+    ASSERT_TRUE(first_row(&bin, DATABIN_SHIELDS, &row));
+
+    ASSERT_TRUE(item_toml_write_shape(&b, &bin, DATABIN_SHIELDS, &row, 1,
+        80, 80, &worn));
+    ASSERT_TRUE(has(&b,
+        "size = [80, 80]\n"
+        "\n"
+        "[worn]\n"
+        "characters = [\"fighter_man\", \"fighter_woman\"]\n"
+        "second = true\n"
+        "size = [160, 240]\n"
+        "\n[[variant]]\n"));
+    b.size = 0;
+
+    /* Without a second picture that line is left out, and without any
+     * character the whole part. */
+    worn.has_second = false;
+    ASSERT_TRUE(item_toml_write_shape(&b, &bin, DATABIN_SHIELDS, &row, 1,
+        80, 80, &worn));
+    ASSERT_TRUE(has(&b, "[worn]\n"
+        "characters = [\"fighter_man\", \"fighter_woman\"]\n"
+        "size = [160, 240]\n"));
+    b.size = 0;
+    worn.character_count = 0;
+    ASSERT_TRUE(item_toml_write_shape(&b, &bin, DATABIN_SHIELDS, &row, 1,
+        80, 80, &worn));
+    ASSERT_FALSE(has(&b, "[worn]"));
     buffer_free(&b);
     buffer_free(&file);
 }
@@ -221,7 +275,7 @@ UTEST(item_toml, write_shape_refuses_a_variant_the_tables_do_not_have)
     row.numbers[row.number_count - 8 + 2] = 8;
 
     ASSERT_FALSE(item_toml_write_shape(&b, &bin, DATABIN_WEAPONS, &row, 2,
-        80, 80));
+        80, 80, NULL));
     buffer_free(&b);
     buffer_free(&file);
 }

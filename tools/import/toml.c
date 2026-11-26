@@ -27,6 +27,11 @@ bool toml_table(ByteBuffer *b, const char *name)
     return put(b, "\n[") && put(b, name) && put(b, "]\n");
 }
 
+bool toml_bool(ByteBuffer *b, const char *key, bool value)
+{
+    return put(b, key) && put(b, value ? " = true\n" : " = false\n");
+}
+
 bool toml_float(ByteBuffer *b, const char *key, double value)
 {
     /* Not finite: an infinity or a result that is not a number. Such a
