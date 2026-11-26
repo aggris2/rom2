@@ -241,3 +241,180 @@ bool unit_toml_write(ByteBuffer *b, const Reg *reg, int32_t id,
     }
     return ok;
 }
+
+/* A column of data.bin and the name ROM2 gives it. */
+typedef struct KindColumn {
+    const char *column;
+    const char *key;
+} KindColumn;
+
+static const KindColumn MONSTER_COLUMNS[] = {
+    {"body", "body"},
+    {"reaction", "reaction"},
+    {"mind", "mind"},
+    {"spirit", "spirit"},
+    {"healthMax", "health"},
+    {"HP regeneraton", "health_regen"},
+    {"manaMax", "mana"},
+    {"MP regeneraton", "mana_regen"},
+    {"speed", "speed"},
+    {"rotationSpeed", "rotation_speed"},
+    {"scanRange", "scan_range"},
+    {"physicalMin", "damage_min"},
+    {"physicalMax", "damage_max"},
+    {"attackKind", "attack_kind"},
+    {"toHit", "to_hit"},
+    {"defence", "defence"},
+    {"absorbtion", "absorption"},
+    {"attackChargeTime", "attack_charge_time"},
+    {"attackRelaxTime", "attack_relax_time"},
+    {"prot Fire", "protection_fire"},
+    {"prot Water", "protection_water"},
+    {"prot Air", "protection_air"},
+    {"prot Earth", "protection_earth"},
+    {"prot Astral", "protection_astral"},
+    {"res.Blade", "resist_blade"},
+    {"res.Axe", "resist_axe"},
+    {"res.Bludgeon", "resist_bludgeon"},
+    {"res.Pike", "resist_pike"},
+    {"res.Shooting", "resist_shooting"},
+    {"face", "face"},
+    {"tokenSize", "token_size"},
+    {"movementType", "movement_type"},
+    {"dyingTime", "dying_time"},
+    {"Withdraw", "withdraw"},
+    {"Wimpy", "wimpy"},
+    {"See invisible", "see_invisible"},
+    {"XPvalue", "experience"},
+    {"treasure.1 Gold", "treasure_gold"},
+    {"treasureMin.1", "treasure_gold_min"},
+    {"treasureMax.1", "treasure_gold_max"},
+    {"treasure.2 Item", "treasure_item"},
+    {"treasureMin.2", "treasure_item_min"},
+    {"treasureMax.2", "treasure_item_max"},
+    {"treasureMask.2", "treasure_item_mask"},
+    {"Power", "power"},
+    {"Spell 1", "spell_1"},
+    {"Probability 1", "spell_1_chance"},
+    {"Spell 2", "spell_2"},
+    {"Probability 2", "spell_2_chance"},
+    {"Spell 3", "spell_3"},
+    {"Probability 3", "spell_3_chance"},
+    {"Spell Power", "spell_power"},
+    {"knownSpells", "known_spells"},
+    {"skillFire", "skill_fire"},
+    {"skillWater", "skill_water"},
+    {"skillAir", "skill_air"},
+    {"skillEarth", "skill_earth"},
+    {"skillAstral", "skill_astral"},
+};
+
+static const KindColumn HUMAN_COLUMNS[] = {
+    {"Body", "body"},
+    {"Reaction", "reaction"},
+    {"Mind", "mind"},
+    {"Spirit", "spirit"},
+    {"HealthMax", "health"},
+    {"ManaMax", "mana"},
+    {"Speed", "speed"},
+    {"RotationSpeed", "rotation_speed"},
+    {"ScanRange", "scan_range"},
+    {"Defence", "defence"},
+    {"Skill.General", "skill_general"},
+    {"Skill.Blade (Fire)", "skill_blade_fire"},
+    {"Skill.Axe (Water)", "skill_axe_water"},
+    {"Skill.Bludgen (Air)", "skill_bludgeon_air"},
+    {"Skill.Pike (Earth)", "skill_pike_earth"},
+    {"Skill.Shooting (Astral)", "skill_shooting_astral"},
+    {"face", "face"},
+    {"gender ( is female? )", "female"},
+    {"AttackChargeTime", "attack_charge_time"},
+    {"AttackRelaxTime", "attack_relax_time"},
+    {"TokenSize", "token_size"},
+    {"MovementType", "movement_type"},
+    {"DyingTime", "dying_time"},
+    {"knownSpells", "known_spells"},
+};
+
+/* Adds one kind. `index[i]` is where the row has the number of
+ * `columns[i]`, or UINT32_MAX if the table has no such column. */
+static bool put_kind(ByteBuffer *b, const DataBinRow *row, int32_t kind_id,
+    const char *group, const KindColumn *columns, const uint32_t *index,
+    size_t column_count)
+{
+    if (!toml_table_list(b, "kind") || !toml_int(b, "id", kind_id)
+        || !toml_text(b, "name", row->name)
+        || !toml_text(b, "group", group)) {
+        return false;
+    }
+    for (size_t i = 0; i < column_count; i++) {
+        if (index[i] < row->number_count
+            && !toml_int(b, columns[i].key, row->numbers[index[i]])) {
+            return false;
+        }
+    }
+
+    /* The items the kind has. An empty text is a slot with nothing. */
+    const char *items[DATABIN_MAX_TEXTS];
+    size_t item_count = 0;
+    for (uint32_t i = 0; i < row->text_count; i++) {
+        if (row->texts[i][0] != '\0') {
+            items[item_count++] = row->texts[i];
+        }
+    }
+    return item_count == 0
+        || toml_text_list(b, "items", items, item_count);
+}
+
+/* Adds the kinds that one table has for a unit. */
+static bool put_kinds(ByteBuffer *b, const DataBin *bin, DataBinTable table,
+    const char *group, const KindColumn *columns, size_t column_count,
+    int32_t id, uint32_t *count)
+{
+    /* static: a row is too large for the stack to be at ease. */
+    static DataBinRow row;
+    uint32_t index[64];
+    uint32_t unit_column = 0;
+    uint32_t id_column = 0;
+    if (column_count > sizeof index / sizeof index[0]
+        || !databin_column(bin, table, "typeID", &unit_column)
+        || !databin_column(bin, table, "serverID", &id_column)) {
+        return false;
+    }
+    for (size_t i = 0; i < column_count; i++) {
+        index[i] = UINT32_MAX;
+        databin_column(bin, table, columns[i].column, &index[i]);
+    }
+
+    DataBinRows rows = databin_rows(bin, table);
+    while (databin_next(&rows, &row)) {
+        /* An empty row has no numbers at all. */
+        if (unit_column >= row.number_count
+            || id_column >= row.number_count
+            || row.numbers[unit_column] != id) {
+            continue;
+        }
+        if (!put_kind(b, &row, row.numbers[id_column], group, columns,
+                index, column_count)) {
+            return false;
+        }
+        (*count)++;
+    }
+    return true;
+}
+
+bool unit_toml_write_kinds(ByteBuffer *b, const DataBin *bin, int32_t id,
+    uint32_t *out_count)
+{
+    uint32_t count = 0;
+    if (!put_kinds(b, bin, DATABIN_MONSTERS, "monster", MONSTER_COLUMNS,
+            sizeof MONSTER_COLUMNS / sizeof MONSTER_COLUMNS[0], id, &count)
+        || !put_kinds(b, bin, DATABIN_HUMANS, "human", HUMAN_COLUMNS,
+            sizeof HUMAN_COLUMNS / sizeof HUMAN_COLUMNS[0], id, &count)) {
+        return false;
+    }
+    if (out_count != NULL) {
+        *out_count = count;
+    }
+    return true;
+}

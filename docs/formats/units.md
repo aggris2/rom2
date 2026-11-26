@@ -205,6 +205,10 @@ file is described at the top of `tools/import/unit_toml.h`. Places inside
 the unit's box, which are the selection box and the points a shot leaves
 from, are written counted from `CenterX`, `CenterY`.
 
+After that the file lists the unit's kinds, the rows of `data.bin` that
+name this unit, each with its numbers: a weak and a strong goblin are
+two kinds of the one goblin unit. The 59 units have 458 kinds.
+
 59 of the 61 units are written. The two whose frame count does not fit
 are left out with a message.
 

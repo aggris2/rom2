@@ -44,13 +44,14 @@ compression inside a PNG, and has the CRC that goes with it. The work is
 done by the zlib library, and this is the only file that calls it.
 
 `tools/import` reads the original game's files: so far the `.res`
-archives, the `.reg` registries, the `.256` sprites and the `.pal`
-palettes. It is the only
+archives, the `.reg` registries, the `.256` sprites, the `.pal`
+palettes and the tables of `data.bin`. It is the only
 code that knows those formats. The game itself never opens an original
 file. The formats are described in
 [docs/formats](docs/formats/README.md). It also writes what the
 import produces: ROM2's own content, one folder for each thing. So far
-that is units. A unit's folder has its definition, `unit.toml`, and its
+that is units. A unit's folder has its definition, `unit.toml`, which
+also lists the unit's kinds with their numbers, and its
 frames laid out as two sprite sheets, grids of cells of one size, in
 8-bit indexed PNG pictures: a main sheet and one with its dying frames.
 Its colourings are a third picture, with one palette in each row.

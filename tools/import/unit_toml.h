@@ -72,6 +72,7 @@
 #include <stdint.h>
 
 #include "base/buffer.h"
+#include "import/databin.h"
 #include "import/reg.h"
 #include "import/unit_layout.h"
 #include "import/unit_sheet.h"
@@ -114,5 +115,32 @@ typedef struct UnitTomlPalettes {
 bool unit_toml_write(ByteBuffer *b, const Reg *reg, int32_t id,
     const UnitLayout *layout, const UnitSheet *sheet,
     const UnitSheet *dying, const UnitTomlPalettes *palettes);
+
+/* Adds the kinds of the unit with the given ID to `b`, after the text
+ * unit_toml_write() made. A kind is a row of data.bin's monsters or
+ * humans: one set of numbers for a unit, such as a weak and a strong
+ * goblin. Each is written as an entry of the list "kind":
+ *
+ *     [[kind]]
+ *     id = 600
+ *     name = "Goblin_Pike"
+ *     group = "monster"
+ *     body = 20
+ *     health = 40
+ *     face = 1
+ *     items = ["Bronze Pike"]
+ *
+ * `id` is the number data.bin calls serverID, and `group` says which of
+ * the two tables the kind is from. The other numbers are the table's
+ * columns in its own order, under ROM2's names for them. `face` is the
+ * row of the unit's palettes, counted from 1. A column this does not
+ * know is left out, and so are the unit's ID and empty items.
+ *
+ * `*out_count`, if not NULL, is set to the number of kinds written.
+ *
+ * Returns false if a table has no "typeID" or "serverID" column, or
+ * memory runs out. `b` may then hold part of the text. */
+bool unit_toml_write_kinds(ByteBuffer *b, const DataBin *bin, int32_t id,
+    uint32_t *out_count);
 
 #endif

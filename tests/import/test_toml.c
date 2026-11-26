@@ -135,3 +135,32 @@ UTEST(toml, lines_follow_each_other_in_the_buffer)
         "sheet = \"sprites.png\"\ncell = [88, 72]\n"));
     buffer_free(&b);
 }
+
+UTEST(toml, table_list_writes_the_name_in_double_brackets)
+{
+    ByteBuffer b = {0};
+    ASSERT_TRUE(toml_table_list(&b, "kind"));
+    ASSERT_TRUE(toml_int(&b, "id", 600));
+    ASSERT_TRUE(toml_table_list(&b, "kind"));
+    ASSERT_TRUE(holds(&b, "\n[[kind]]\nid = 600\n\n[[kind]]\n"));
+    buffer_free(&b);
+}
+
+UTEST(toml, text_list_writes_each_text_in_quotes)
+{
+    const char *const items[] = {"Bronze Pike", "Wooden Shield"};
+    ByteBuffer b = {0};
+    ASSERT_TRUE(toml_text_list(&b, "items", items, 2));
+    ASSERT_TRUE(holds(&b, "items = [\"Bronze Pike\", \"Wooden Shield\"]\n"));
+    buffer_free(&b);
+}
+
+UTEST(toml, text_list_of_one_or_no_texts)
+{
+    const char *const items[] = {"a \"b\""};
+    ByteBuffer b = {0};
+    ASSERT_TRUE(toml_text_list(&b, "one", items, 1));
+    ASSERT_TRUE(toml_text_list(&b, "none", NULL, 0));
+    ASSERT_TRUE(holds(&b, "one = [\"a \\\"b\\\"\"]\nnone = []\n"));
+    buffer_free(&b);
+}

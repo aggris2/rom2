@@ -25,15 +25,22 @@ bool toml_table(ByteBuffer *b, const char *name)
     return put(b, "\n[") && put(b, name) && put(b, "]\n");
 }
 
+bool toml_table_list(ByteBuffer *b, const char *name)
+{
+    return put(b, "\n[[") && put(b, name) && put(b, "]]\n");
+}
+
 bool toml_int(ByteBuffer *b, const char *key, int32_t value)
 {
     return put(b, key) && put(b, " = ") && put_int(b, value)
         && put(b, "\n");
 }
 
-bool toml_text(ByteBuffer *b, const char *key, const char *text)
+/* Adds a text in quotes, with what TOML cannot hold as it is written
+ * another way. */
+static bool put_quoted(ByteBuffer *b, const char *text)
 {
-    if (!put(b, key) || !put(b, " = \"")) {
+    if (!put(b, "\"")) {
         return false;
     }
     for (const char *p = text; *p != '\0'; p++) {
@@ -53,7 +60,27 @@ bool toml_text(ByteBuffer *b, const char *key, const char *text)
             return false;
         }
     }
-    return put(b, "\"\n");
+    return put(b, "\"");
+}
+
+bool toml_text(ByteBuffer *b, const char *key, const char *text)
+{
+    return put(b, key) && put(b, " = ") && put_quoted(b, text)
+        && put(b, "\n");
+}
+
+bool toml_text_list(ByteBuffer *b, const char *key,
+    const char *const *texts, size_t count)
+{
+    if (!put(b, key) || !put(b, " = [")) {
+        return false;
+    }
+    for (size_t i = 0; i < count; i++) {
+        if ((i > 0 && !put(b, ", ")) || !put_quoted(b, texts[i])) {
+            return false;
+        }
+    }
+    return put(b, "]\n");
 }
 
 bool toml_int_list(ByteBuffer *b, const char *key, const int32_t *values,

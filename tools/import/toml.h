@@ -11,7 +11,7 @@
  *
  * Each function here adds one line to a buffer. This writes only the
  * small part of TOML that ROM2 needs: whole numbers, texts, and lists of
- * whole numbers.
+ * either.
  *
  * A key or a header is written as it is given, so it may hold only
  * letters, digits, '_' and '-', and a header also '.' between names.
@@ -35,6 +35,11 @@ bool toml_comment(ByteBuffer *b, const char *text);
  * it belong to it. */
 bool toml_table(ByteBuffer *b, const char *name);
 
+/* Adds the header of one entry of a list of tables, with an empty line
+ * before it: "[[name]]". Each such header starts another entry, and the
+ * lines after it belong to that entry. */
+bool toml_table_list(ByteBuffer *b, const char *name);
+
 /* Adds a whole number: "key = 3". */
 bool toml_int(ByteBuffer *b, const char *key, int32_t value);
 
@@ -48,5 +53,10 @@ bool toml_text(ByteBuffer *b, const char *key, const char *text);
  * when `count` is 0, which gives "key = []". */
 bool toml_int_list(ByteBuffer *b, const char *key, const int32_t *values,
     size_t count);
+
+/* Adds a list of texts: key = ["a", "b"]. Each text is written as
+ * toml_text() writes one. `texts` may be NULL when `count` is 0. */
+bool toml_text_list(ByteBuffer *b, const char *key,
+    const char *const *texts, size_t count);
 
 #endif

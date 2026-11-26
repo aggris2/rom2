@@ -16,13 +16,8 @@ and a few lines of values as examples.
 | `.reg` | 17 | registries of named values | [reg.md](reg.md) |
 | `.256` | 1,929 | sprites in 256 colours | [256.md](256.md) |
 | `.pal` | 159 | palettes for colour variants | [units.md](units.md) |
+| `data.bin` | 1 | kinds of units, items, spells, buildings | [databin.md](databin.md) |
 | | | how a unit's values and frames fit together | [units.md](units.md) |
-
-Described, and not read by ROM2 yet:
-
-| Format | Files | What it is | Page |
-|---|---|---|---|
-| `data.bin` | 1 | kinds of units, items, spells and buildings | [databin.md](databin.md) |
 
 ## Not described yet
 

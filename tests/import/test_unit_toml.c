@@ -2,6 +2,7 @@
 
 #include <string.h>
 
+#include "make_databin.h"
 #include "make_reg.h"
 #include "utest.h"
 
@@ -473,4 +474,163 @@ UTEST(unit_toml, write_says_when_the_player_picks_the_palette)
     /* No dying sheet, so nothing about its palettes either. */
     ASSERT_FALSE(has(&b, "[dying]"));
     buffer_free(&b);
+}
+
+/* ---- unit_toml_write_kinds ---- */
+
+/* A data.bin with three monster kinds, two of them goblins (unit 64) and
+ * one empty row between them, and two human kinds of unit 3. */
+static void make_kinds(ByteBuffer *b)
+{
+    const char *const monster_columns[] = {
+        "body", "healthMax", "typeID", "face", "not used", "serverID"
+    };
+    const char *const human_columns[] = {
+        "Body", "typeID", "face", "gender ( is female? )", "serverID"
+    };
+    const int32_t goblin[] = {20, 40, 64, 1, -1, 600};
+    const int32_t goblin2[] = {30, 80, 64, 2, -1, 601};
+    const int32_t orc[] = {50, 90, 65, 1, -1, 610};
+    const int32_t knight[] = {25, 3, 7, 0, 12};
+    const int32_t lady[] = {15, 3, 9, 1, 13};
+
+    put_empty_first_tables(b);
+    put_header(b, monster_columns, 6);
+    put_i32(b, 5);
+    put_row(b, "Goblin_Pike", goblin, 6);
+    put_text(b, "Bronze Pike");
+    put_text(b, "");
+    put_row(b, "", NULL, 0);
+    put_text(b, "");
+    put_text(b, "");
+    put_row(b, "Orc", orc, 6);
+    put_text(b, "");
+    put_text(b, "");
+    put_row(b, "Goblin_Pike.2", goblin2, 6);
+    put_text(b, "Iron Pike");
+    put_text(b, "Wooden Shield");
+
+    put_header(b, human_columns, 5);
+    put_i32(b, 3);
+    put_row(b, "Knight", knight, 5);
+    put_text(b, "Long Sword");
+    for (int i = 1; i < 10; i++) {
+        put_text(b, i == 4 ? "Helm" : "");
+    }
+    put_row(b, "Lady", lady, 5);
+    for (int i = 0; i < 10; i++) {
+        put_text(b, "");
+    }
+    put_empty_last_tables(b);
+}
+
+UTEST(unit_toml, write_kinds_gives_every_kind_of_the_unit)
+{
+    ByteBuffer file = {0};
+    ByteBuffer b = {0};
+    DataBin bin;
+    uint32_t count = 99;
+    make_kinds(&file);
+    ASSERT_TRUE(databin_open(file.data, file.size, &bin));
+
+    ASSERT_TRUE(unit_toml_write_kinds(&b, &bin, 64, &count));
+
+    ASSERT_EQ(2u, count);
+    ASSERT_TRUE(holds(&b,
+        "\n[[kind]]\n"
+        "id = 600\n"
+        "name = \"Goblin_Pike\"\n"
+        "group = \"monster\"\n"
+        "body = 20\n"
+        "health = 40\n"
+        "face = 1\n"
+        "items = [\"Bronze Pike\"]\n"
+        "\n[[kind]]\n"
+        "id = 601\n"
+        "name = \"Goblin_Pike.2\"\n"
+        "group = \"monster\"\n"
+        "body = 30\n"
+        "health = 80\n"
+        "face = 2\n"
+        "items = [\"Iron Pike\", \"Wooden Shield\"]\n"));
+    buffer_free(&b);
+    buffer_free(&file);
+}
+
+UTEST(unit_toml, write_kinds_gives_human_kinds_with_their_columns)
+{
+    ByteBuffer file = {0};
+    ByteBuffer b = {0};
+    DataBin bin;
+    uint32_t count = 99;
+    make_kinds(&file);
+    ASSERT_TRUE(databin_open(file.data, file.size, &bin));
+
+    ASSERT_TRUE(unit_toml_write_kinds(&b, &bin, 3, &count));
+
+    ASSERT_EQ(2u, count);
+    ASSERT_TRUE(holds(&b,
+        "\n[[kind]]\n"
+        "id = 12\n"
+        "name = \"Knight\"\n"
+        "group = \"human\"\n"
+        "body = 25\n"
+        "face = 7\n"
+        "female = 0\n"
+        "items = [\"Long Sword\", \"Helm\"]\n"
+        "\n[[kind]]\n"
+        "id = 13\n"
+        "name = \"Lady\"\n"
+        "group = \"human\"\n"
+        "body = 15\n"
+        "face = 9\n"
+        "female = 1\n"));
+    buffer_free(&b);
+    buffer_free(&file);
+}
+
+UTEST(unit_toml, write_kinds_of_a_unit_without_kinds_adds_nothing)
+{
+    ByteBuffer file = {0};
+    ByteBuffer b = {0};
+    DataBin bin;
+    uint32_t count = 99;
+    make_kinds(&file);
+    ASSERT_TRUE(databin_open(file.data, file.size, &bin));
+
+    ASSERT_TRUE(unit_toml_write_kinds(&b, &bin, 70, &count));
+    ASSERT_EQ(0u, count);
+    ASSERT_EQ(0u, b.size);
+    /* The count may be left out. */
+    ASSERT_TRUE(unit_toml_write_kinds(&b, &bin, 65, NULL));
+    ASSERT_TRUE(has(&b, "id = 610\n"));
+    buffer_free(&b);
+    buffer_free(&file);
+}
+
+UTEST(unit_toml, write_kinds_refuses_a_table_without_its_id_columns)
+{
+    /* Monsters with no "serverID" column. */
+    const char *const columns[] = {"body", "typeID"};
+    const char *const human_columns[] = {"typeID", "serverID"};
+    const int32_t goblin[] = {20, 64};
+    ByteBuffer file = {0};
+    ByteBuffer b = {0};
+    DataBin bin;
+    uint32_t count = 99;
+    put_empty_first_tables(&file);
+    put_header(&file, columns, 2);
+    put_i32(&file, 2);
+    put_row(&file, "Goblin", goblin, 2);
+    put_text(&file, "");
+    put_text(&file, "");
+    put_header(&file, human_columns, 2);
+    put_i32(&file, 1);
+    put_empty_last_tables(&file);
+    ASSERT_TRUE(databin_open(file.data, file.size, &bin));
+
+    ASSERT_FALSE(unit_toml_write_kinds(&b, &bin, 64, &count));
+    ASSERT_EQ(99u, count);
+    buffer_free(&b);
+    buffer_free(&file);
 }

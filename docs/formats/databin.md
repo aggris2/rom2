@@ -8,7 +8,8 @@ other.
 Measured on the `data.bin` of the GOG release, 149,971 bytes. Read as
 described below, the tables end exactly at the last byte of the file.
 
-ROM2 does not read this file yet.
+Read by `tools/import/databin.c`. So far ROM2 uses the monsters and the
+humans.
 
 ## Building blocks
 
@@ -75,6 +76,10 @@ monster kinds and each of the 284 human kinds that are not empty.
 Example, the monster `Goblin_Pike`: body 20, healthMax 40, speed 24,
 physicalMin 4, physicalMax 8, typeID 64, face 1, XPvalue 60, and the
 item `Bronze Pike`.
+
+Of the 464 kinds, 6 point at a unit that `units.reg` does not have or
+that ROM2 leaves out: the monsters `Root` (78), `Sheep` (107) and `Human`
+(-1), and three humans on horseback (17, 18 and 20).
 
 ## Spells
 

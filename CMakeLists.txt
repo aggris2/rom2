@@ -77,6 +77,7 @@ rom2_set_warnings(rom2_core)
 # rom2_import: readers for the original game's file formats. Only the
 # importer uses them; the game itself never reads an original file.
 add_library(rom2_import STATIC
+    tools/import/databin.c
     tools/import/name.c
     tools/import/pal.c
     tools/import/png.c
@@ -113,6 +114,7 @@ add_executable(rom2_tests
     tests/base/test_file.c
     tests/base/test_pack.c
     tests/base/test_reader.c
+    tests/import/test_databin.c
     tests/import/test_name.c
     tests/import/test_pal.c
     tests/import/test_png.c
