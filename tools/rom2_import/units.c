@@ -1,6 +1,5 @@
-/* import_units: writes the units of the original game as ROM2 content.
- *
- *     import_units <graphics.res> <world.res> <content folder> [unit id]
+/* The units step of rom2_import: writes the units of the original game as
+ * ROM2 content.
  *
  * Every unit gets a folder of its own in <content folder>/units, named
  * after its ID and its name, with three files in it:
@@ -18,8 +17,9 @@
  *
  * With a unit ID only that unit is written.
  */
+#include "rom2_import/steps.h"
+
 #include <stdio.h>
-#include <stdlib.h>
 #include <string.h>
 
 #include "base/buffer.h"
@@ -382,35 +382,24 @@ static uint32_t count_kinds(const DataBin *bin)
     return count;
 }
 
-/* Does the work once the archive is in memory. `only` is the one unit to
- * write, or -1 for all. Returns how many units could not be written, or
- * -1 if nothing could be done at all. */
-static int import_units(const uint8_t *data, size_t size,
-    const uint8_t *world_data, size_t world_size,
+int import_units(const ResArchive *graphics, const ResArchive *world,
     const char *content_folder, int32_t only)
 {
-    ResArchive archive;
     ResEntry entry;
     Reg reg;
     int32_t count = 0;
-    if (!res_open(data, size, &archive)) {
-        fprintf(stderr, "import_units: not a .res archive\n");
-        return -1;
-    }
-    if (!res_find(&archive, "units/units.reg", &entry) || entry.is_folder
-        || !reg_open(archive.data + entry.offset, entry.size, &reg)
+    if (!res_find(graphics, "units/units.reg", &entry) || entry.is_folder
+        || !reg_open(graphics->data + entry.offset, entry.size, &reg)
         || !reg_int(&reg, "Global", "UnitCount", &count)) {
-        fprintf(stderr, "import_units: no units/units.reg in the archive\n");
+        fprintf(stderr, "units: no units/units.reg in graphics.res\n");
         return -1;
     }
 
-    ResArchive world;
     DataBin bin;
-    if (!res_open(world_data, world_size, &world)
-        || !res_find(&world, "data/data.bin", &entry) || entry.is_folder
-        || !databin_open(world.data + entry.offset, entry.size, &bin)) {
-        fprintf(stderr, "import_units: no usable data/data.bin in the "
-            "second archive\n");
+    if (!res_find(world, "data/data.bin", &entry) || entry.is_folder
+        || !databin_open(world->data + entry.offset, entry.size, &bin)) {
+        fprintf(stderr, "units: no usable data/data.bin in "
+            "world.res\n");
         return -1;
     }
 
@@ -420,7 +409,7 @@ static int import_units(const uint8_t *data, size_t size,
     if (written < 0 || (size_t)written >= sizeof units_folder
         || !file_make_folder(content_folder)
         || !file_make_folder(units_folder)) {
-        fprintf(stderr, "import_units: cannot make the folder %s/units\n",
+        fprintf(stderr, "units: cannot make the folder %s/units\n",
             content_folder);
         return -1;
     }
@@ -439,7 +428,7 @@ static int import_units(const uint8_t *data, size_t size,
             continue;
         }
         uint32_t kind_count = 0;
-        const char *problem = unit_write(&archive, &reg, &bin, id,
+        const char *problem = unit_write(graphics, &reg, &bin, id,
             units_folder, &kind_count);
         if (problem == NULL) {
             done++;
@@ -453,7 +442,7 @@ static int import_units(const uint8_t *data, size_t size,
         }
     }
     if (only >= 0 && done + failed == 0) {
-        fprintf(stderr, "import_units: no unit has the ID %d\n", (int)only);
+        fprintf(stderr, "units: no unit has the ID %d\n", (int)only);
         return -1;
     }
     printf("%d units written with %u kinds, %d left out\n", done, kinds,
@@ -465,34 +454,4 @@ static int import_units(const uint8_t *data, size_t size,
             count_kinds(&bin) - kinds);
     }
     return failed;
-}
-
-int main(int argc, char **argv)
-{
-    if (argc != 4 && argc != 5) {
-        fprintf(stderr, "usage: import_units <graphics.res> <world.res> "
-            "<content folder> [unit id]\n");
-        return 2;
-    }
-
-    uint8_t *data = NULL;
-    uint8_t *world = NULL;
-    size_t size = 0;
-    size_t world_size = 0;
-    if (!file_read_all(argv[1], &data, &size)) {
-        fprintf(stderr, "import_units: cannot read %s\n", argv[1]);
-        return 1;
-    }
-    if (!file_read_all(argv[2], &world, &world_size)) {
-        fprintf(stderr, "import_units: cannot read %s\n", argv[2]);
-        free(data);
-        return 1;
-    }
-    int32_t only = argc == 5 ? atoi(argv[4]) : -1;
-    int failed = import_units(data, size, world, world_size, argv[3], only);
-    free(world);
-    free(data);
-    /* Asking for one unit and not getting it is a failure. Importing
-     * all of them and leaving some out is reported and is not. */
-    return failed < 0 || (only >= 0 && failed > 0) ? 1 : 0;
 }

@@ -45,6 +45,12 @@ typedef struct ResArchive {
     const uint8_t *data;
     size_t size;
     ResHeader header;
+    /* Where the files that are read get noted, or NULL to note nothing:
+     * one byte for each entry of the table, which the caller owns. A
+     * file found by res_find, or given to res_note, gets `mark` there.
+     * res_open sets `found` to NULL and `mark` to 1. */
+    uint8_t *found;
+    uint8_t mark;
 } ResArchive;
 
 /* Opens an archive held in memory. Returns false, and leaves `*out` alone,
@@ -67,5 +73,10 @@ Reader res_file_reader(const ResArchive *a, const ResEntry *entry);
  * Returns false, and leaves `*out` alone, if there is no such entry or
  * the archive is damaged. */
 bool res_find(const ResArchive *a, const char *path, ResEntry *out);
+
+/* Notes entry number `index` as read, for code that goes through the
+ * table itself. Does nothing if nothing is noted or there is no such
+ * entry. */
+void res_note(const ResArchive *a, uint32_t index);
 
 #endif

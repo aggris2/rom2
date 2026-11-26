@@ -45,7 +45,7 @@ done by the zlib library, and this is the only file that calls it.
 
 `tools/import` reads the original game's files: so far the `.res` archives,
 the `.reg` registries, the `.256` and `.16a` sprites, the `.pal` palettes,
-the `.bmp` pictures of the ground and the tables of `data.bin`. It is the
+the `.bmp` pictures and the tables of `data.bin`. It is the
 only code that knows those formats. The game itself never opens an original
 file. The formats are described in [docs/formats](docs/formats/README.md).
 It also writes what the import produces: ROM2's own content, one folder for
@@ -68,11 +68,17 @@ pictures as worn on a character. The materials, the classes and the
 modifiers, which have no pictures, are a file each. The ground is one
 picture of all its tiles, which a map names by column and row.
 
-A few small programs run it. `res_list` prints the files in an archive.
-`import_units`, `import_objects`, `import_structures`,
-`import_projectiles`, `import_spells` and `import_items` each write the
-folders of all the things of their kind, and most can write one alone.
-`import_terrain` writes the ground.
+The plain pictures of the interface, the menus and the shops are
+written as PNG files under the names the original gives them.
+
+One program runs it, `rom2_import`, in `tools/rom2_import`. Each kind of
+thing is a step, in a file of its own: `units.c`, `objects.c` and so on,
+with `steps.h` naming them all. `main.c` opens the original's archives
+once, runs the steps in turn and hands each the archives it needs. An
+archive notes every file a step reads, so at the end the program can say
+which of the original's files no step has read yet. That list is how we
+know what is left to import. A second small program, `res_list`, prints
+the files in an archive.
 
 ## Libraries
 

@@ -1,7 +1,5 @@
-/* import_spells: writes the spells of the original game as ROM2
- * content.
- *
- *     import_spells <world.res> <content folder> [id]
+/* The spells step of rom2_import: writes the spells of the original game as
+ * ROM2 content.
  *
  * Every spell gets a folder of its own in <content folder>/spells, named
  * after its number and its name, with its definition in it, spell.toml.
@@ -9,8 +7,9 @@
  *
  * With a spell number only that spell is written.
  */
+#include "rom2_import/steps.h"
+
 #include <stdio.h>
-#include <stdlib.h>
 
 #include "base/buffer.h"
 #include "base/file.h"
@@ -51,22 +50,17 @@ static const char *spell_write(const DataBin *bin, int32_t id,
     return problem;
 }
 
-/* Does the work once the archive is in memory. `only` is the one spell
- * to write, or -1 for all. Returns how many spells could not be written,
- * or -1 if nothing could be done at all. */
-static int import_spells(const uint8_t *data, size_t size,
-    const char *content_folder, int32_t only)
+int import_spells(const ResArchive *world, const char *content_folder,
+    int32_t only)
 {
     /* static: a row is too large for the stack to be at ease. */
     static DataBinRow row;
-    ResArchive archive;
     ResEntry entry;
     DataBin bin;
-    if (!res_open(data, size, &archive)
-        || !res_find(&archive, "data/data.bin", &entry) || entry.is_folder
-        || !databin_open(archive.data + entry.offset, entry.size, &bin)) {
-        fprintf(stderr, "import_spells: no usable data/data.bin in the "
-            "archive\n");
+    if (!res_find(world, "data/data.bin", &entry) || entry.is_folder
+        || !databin_open(world->data + entry.offset, entry.size, &bin)) {
+        fprintf(stderr, "spells: no usable data/data.bin in "
+            "world.res\n");
         return -1;
     }
 
@@ -76,7 +70,7 @@ static int import_spells(const uint8_t *data, size_t size,
     if (written < 0 || (size_t)written >= sizeof spells_folder
         || !file_make_folder(content_folder)
         || !file_make_folder(spells_folder)) {
-        fprintf(stderr, "import_spells: cannot make the folder %s/spells\n",
+        fprintf(stderr, "spells: cannot make the folder %s/spells\n",
             content_folder);
         return -1;
     }
@@ -103,30 +97,10 @@ static int import_spells(const uint8_t *data, size_t size,
         }
     }
     if (only >= 0 && done + failed == 0) {
-        fprintf(stderr, "import_spells: no spell has the number %d\n",
+        fprintf(stderr, "spells: no spell has the number %d\n",
             (int)only);
         return -1;
     }
     printf("%d spells written, %d left out\n", done, failed);
     return failed;
-}
-
-int main(int argc, char **argv)
-{
-    if (argc != 3 && argc != 4) {
-        fprintf(stderr, "usage: import_spells <world.res> "
-            "<content folder> [id]\n");
-        return 2;
-    }
-
-    uint8_t *data = NULL;
-    size_t size = 0;
-    if (!file_read_all(argv[1], &data, &size)) {
-        fprintf(stderr, "import_spells: cannot read %s\n", argv[1]);
-        return 1;
-    }
-    int32_t only = argc == 4 ? atoi(argv[3]) : -1;
-    int failed = import_spells(data, size, argv[2], only);
-    free(data);
-    return failed != 0 ? 1 : 0;
 }

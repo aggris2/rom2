@@ -117,44 +117,24 @@ add_executable(res_list tools/res_list/main.c)
 target_link_libraries(res_list PRIVATE rom2_import)
 rom2_set_warnings(res_list)
 
-# import_units: writes the units of the original game as ROM2 content.
-add_executable(import_units tools/import_units/main.c)
-target_link_libraries(import_units PRIVATE rom2_import)
-rom2_set_warnings(import_units)
-
-# import_objects: writes the objects of the original game as ROM2
-# content.
-add_executable(import_objects tools/import_objects/main.c)
-target_link_libraries(import_objects PRIVATE rom2_import)
-rom2_set_warnings(import_objects)
-
-# import_structures: writes the structures of the original game as ROM2
-# content.
-add_executable(import_structures tools/import_structures/main.c)
-target_link_libraries(import_structures PRIVATE rom2_import)
-rom2_set_warnings(import_structures)
-
-# import_projectiles: writes the projectiles of the original game as
-# ROM2 content.
-add_executable(import_projectiles tools/import_projectiles/main.c)
-target_link_libraries(import_projectiles PRIVATE rom2_import)
-rom2_set_warnings(import_projectiles)
-
-# import_spells: writes the spells of the original game as ROM2 content.
-add_executable(import_spells tools/import_spells/main.c)
-target_link_libraries(import_spells PRIVATE rom2_import)
-rom2_set_warnings(import_spells)
-
-# import_items: writes the items of the original game as ROM2 content.
-add_executable(import_items tools/import_items/main.c)
-target_link_libraries(import_items PRIVATE rom2_import)
-rom2_set_warnings(import_items)
-
-# import_terrain: writes the ground tiles of the original game as ROM2
-# content.
-add_executable(import_terrain tools/import_terrain/main.c)
-target_link_libraries(import_terrain PRIVATE rom2_import)
-rom2_set_warnings(import_terrain)
+# rom2_import: writes the original game's files as ROM2 content. Each
+# kind of thing is a step, in a file of its own.
+# The library of readers has the name already, so the target is called
+# import_program and only the file it builds is rom2_import.
+add_executable(import_program
+    tools/rom2_import/main.c
+    tools/rom2_import/interface.c
+    tools/rom2_import/items.c
+    tools/rom2_import/objects.c
+    tools/rom2_import/projectiles.c
+    tools/rom2_import/spells.c
+    tools/rom2_import/structures.c
+    tools/rom2_import/terrain.c
+    tools/rom2_import/units.c
+)
+set_target_properties(import_program PROPERTIES OUTPUT_NAME rom2_import)
+target_link_libraries(import_program PRIVATE rom2_import)
+rom2_set_warnings(import_program)
 
 # Tests: one program, rom2_tests, built from every test file.
 enable_testing()

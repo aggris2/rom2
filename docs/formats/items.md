@@ -158,7 +158,7 @@ not done yet.
 
 ## What ROM2 writes
 
-`import_items` writes, in `content/items`:
+The importer writes, in `content/items`:
 
 - A folder for every shape, in `weapons`, `shields` or `armour`, named
   after its place and its name: `weapons/002_dagger`. In it is

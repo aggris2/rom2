@@ -87,7 +87,7 @@ registry has no centre: it is the middle too.
 
 ## What ROM2 writes for a projectile
 
-`import_projectiles` writes a folder for every projectile, named after
+The importer writes a folder for every projectile, named after
 its ID and its file: `010_firebolt_sprites`. In it are
 `projectile.toml`, described at the top of
 `tools/import/projectile_toml.h`, and three pictures:

@@ -51,7 +51,7 @@ and what it costs to walk on, is not in these files.
 
 ## What ROM2 writes
 
-`import_terrain` writes, in `content/terrain`:
+The importer writes, in `content/terrain`:
 
 - `tiles.png`: every tile in one picture, an 8-bit indexed PNG with the
   shared palette and no transparent index. It has a column for each of

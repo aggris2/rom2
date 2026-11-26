@@ -169,7 +169,7 @@ are in `.pal` files, read by `tools/import/pal.c`. Measured on the 159
 
 ## What ROM2 writes for a unit
 
-`import_units` writes a folder for every unit, named after its ID and
+The importer writes a folder for every unit, named after its ID and
 its name: `003_human_swordsman`. In it are the unit's definition,
 `unit.toml`, two sheets, `sprites.png` and `dying.png`, and the unit's
 colourings, `palettes.png`. The sheets are 8-bit indexed PNGs, and each

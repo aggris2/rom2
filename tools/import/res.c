@@ -64,6 +64,8 @@ bool res_open(const uint8_t *data, size_t size, ResArchive *out)
     out->data = data;
     out->size = size;
     out->header = header;
+    out->found = NULL;
+    out->mark = 1;
     return true;
 }
 
@@ -108,7 +110,8 @@ Reader res_file_reader(const ResArchive *a, const ResEntry *entry)
 /* Looks in the folder made of `count` entries starting at entry `first`
  * for one whose name is the first `length` characters of `name`. */
 static bool find_in_folder(const ResArchive *a, uint32_t first,
-    uint32_t count, const char *name, size_t length, ResEntry *out)
+    uint32_t count, const char *name, size_t length, ResEntry *out,
+    uint32_t *out_index)
 {
     if (length > RES_NAME_SIZE) {
         return false;
@@ -121,10 +124,18 @@ static bool find_in_folder(const ResArchive *a, uint32_t first,
         if (strncmp(entry.name, name, length) == 0
             && entry.name[length] == '\0') {
             *out = entry;
+            *out_index = first + i;
             return true;
         }
     }
     return false;
+}
+
+void res_note(const ResArchive *a, uint32_t index)
+{
+    if (a->found != NULL && index < a->header.entry_count) {
+        a->found[index] = a->mark;
+    }
 }
 
 bool res_find(const ResArchive *a, const char *path, ResEntry *out)
@@ -139,10 +150,15 @@ bool res_find(const ResArchive *a, const char *path, ResEntry *out)
         size_t length = slash != NULL ? (size_t)(slash - path) : strlen(path);
 
         ResEntry entry;
-        if (!find_in_folder(a, first, count, path, length, &entry)) {
+        uint32_t index = 0;
+        if (!find_in_folder(a, first, count, path, length, &entry,
+                &index)) {
             return false;
         }
         if (slash == NULL) {
+            if (!entry.is_folder) {
+                res_note(a, index);
+            }
             *out = entry;
             return true;
         }

@@ -1,6 +1,5 @@
-/* import_items: writes the items of the original game as ROM2 content.
- *
- *     import_items <graphics.res> <world.res> <content folder>
+/* The items step of rom2_import: writes the items of the original game as
+ * ROM2 content.
  *
  * In <content folder>/items this makes:
  *
@@ -24,8 +23,9 @@
  * The numbers come from data.bin in world.res, the pictures from
  * graphics.res.
  */
+#include "rom2_import/steps.h"
+
 #include <stdio.h>
-#include <stdlib.h>
 #include <string.h>
 
 #include "base/buffer.h"
@@ -390,26 +390,15 @@ static bool table_write(const char *items_folder, const char *name,
     return ok;
 }
 
-/* Does the work once the archives are in memory. Returns how many
- * things could not be written, or -1 if nothing could be done. */
-static int import_items(const uint8_t *data, size_t size,
-    const uint8_t *world_data, size_t world_size,
+int import_items(const ResArchive *graphics, const ResArchive *world,
     const char *content_folder)
 {
-    ResArchive archive;
-    ResArchive world;
     ResEntry entry;
     DataBin bin;
-    if (!res_open(data, size, &archive)) {
-        fprintf(stderr, "import_items: the first file is not a .res "
-            "archive\n");
-        return -1;
-    }
-    if (!res_open(world_data, world_size, &world)
-        || !res_find(&world, "data/data.bin", &entry) || entry.is_folder
-        || !databin_open(world.data + entry.offset, entry.size, &bin)) {
-        fprintf(stderr, "import_items: no usable data/data.bin in the "
-            "second archive\n");
+    if (!res_find(world, "data/data.bin", &entry) || entry.is_folder
+        || !databin_open(world->data + entry.offset, entry.size, &bin)) {
+        fprintf(stderr, "items: no usable data/data.bin in "
+            "world.res\n");
         return -1;
     }
 
@@ -417,7 +406,7 @@ static int import_items(const uint8_t *data, size_t size,
     if (!file_make_folder(content_folder)
         || !make_folder(content_folder, "items", items_folder,
             sizeof items_folder)) {
-        fprintf(stderr, "import_items: cannot make the folder %s/items\n",
+        fprintf(stderr, "items: cannot make the folder %s/items\n",
             content_folder);
         return -1;
     }
@@ -428,13 +417,13 @@ static int import_items(const uint8_t *data, size_t size,
     int worn = 0;
     int failed = 0;
     printf("%s\n", items_folder);
-    failed += shapes_write(&archive, &bin, DATABIN_WEAPONS, items_folder,
+    failed += shapes_write(graphics, &bin, DATABIN_WEAPONS, items_folder,
         "weapons", &shapes, &icons, &worn);
-    failed += shapes_write(&archive, &bin, DATABIN_SHIELDS, items_folder,
+    failed += shapes_write(graphics, &bin, DATABIN_SHIELDS, items_folder,
         "shields", &shapes, &icons, &worn);
-    failed += shapes_write(&archive, &bin, DATABIN_ARMOUR, items_folder,
+    failed += shapes_write(graphics, &bin, DATABIN_ARMOUR, items_folder,
         "armour", &shapes, &icons, &worn);
-    failed += magic_write(&archive, &bin, items_folder, &magic, &icons);
+    failed += magic_write(graphics, &bin, items_folder, &magic, &icons);
     if (!table_write(items_folder, "materials.toml", &bin,
             item_toml_write_materials)
         || !table_write(items_folder, "classes.toml", &bin,
@@ -444,38 +433,11 @@ static int import_items(const uint8_t *data, size_t size,
         fprintf(stderr, "  the three tables could not be written\n");
         failed++;
     }
-    int characters = characters_write(&archive, content_folder);
+    int characters = characters_write(graphics, content_folder);
     printf("%d shapes and %d magic items written with %d pictures for the "
         "inventory and %d of items worn, %d left out\n", shapes, magic,
         icons, worn, failed);
     printf("%d characters written to %s/characters\n", characters,
         content_folder);
     return failed;
-}
-
-int main(int argc, char **argv)
-{
-    if (argc != 4) {
-        fprintf(stderr, "usage: import_items <graphics.res> <world.res> "
-            "<content folder>\n");
-        return 2;
-    }
-
-    uint8_t *data = NULL;
-    uint8_t *world = NULL;
-    size_t size = 0;
-    size_t world_size = 0;
-    if (!file_read_all(argv[1], &data, &size)) {
-        fprintf(stderr, "import_items: cannot read %s\n", argv[1]);
-        return 1;
-    }
-    if (!file_read_all(argv[2], &world, &world_size)) {
-        fprintf(stderr, "import_items: cannot read %s\n", argv[2]);
-        free(data);
-        return 1;
-    }
-    int failed = import_items(data, size, world, world_size, argv[3]);
-    free(world);
-    free(data);
-    return failed < 0 ? 1 : 0;
 }

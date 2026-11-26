@@ -32,26 +32,36 @@ formats.
 ## Importing the game's files
 
 ROM2 does not read the original game's files directly. An importer turns
-them into ROM2's own content folder, once. So far it imports the units,
-the objects, the structures, the projectiles, the spells, the items and
-the ground.
-With the original game's files in a folder called `game`:
+them into ROM2's own content folder, once. With the original game's
+archives, `graphics.res`, `world.res` and the others, in a folder called
+`game`:
 
 ```bash
-./build/import_units game/graphics.res game/world.res content
-./build/import_objects game/graphics.res content
-./build/import_structures game/graphics.res game/world.res content
-./build/import_projectiles game/graphics.res content
-./build/import_spells game/world.res content
-./build/import_items game/graphics.res game/world.res content
-./build/import_terrain game/graphics.res content
+./build/rom2_import game content
 ```
 
-This writes a folder for each unit, object, structure, projectile, spell
-and item into a folder of its kind, such as `content/units`, with its
-definition and its pictures, and the ground tiles into
-`content/terrain`. The `content` folder is yours and is not
-part of this repository.
+This runs every step of the import in turn. Each step writes one kind of
+thing into a folder of `content`:
+
+| Folder | What is in it |
+|---|---|
+| `units`, `objects`, `structures`, `projectiles`, `spells` | a folder for each thing, with its definition and its pictures |
+| `items`, `characters` | the items with their pictures, and the characters they are drawn on |
+| `terrain` | the ground tiles |
+| `interface` | the pictures of the interface, the menus and the shops |
+
+At the end it says how many of the original's files it read and how
+many it did not, and lists the ones it did not read in
+`content/not_imported.txt`. That list is what is still to be done.
+
+A step can be run alone, and most can write one thing alone, by its ID:
+
+```bash
+./build/rom2_import game content units
+./build/rom2_import game content units 12
+```
+
+The `content` folder is yours and is not part of this repository.
 
 ## Licence
 

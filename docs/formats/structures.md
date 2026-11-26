@@ -99,7 +99,7 @@ The row's other columns are `scanRange`, `healthMax`, `Passability` and
 
 ## What ROM2 writes for a structure
 
-`import_structures` writes a folder for every structure, named after
+The importer writes a folder for every structure, named after
 its ID and its name: `005_windmill_1`. In it are `structure.toml`,
 described at the top of `tools/import/structure_toml.h`, and these
 pictures:

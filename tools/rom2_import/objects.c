@@ -1,7 +1,5 @@
-/* import_objects: writes the objects of the original game as ROM2
- * content.
- *
- *     import_objects <graphics.res> <content folder> [object id]
+/* The objects step of rom2_import: writes the objects of the original game
+ * as ROM2 content.
  *
  * Every object gets a folder of its own in <content folder>/objects,
  * named after its ID and its name, with these files in it:
@@ -12,8 +10,9 @@
  *
  * With an object ID only that object is written.
  */
+#include "rom2_import/steps.h"
+
 #include <stdio.h>
-#include <stdlib.h>
 #include <string.h>
 
 #include "base/buffer.h"
@@ -138,30 +137,22 @@ static const char *object_write(const ResArchive *archive, const Reg *reg,
     return problem;
 }
 
-/* Does the work once the archive is in memory. `only` is the one object
- * to write, or -1 for all. Returns how many objects could not be
- * written, or -1 if nothing could be done at all. */
-static int import_objects(const uint8_t *data, size_t size,
-    const char *content_folder, int32_t only)
+int import_objects(const ResArchive *graphics, const char *content_folder,
+    int32_t only)
 {
-    ResArchive archive;
     ResEntry entry;
     Reg reg;
     uint32_t count = 0;
-    if (!res_open(data, size, &archive)) {
-        fprintf(stderr, "import_objects: not a .res archive\n");
-        return -1;
-    }
-    if (!res_find(&archive, "objects/objects.reg", &entry)
+    if (!res_find(graphics, "objects/objects.reg", &entry)
         || entry.is_folder
-        || !reg_open(archive.data + entry.offset, entry.size, &reg)) {
-        fprintf(stderr, "import_objects: no objects/objects.reg in the "
-            "archive\n");
+        || !reg_open(graphics->data + entry.offset, entry.size, &reg)) {
+        fprintf(stderr, "objects: no objects/objects.reg in "
+            "graphics.res\n");
         return -1;
     }
     Things t = objects_things(&reg);
     if (!things_count(&t, &count)) {
-        fprintf(stderr, "import_objects: the registry does not say how "
+        fprintf(stderr, "objects: the registry does not say how "
             "many objects it has\n");
         return -1;
     }
@@ -172,7 +163,7 @@ static int import_objects(const uint8_t *data, size_t size,
     if (written < 0 || (size_t)written >= sizeof objects_folder
         || !file_make_folder(content_folder)
         || !file_make_folder(objects_folder)) {
-        fprintf(stderr, "import_objects: cannot make the folder "
+        fprintf(stderr, "objects: cannot make the folder "
             "%s/objects\n", content_folder);
         return -1;
     }
@@ -185,7 +176,7 @@ static int import_objects(const uint8_t *data, size_t size,
         if (!things_id_at(&t, i, &id) || (only >= 0 && id != only)) {
             continue;
         }
-        const char *problem = object_write(&archive, &reg, id,
+        const char *problem = object_write(graphics, &reg, id,
             objects_folder);
         if (problem == NULL) {
             done++;
@@ -198,32 +189,10 @@ static int import_objects(const uint8_t *data, size_t size,
         }
     }
     if (only >= 0 && done + failed == 0) {
-        fprintf(stderr, "import_objects: no object has the ID %d\n",
+        fprintf(stderr, "objects: no object has the ID %d\n",
             (int)only);
         return -1;
     }
     printf("%d objects written, %d left out\n", done, failed);
     return failed;
-}
-
-int main(int argc, char **argv)
-{
-    if (argc != 3 && argc != 4) {
-        fprintf(stderr, "usage: import_objects <graphics.res> "
-            "<content folder> [object id]\n");
-        return 2;
-    }
-
-    uint8_t *data = NULL;
-    size_t size = 0;
-    if (!file_read_all(argv[1], &data, &size)) {
-        fprintf(stderr, "import_objects: cannot read %s\n", argv[1]);
-        return 1;
-    }
-    int32_t only = argc == 4 ? atoi(argv[3]) : -1;
-    int failed = import_objects(data, size, argv[2], only);
-    free(data);
-    /* Asking for one object and not getting it is a failure. Importing
-     * all of them and leaving some out is reported and is not. */
-    return failed < 0 || (only >= 0 && failed > 0) ? 1 : 0;
 }

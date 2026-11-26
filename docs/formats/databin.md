@@ -98,7 +98,7 @@ The text is what the spell does to its target, in a small language of
 its own: `speed=+2: duration 30`, `health=-2:continuous 8`. 14 spells
 have one. Reading it is not done yet.
 
-ROM2 writes a folder for every spell with `import_spells`: its numbers
+The importer writes a folder for every spell: its numbers
 under ROM2's names and its text as it is, in `spell.toml`, described at
 the top of `tools/import/spell_toml.h`. A spell's picture, and which
 projectile it sends, are not in this table.

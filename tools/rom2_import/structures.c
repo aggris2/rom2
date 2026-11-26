@@ -1,7 +1,5 @@
-/* import_structures: writes the structures of the original game as ROM2
- * content.
- *
- *     import_structures <graphics.res> <world.res> <content folder> [id]
+/* The structures step of rom2_import: writes the structures of the original
+ * game as ROM2 content.
  *
  * Every structure gets a folder of its own in <content folder>/structures,
  * named after its ID and its name, with these files in it:
@@ -15,8 +13,9 @@
  *
  * With a structure ID only that structure is written.
  */
+#include "rom2_import/steps.h"
+
 #include <stdio.h>
-#include <stdlib.h>
 #include <string.h>
 
 #include "base/buffer.h"
@@ -137,40 +136,29 @@ static const char *structure_write(const ResArchive *archive,
     return problem;
 }
 
-/* Does the work once the archives are in memory. `only` is the one
- * structure to write, or -1 for all. Returns how many structures could
- * not be written, or -1 if nothing could be done at all. */
-static int import_structures(const uint8_t *data, size_t size,
-    const uint8_t *world_data, size_t world_size,
+int import_structures(const ResArchive *graphics, const ResArchive *world,
     const char *content_folder, int32_t only)
 {
-    ResArchive archive;
-    ResArchive world;
     ResEntry entry;
     Reg reg;
     DataBin bin;
     uint32_t count = 0;
-    if (!res_open(data, size, &archive)) {
-        fprintf(stderr, "import_structures: not a .res archive\n");
-        return -1;
-    }
-    if (!res_find(&archive, "structures/structures.reg", &entry)
+    if (!res_find(graphics, "structures/structures.reg", &entry)
         || entry.is_folder
-        || !reg_open(archive.data + entry.offset, entry.size, &reg)) {
-        fprintf(stderr, "import_structures: no structures/structures.reg "
-            "in the archive\n");
+        || !reg_open(graphics->data + entry.offset, entry.size, &reg)) {
+        fprintf(stderr, "structures: no structures/structures.reg "
+            "in graphics.res\n");
         return -1;
     }
-    if (!res_open(world_data, world_size, &world)
-        || !res_find(&world, "data/data.bin", &entry) || entry.is_folder
-        || !databin_open(world.data + entry.offset, entry.size, &bin)) {
-        fprintf(stderr, "import_structures: no usable data/data.bin in "
-            "the second archive\n");
+    if (!res_find(world, "data/data.bin", &entry) || entry.is_folder
+        || !databin_open(world->data + entry.offset, entry.size, &bin)) {
+        fprintf(stderr, "structures: no usable data/data.bin in "
+            "world.res\n");
         return -1;
     }
     Things t = structures_things(&reg);
     if (!things_count(&t, &count)) {
-        fprintf(stderr, "import_structures: the registry does not say "
+        fprintf(stderr, "structures: the registry does not say "
             "how many structures it has\n");
         return -1;
     }
@@ -181,7 +169,7 @@ static int import_structures(const uint8_t *data, size_t size,
     if (written < 0 || (size_t)written >= sizeof structures_folder
         || !file_make_folder(content_folder)
         || !file_make_folder(structures_folder)) {
-        fprintf(stderr, "import_structures: cannot make the folder "
+        fprintf(stderr, "structures: cannot make the folder "
             "%s/structures\n", content_folder);
         return -1;
     }
@@ -194,7 +182,7 @@ static int import_structures(const uint8_t *data, size_t size,
         if (!things_id_at(&t, i, &id) || (only >= 0 && id != only)) {
             continue;
         }
-        const char *problem = structure_write(&archive, &reg, &bin, id,
+        const char *problem = structure_write(graphics, &reg, &bin, id,
             structures_folder);
         if (problem == NULL) {
             done++;
@@ -207,42 +195,10 @@ static int import_structures(const uint8_t *data, size_t size,
         }
     }
     if (only >= 0 && done + failed == 0) {
-        fprintf(stderr, "import_structures: no structure has the ID %d\n",
+        fprintf(stderr, "structures: no structure has the ID %d\n",
             (int)only);
         return -1;
     }
     printf("%d structures written, %d left out\n", done, failed);
     return failed;
-}
-
-int main(int argc, char **argv)
-{
-    if (argc != 4 && argc != 5) {
-        fprintf(stderr, "usage: import_structures <graphics.res> "
-            "<world.res> <content folder> [id]\n");
-        return 2;
-    }
-
-    uint8_t *data = NULL;
-    uint8_t *world = NULL;
-    size_t size = 0;
-    size_t world_size = 0;
-    if (!file_read_all(argv[1], &data, &size)) {
-        fprintf(stderr, "import_structures: cannot read %s\n", argv[1]);
-        return 1;
-    }
-    if (!file_read_all(argv[2], &world, &world_size)) {
-        fprintf(stderr, "import_structures: cannot read %s\n", argv[2]);
-        free(data);
-        return 1;
-    }
-    int32_t only = argc == 5 ? atoi(argv[4]) : -1;
-    int failed = import_structures(data, size, world, world_size, argv[3],
-        only);
-    free(world);
-    free(data);
-    /* Asking for one structure and not getting it is a failure.
-     * Importing all of them and leaving some out is reported and is
-     * not. */
-    return failed < 0 || (only >= 0 && failed > 0) ? 1 : 0;
 }

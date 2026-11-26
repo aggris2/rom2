@@ -76,7 +76,7 @@ ties a tree to its burning object is not stated in the registry.
 
 ## What ROM2 writes for an object
 
-`import_objects` writes a folder for every object, named after its ID
+The importer writes a folder for every object, named after its ID
 and its name: `000_pine_1`. In it are `object.toml`, described at the
 top of `tools/import/object_toml.h`, and two pictures with the same
 cells: `sprites.png`, the object's frames in one row, and `edges.png`,

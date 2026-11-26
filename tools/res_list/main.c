@@ -29,7 +29,11 @@ static bool list_folder(const ResArchive *a, uint32_t first, uint32_t count,
         }
         if (entry.is_folder) {
             char inner[512];
-            snprintf(inner, sizeof inner, "%s%s/", path, entry.name);
+            int length = snprintf(inner, sizeof inner, "%s%s/", path,
+                entry.name);
+            if (length < 0 || (size_t)length >= sizeof inner) {
+                return false;
+            }
             if (!list_folder(a, entry.offset, entry.size, inner, depth + 1)) {
                 return false;
             }

@@ -24,6 +24,7 @@ and a few lines of values as examples.
 | | | how a projectile's values and frames fit together | [projectiles.md](projectiles.md) |
 | | | how items are put together, and their pictures | [items.md](items.md) |
 | `.bmp` | 53 | the ground tiles, in `terrain/` | [terrain.md](terrain.md) |
+| `.bmp` | 1,462 | plain pictures: interface, menus, shops | [pictures.md](pictures.md) |
 | `.alm` | 46 | maps: the layout and the ground | [alm.md](alm.md) |
 
 ## Not described yet
@@ -37,7 +38,6 @@ and a few lines of values as examples.
 
 | Format | Files | What it is |
 |---|---|---|
-| `.bmp` | 1,515 | pictures: interface, terrain, menus |
 | `.wav` | 1,599 | sound effects, speech and music |
 | `.txt` | 68 | texts |
 | `.smk` | 8 | Smacker video |

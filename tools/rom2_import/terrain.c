@@ -1,7 +1,5 @@
-/* import_terrain: writes the ground tiles of the original game as ROM2
- * content.
- *
- *     import_terrain <graphics.res> <content folder>
+/* The terrain step of rom2_import: writes the ground tiles of the original
+ * game as ROM2 content.
  *
  * In <content folder>/terrain this makes:
  *
@@ -14,8 +12,9 @@
  * A map names a ground tile by two numbers, which are the column and the
  * row of tiles.png.
  */
+#include "rom2_import/steps.h"
+
 #include <stdio.h>
-#include <stdlib.h>
 #include <string.h>
 
 #include "base/buffer.h"
@@ -53,16 +52,10 @@ static bool bmp_open(const ResArchive *archive, const char *path, Bmp8 *out)
         && bmp8_read(archive->data + entry.offset, entry.size, out);
 }
 
-/* Does the work once the archive is in memory. Returns a message saying
- * what went wrong, or NULL. */
-static const char *import_terrain(const uint8_t *data, size_t size,
+/* Does the work. Returns a message saying what went wrong, or NULL. */
+static const char *terrain_write(const ResArchive *archive,
     const char *content_folder)
 {
-    ResArchive archive;
-    if (!res_open(data, size, &archive)) {
-        return "not a .res archive";
-    }
-
     /* The tile pictures are terrain/tile1-00.bmp to tile4-15.bmp. Their
      * place in that order is the number a map names them by. They are
      * read first, to learn how many there are and how tall. */
@@ -75,7 +68,7 @@ static const char *import_terrain(const uint8_t *data, size_t size,
         char path[64];
         snprintf(path, sizeof path, "terrain/tile%u-%02u.bmp",
             n / GROUP_SIZE + 1, n % GROUP_SIZE);
-        if (!bmp_open(&archive, path, &pictures[n])) {
+        if (!bmp_open(archive, path, &pictures[n])) {
             /* The last group is not full: the pictures end here. */
             break;
         }
@@ -134,7 +127,7 @@ static const char *import_terrain(const uint8_t *data, size_t size,
      * their own. */
     Bmp8 dirt = {0};
     bool has_dirt = problem == NULL
-        && bmp_open(&archive, "terrain/dirt.bmp", &dirt);
+        && bmp_open(archive, "terrain/dirt.bmp", &dirt);
     out.size = 0;
     if (has_dirt
         && (!png_write_indexed_solid(&out, dirt.width, dirt.height,
@@ -177,25 +170,12 @@ static const char *import_terrain(const uint8_t *data, size_t size,
     return problem;
 }
 
-int main(int argc, char **argv)
+int import_terrain(const ResArchive *graphics, const char *content_folder)
 {
-    if (argc != 3) {
-        fprintf(stderr, "usage: import_terrain <graphics.res> "
-            "<content folder>\n");
-        return 2;
-    }
-
-    uint8_t *data = NULL;
-    size_t size = 0;
-    if (!file_read_all(argv[1], &data, &size)) {
-        fprintf(stderr, "import_terrain: cannot read %s\n", argv[1]);
-        return 1;
-    }
-    const char *problem = import_terrain(data, size, argv[2]);
-    free(data);
+    const char *problem = terrain_write(graphics, content_folder);
     if (problem != NULL) {
-        fprintf(stderr, "import_terrain: %s\n", problem);
-        return 1;
+        fprintf(stderr, "terrain: %s\n", problem);
+        return -1;
     }
     return 0;
 }

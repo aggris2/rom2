@@ -947,3 +947,81 @@ UTEST(res, find_in_a_damaged_folder_fails)
     ASSERT_FALSE(res_find(&a, "dir", &e));
     ASSERT_TRUE(entry_is_untouched(&e));
 }
+
+/* ---- noting the files that are read ---- */
+
+UTEST(res, open_notes_nothing_until_it_is_given_a_place)
+{
+    uint8_t bytes[SMALL_SIZE];
+    make_small_archive(bytes);
+    ResArchive a;
+    memset(&a, 0xff, sizeof a);
+    ResEntry e;
+
+    ASSERT_TRUE(res_open(bytes, sizeof bytes, &a));
+
+    ASSERT_TRUE(a.found == NULL);
+    ASSERT_EQ(1, a.mark);
+    /* Finding and noting are safe with no place to note in. */
+    ASSERT_TRUE(res_find(&a, "a.bin", &e));
+    res_note(&a, 0);
+}
+
+UTEST(res, find_notes_the_file_it_finds_with_the_mark)
+{
+    uint8_t bytes[SMALL_SIZE];
+    uint8_t found[SMALL_ENTRY_COUNT] = {0};
+    make_small_archive(bytes);
+    ResArchive a;
+    ResEntry e;
+    ASSERT_TRUE(res_open(bytes, sizeof bytes, &a));
+    a.found = found;
+    a.mark = 7;
+
+    ASSERT_TRUE(res_find(&a, "dir/b.bin", &e));
+
+    /* Entry 2 is dir/b.bin. The folder it is in is not a file read. */
+    ASSERT_EQ(0, found[0]);
+    ASSERT_EQ(0, found[1]);
+    ASSERT_EQ(7, found[2]);
+}
+
+UTEST(res, find_notes_nothing_for_a_folder_or_a_miss)
+{
+    uint8_t bytes[SMALL_SIZE];
+    uint8_t found[SMALL_ENTRY_COUNT] = {0};
+    make_small_archive(bytes);
+    ResArchive a;
+    ResEntry e;
+    ASSERT_TRUE(res_open(bytes, sizeof bytes, &a));
+    a.found = found;
+
+    ASSERT_TRUE(res_find(&a, "dir", &e));
+    ASSERT_FALSE(res_find(&a, "b.bin", &e));
+    ASSERT_FALSE(res_find(&a, "dir/a.bin", &e));
+
+    ASSERT_EQ(0, found[0]);
+    ASSERT_EQ(0, found[1]);
+    ASSERT_EQ(0, found[2]);
+}
+
+UTEST(res, note_marks_one_entry_and_leaves_alone_what_is_past_the_table)
+{
+    /* One byte more than the table has entries, to see it kept. */
+    uint8_t bytes[SMALL_SIZE];
+    uint8_t found[SMALL_ENTRY_COUNT + 1] = {0};
+    make_small_archive(bytes);
+    ResArchive a;
+    ASSERT_TRUE(res_open(bytes, sizeof bytes, &a));
+    a.found = found;
+    a.mark = 3;
+
+    res_note(&a, 0);
+    res_note(&a, SMALL_ENTRY_COUNT);
+    res_note(&a, 0xffffffffu);
+
+    ASSERT_EQ(3, found[0]);
+    ASSERT_EQ(0, found[1]);
+    ASSERT_EQ(0, found[2]);
+    ASSERT_EQ(0, found[SMALL_ENTRY_COUNT]);
+}
