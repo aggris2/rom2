@@ -164,8 +164,8 @@ are in `.pal` files, read by `tools/import/pal.c`. Measured on the 159
   sprite's own palette is the same as them in the other 201. Rendered,
   the 55 are the cloth that shows the colour of the unit's player.
 - Which of a monster's colourings is used is not in these files. It is
-  expected to be the "face" number of the monster's kind in `data.bin`,
-  with 1 for `palette.pal`. Not checked against `data.bin` yet.
+  the `face` of the monster's kind in `data.bin`, with 1 for
+  `palette.pal`. See [databin.md](databin.md).
 
 ## What ROM2 writes for a unit
 

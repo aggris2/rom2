@@ -18,13 +18,18 @@ and a few lines of values as examples.
 | `.pal` | 159 | palettes for colour variants | [units.md](units.md) |
 | | | how a unit's values and frames fit together | [units.md](units.md) |
 
+Described, and not read by ROM2 yet:
+
+| Format | Files | What it is | Page |
+|---|---|---|---|
+| `data.bin` | 1 | kinds of units, items, spells and buildings | [databin.md](databin.md) |
+
 ## Not described yet
 
 | Format | Files | What it is |
 |---|---|---|
 | `.16a` | 623 | sprites with see-through pixels: inventory, interface |
 | `.16` | 3 | fonts |
-| `data.bin` | 1 | stats of units, items, spells and structures |
 | `.alm` | 46 | maps |
 | `.dat`, `itemname.*` | 8 | small tables |
 
