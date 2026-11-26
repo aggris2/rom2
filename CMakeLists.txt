@@ -101,6 +101,7 @@ add_library(rom2_import STATIC
     tools/import/structure_sheet.c
     tools/import/structure_toml.c
     tools/import/structures.c
+    tools/import/text.c
     tools/import/things.c
     tools/import/toml.c
     tools/import/unit_layout.c
@@ -123,6 +124,7 @@ rom2_set_warnings(res_list)
 # import_program and only the file it builds is rom2_import.
 add_executable(import_program
     tools/rom2_import/main.c
+    tools/rom2_import/copies.c
     tools/rom2_import/interface.c
     tools/rom2_import/items.c
     tools/rom2_import/objects.c
@@ -130,6 +132,7 @@ add_executable(import_program
     tools/rom2_import/spells.c
     tools/rom2_import/structures.c
     tools/rom2_import/terrain.c
+    tools/rom2_import/tree.c
     tools/rom2_import/units.c
 )
 set_target_properties(import_program PROPERTIES OUTPUT_NAME rom2_import)
@@ -169,6 +172,7 @@ add_executable(rom2_tests
     tests/import/test_structure_toml.c
     tests/import/test_structures.c
     tests/import/test_things.c
+    tests/import/test_text.c
     tests/import/test_toml.c
     tests/import/test_unit_layout.c
     tests/import/test_unit_sheet.c

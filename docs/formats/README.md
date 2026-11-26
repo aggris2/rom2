@@ -42,5 +42,17 @@ and a few lines of values as examples.
 | `.txt` | 68 | texts |
 | `.smk` | 8 | Smacker video |
 
+The sounds are all at 16 bits, one channel for effects and speech and two
+for music, at 22,050 samples a second but for three at 44,100. 560 of
+them are plain PCM. The other 1,039, most of the speech and 53 effects,
+are packed as Microsoft ADPCM, 4 bits for each sample.
+
+The texts are in the Windows code page 1251 and end their lines with a
+carriage return and a line feed. They are English and nearly all ASCII:
+five have a few Cyrillic letters left in them.
+
+The importer copies the maps, the sounds and the videos as they are, and
+writes the texts as UTF-8 with plain line ends.
+
 The counts are over the ten archives. `res_list` prints the files of an
 archive.

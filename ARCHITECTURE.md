@@ -45,7 +45,7 @@ done by the zlib library, and this is the only file that calls it.
 
 `tools/import` reads the original game's files: so far the `.res` archives,
 the `.reg` registries, the `.256` and `.16a` sprites, the `.pal` palettes,
-the `.bmp` pictures and the tables of `data.bin`. It is the
+the `.bmp` pictures, the texts and the tables of `data.bin`. It is the
 only code that knows those formats. The game itself never opens an original
 file. The formats are described in [docs/formats](docs/formats/README.md).
 It also writes what the import produces: ROM2's own content, one folder for
@@ -69,7 +69,9 @@ modifiers, which have no pictures, are a file each. The ground is one
 picture of all its tiles, which a map names by column and row.
 
 The plain pictures of the interface, the menus and the shops are
-written as PNG files under the names the original gives them.
+written as PNG files under the names the original gives them. The maps,
+the sounds and the videos are copied as they are, and the texts are
+written as UTF-8.
 
 One program runs it, `rom2_import`, in `tools/rom2_import`. Each kind of
 thing is a step, in a file of its own: `units.c`, `objects.c` and so on,
