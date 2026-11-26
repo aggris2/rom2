@@ -82,6 +82,7 @@ add_library(rom2_import STATIC
     tools/import/reg.c
     tools/import/res.c
     tools/import/sprite256.c
+    tools/import/units.c
 )
 target_include_directories(rom2_import PUBLIC tools)
 target_link_libraries(rom2_import PUBLIC rom2_core)
@@ -106,10 +107,12 @@ add_executable(rom2_tests
     tests/import/test_reg.c
     tests/import/test_res.c
     tests/import/test_sprite256.c
+    tests/import/test_units.c
 )
 # tests/utest.h is the test framework (github.com/sheredom/utest.h, public
 # domain). SYSTEM: it is not held to our warning settings.
 target_include_directories(rom2_tests SYSTEM PRIVATE tests)
+target_include_directories(rom2_tests PRIVATE tests/import)
 target_link_libraries(rom2_tests PRIVATE rom2_core rom2_import)
 rom2_set_warnings(rom2_tests)
 add_test(NAME rom2_tests COMMAND rom2_tests)
