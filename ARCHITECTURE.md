@@ -44,8 +44,8 @@ compression inside a PNG, and has the CRC that goes with it. The work is
 done by the zlib library, and this is the only file that calls it.
 
 `tools/import` reads the original game's files: so far the `.res` archives,
-the `.reg` registries, the `.256` sprites, the `.pal` palettes and the
-tables of `data.bin`. It is the only code that knows those formats. The
+the `.reg` registries, the `.256` and `.16a` sprites, the `.pal` palettes
+and the tables of `data.bin`. It is the only code that knows those formats. The
 game itself never opens an original file. The formats are described in
 [docs/formats](docs/formats/README.md). It also writes what the import
 produces: ROM2's own content, one folder for each thing. So far that is

@@ -88,6 +88,7 @@ add_library(rom2_import STATIC
     tools/import/reg.c
     tools/import/res.c
     tools/import/sheet.c
+    tools/import/sprite16a.c
     tools/import/sprite256.c
     tools/import/structure_sheet.c
     tools/import/structure_toml.c
@@ -144,6 +145,7 @@ add_executable(rom2_tests
     tests/import/test_reg.c
     tests/import/test_res.c
     tests/import/test_sheet.c
+    tests/import/test_sprite16a.c
     tests/import/test_sprite256.c
     tests/import/test_structure_sheet.c
     tests/import/test_structure_toml.c
