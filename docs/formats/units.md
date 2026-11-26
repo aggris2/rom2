@@ -192,6 +192,11 @@ so that a mirrored frame fits. The anchor of a sheet is `CenterX`,
 `CenterY` counted from the corner of the cell. For the Swordsman the main
 sheet has cells of 88 by 72 with the anchor at 44, 50.
 
+Next to each sheet is a picture of its soft edges, `edges.png` and
+`dying_edges.png`, with the same cells and the same palette. They come
+from the sprite's `b` file, described in [256.md](256.md), and are meant
+to be drawn half see-through under the figure.
+
 `palettes.png` is 256 pixels wide, and every row is one palette: 16
 rows for a human, one for each player colour, and for a monster as many
 as its `Palette` says. A pixel of a sheet is a number from 0 to 255, and

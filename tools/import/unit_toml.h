@@ -57,6 +57,11 @@
  * On the dying sheet the `dying` columns come first and the `bones`
  * columns after them.
  *
+ * `edges`, where a sheet has it, is a second picture with the same
+ * cells: the soft edge of each figure, to be drawn half see-through
+ * under the figure. It is "edges.png" for the main sheet and
+ * "dying_edges.png" for the dying sheet.
+ *
  * `palettes` is a picture 256 pixels wide in which every row is one
  * palette, one colouring of the unit, and `palette_rows` is how many
  * there are. `palette_by` says what picks the row: "player" for a human,

@@ -140,18 +140,25 @@ static bool place_all(const Plan *plan, Window *window, Sheet *sheet)
 /* Builds a sheet with the wanted animations, and the standing row if
  * asked for. */
 static bool build(const UnitLayout *layout, const Sprite256 *sprite,
-    uint32_t box_width, uint32_t box_height, int32_t center_x,
-    int32_t center_y, const bool wanted[UNIT_ANIM_COUNT], bool standing_row,
-    UnitSheet *out)
+    const Sprite256 *edges, uint32_t box_width, uint32_t box_height,
+    int32_t center_x, int32_t center_y, const bool wanted[UNIT_ANIM_COUNT],
+    bool standing_row, UnitSheet *out)
 {
     if (box_width == 0 || box_width > UNIT_SHEET_MAX_BOX
         || box_height == 0 || box_height > UNIT_SHEET_MAX_BOX
-        || sprite->frame_count != layout->frame_count) {
+        || sprite->frame_count != layout->frame_count
+        || (edges != NULL && edges->frame_count != layout->frame_count)) {
         return false;
     }
 
     Frames frames;
+    Frames edge_frames = {NULL, 0};
     if (!frames_read(sprite, box_width, box_height, &frames)) {
+        return false;
+    }
+    if (edges != NULL
+        && !frames_read(edges, box_width, box_height, &edge_frames)) {
+        frames_free(&frames);
         return false;
     }
 
@@ -180,10 +187,16 @@ static bool build(const UnitLayout *layout, const Sprite256 *sprite,
     }
     uint32_t rows = UNIT_DIRECTIONS + (standing_row ? 1 : 0);
 
-    /* First find the window that holds every frame, then fill a sheet of
-     * that cell size. */
+    /* The same plan for the edge frames, which go on a sheet of their
+     * own with the same cells. */
+    Plan edge_plan = plan;
+    edge_plan.frames = &edge_frames;
+
+    /* First find the window that holds every frame, of the figure and of
+     * its edge, then fill sheets of that cell size. */
     Window window = {box_width, box_height, 0, 0};
-    bool ok = columns > 0 && place_all(&plan, &window, NULL);
+    bool ok = columns > 0 && place_all(&plan, &window, NULL)
+        && (edges == NULL || place_all(&edge_plan, &window, NULL));
     if (ok && (window.left >= box_width || window.top >= window.bottom)) {
         /* Nothing to show: one empty pixel in the middle of the box. */
         window.left = box_width / 2;
@@ -201,12 +214,17 @@ static bool build(const UnitLayout *layout, const Sprite256 *sprite,
     memset(&result, 0, sizeof result);
     ok = ok && sheet_create(&result.sheet, window.right - window.left,
         window.bottom - window.top, columns, rows);
-    if (ok && !place_all(&plan, &window, &result.sheet)) {
-        sheet_free(&result.sheet);
-        ok = false;
+    ok = ok && place_all(&plan, &window, &result.sheet);
+    if (ok && edges != NULL) {
+        ok = sheet_create(&result.edges, window.right - window.left,
+                window.bottom - window.top, columns, rows)
+            && place_all(&edge_plan, &window, &result.edges);
     }
     frames_free(&frames);
+    frames_free(&edge_frames);
     if (!ok) {
+        sheet_free(&result.sheet);
+        sheet_free(&result.edges);
         return false;
     }
 
@@ -220,32 +238,33 @@ static bool build(const UnitLayout *layout, const Sprite256 *sprite,
 }
 
 bool unit_sheet_build(const UnitLayout *layout, const Sprite256 *sprite,
-    uint32_t box_width, uint32_t box_height, int32_t center_x,
-    int32_t center_y, UnitSheet *out)
+    const Sprite256 *edges, uint32_t box_width, uint32_t box_height,
+    int32_t center_x, int32_t center_y, UnitSheet *out)
 {
     bool wanted[UNIT_ANIM_COUNT] = {false};
     wanted[UNIT_ANIM_MOVE] = true;
     wanted[UNIT_ANIM_ATTACK] = true;
     wanted[UNIT_ANIM_IDLE] = true;
-    return build(layout, sprite, box_width, box_height, center_x, center_y,
-        wanted, true, out);
+    return build(layout, sprite, edges, box_width, box_height, center_x,
+        center_y, wanted, true, out);
 }
 
 bool unit_sheet_build_dying(const UnitLayout *layout,
-    const Sprite256 *sprite, uint32_t box_width, uint32_t box_height,
-    int32_t center_x, int32_t center_y, UnitSheet *out)
+    const Sprite256 *sprite, const Sprite256 *edges, uint32_t box_width,
+    uint32_t box_height, int32_t center_x, int32_t center_y, UnitSheet *out)
 {
     bool wanted[UNIT_ANIM_COUNT] = {false};
     wanted[UNIT_ANIM_DYING] = true;
     wanted[UNIT_ANIM_BONES] = true;
     /* A layout whose dying frames are in another file has no columns to
      * give, and build() refuses a sheet with none. */
-    return build(layout, sprite, box_width, box_height, center_x, center_y,
-        wanted, false, out);
+    return build(layout, sprite, edges, box_width, box_height, center_x,
+        center_y, wanted, false, out);
 }
 
 void unit_sheet_free(UnitSheet *sheet)
 {
     sheet_free(&sheet->sheet);
+    sheet_free(&sheet->edges);
     memset(sheet, 0, sizeof *sheet);
 }

@@ -476,6 +476,35 @@ UTEST(unit_toml, write_says_when_the_player_picks_the_palette)
     buffer_free(&b);
 }
 
+UTEST(unit_toml, write_names_the_edges_of_a_sheet_that_has_them)
+{
+    static MakeReg m;
+    static uint8_t pixels[1];
+    Reg reg;
+    UnitLayout layout;
+    UnitSheet sheet = make_main_sheet(&layout);
+    UnitSheet dying = make_dying_sheet();
+    sheet.edges.pixels = pixels;
+    ByteBuffer b = {0};
+    ASSERT_TRUE(reg_open(m.bytes, make_two_units(&m), &reg));
+
+    ASSERT_TRUE(unit_toml_write(&b, &reg, 3, &layout, &sheet, &dying,
+        NULL));
+
+    ASSERT_TRUE(has(&b, "sheet = \"sprites.png\"\nedges = \"edges.png\"\n"
+        "cell = [88, 72]\n"));
+    /* The dying sheet has none here. */
+    ASSERT_TRUE(has(&b, "sheet = \"dying.png\"\ncell = [48, 64]\n"));
+    buffer_free(&b);
+
+    dying.edges.pixels = pixels;
+    ASSERT_TRUE(unit_toml_write(&b, &reg, 3, &layout, &sheet, &dying,
+        NULL));
+    ASSERT_TRUE(has(&b, "sheet = \"dying.png\"\n"
+        "edges = \"dying_edges.png\"\ncell = [48, 64]\n"));
+    buffer_free(&b);
+}
+
 /* ---- unit_toml_write_kinds ---- */
 
 /* A data.bin with three monster kinds, two of them goblins (unit 64) and

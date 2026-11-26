@@ -24,6 +24,12 @@
  *
  * A unit that mirrors half its directions has those frames written out
  * mirrored, so that whoever draws from a sheet need not know.
+ *
+ * A sprite file has a partner whose name ends in "b", with as many
+ * frames: the soft edge of each figure, the pixels just outside its
+ * outline, which the game draws half see-through. They go on a sheet of
+ * their own with the same cells as the figure's, so the two are drawn at
+ * the same place: the edge first, the figure over it.
  */
 #ifndef ROM2_IMPORT_UNIT_SHEET_H
 #define ROM2_IMPORT_UNIT_SHEET_H
@@ -41,6 +47,9 @@
 
 typedef struct UnitSheet {
     Sheet sheet;
+    /* The soft edges, cell for cell. Its pixels are NULL if the sheet was
+     * built without an edge sprite. */
+    Sheet edges;
     /* Where the unit's centre, the point the registry calls CenterX and
      * CenterY, lies inside a cell. */
     int32_t anchor_x;
@@ -56,17 +65,19 @@ typedef struct UnitSheet {
 } UnitSheet;
 
 /* Builds the main sheet of a unit from its layout and its sprite file:
- * standing, moving, attacking and idle. `box_width` and `box_height` are
- * the registry's Width and Height, `center_x` and `center_y` its CenterX
- * and CenterY. Give the sheet back with unit_sheet_free().
+ * standing, moving, attacking and idle. `edges` is the sprite file with
+ * the soft edges, or NULL to build without them. `box_width` and
+ * `box_height` are the registry's Width and Height, `center_x` and
+ * `center_y` its CenterX and CenterY. Give the sheet back with
+ * unit_sheet_free().
  *
- * Returns false, and leaves `*out` alone, if the sprite does not have
+ * Returns false, and leaves `*out` alone, if a sprite does not have
  * exactly the number of frames the layout says, a frame cannot be read or
  * is larger than the box, the box is larger than UNIT_SHEET_MAX_BOX, or
  * memory runs out. */
 bool unit_sheet_build(const UnitLayout *layout, const Sprite256 *sprite,
-    uint32_t box_width, uint32_t box_height, int32_t center_x,
-    int32_t center_y, UnitSheet *out);
+    const Sprite256 *edges, uint32_t box_width, uint32_t box_height,
+    int32_t center_x, int32_t center_y, UnitSheet *out);
 
 /* Builds the dying sheet: the dying and the bones frames. The layout and
  * the sprite are those of the unit that has these frames in its own file,
@@ -76,10 +87,10 @@ bool unit_sheet_build(const UnitLayout *layout, const Sprite256 *sprite,
  * unit_sheet_build() does, and also if the layout's dying frames are in
  * another unit's file, or it has neither dying nor bones frames. */
 bool unit_sheet_build_dying(const UnitLayout *layout,
-    const Sprite256 *sprite, uint32_t box_width, uint32_t box_height,
-    int32_t center_x, int32_t center_y, UnitSheet *out);
+    const Sprite256 *sprite, const Sprite256 *edges, uint32_t box_width,
+    uint32_t box_height, int32_t center_x, int32_t center_y, UnitSheet *out);
 
-/* Frees a unit sheet's pixels and clears it. */
+/* Frees a unit sheet's pixels, with those of its edges, and clears it. */
 void unit_sheet_free(UnitSheet *sheet);
 
 #endif

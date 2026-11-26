@@ -117,7 +117,7 @@ UTEST(unit_sheet, build_puts_every_frame_in_its_row_and_column)
     UnitLayout layout = plain_layout(1);
     UnitSheet u;
 
-    ASSERT_TRUE(unit_sheet_build(&layout, &sprite, 8, 6, 4, 5, &u));
+    ASSERT_TRUE(unit_sheet_build(&layout, &sprite, NULL, 8, 6, 4, 5, &u));
 
     /* The cell is the part of the box the frames use: 2 by 2. */
     ASSERT_EQ(2u, u.sheet.cell_width);
@@ -160,7 +160,7 @@ UTEST(unit_sheet, build_keeps_frames_of_different_sizes_in_place)
     UnitLayout layout = plain_layout(0);
     UnitSheet u;
 
-    ASSERT_TRUE(unit_sheet_build(&layout, &sprite, 8, 8, 4, 6, &u));
+    ASSERT_TRUE(unit_sheet_build(&layout, &sprite, NULL, 8, 8, 4, 6, &u));
 
     ASSERT_EQ(6u, u.sheet.cell_width);
     ASSERT_EQ(4u, u.sheet.cell_height);
@@ -195,7 +195,7 @@ UTEST(unit_sheet, build_writes_out_the_mirrored_half_of_a_flipped_unit)
     UnitLayout layout = flipped_layout(1);
     UnitSheet u;
 
-    ASSERT_TRUE(unit_sheet_build(&layout, &sprite, 4, 4, 2, 2, &u));
+    ASSERT_TRUE(unit_sheet_build(&layout, &sprite, NULL, 4, 4, 2, 2, &u));
 
     ASSERT_EQ(2u, u.sheet.cell_width);
     /* Steps 0 to 8 as stored. */
@@ -235,7 +235,7 @@ UTEST(unit_sheet, build_mirrors_about_the_middle_of_the_box)
     UnitLayout layout = flipped_layout(0);
     UnitSheet u;
 
-    ASSERT_TRUE(unit_sheet_build(&layout, &sprite, 5, 1, 2, 0, &u));
+    ASSERT_TRUE(unit_sheet_build(&layout, &sprite, NULL, 5, 1, 2, 0, &u));
 
     ASSERT_EQ(3u, u.sheet.cell_width);
     ASSERT_EQ(1, u.anchor_x);
@@ -266,7 +266,7 @@ UTEST(unit_sheet, build_lays_the_animations_side_by_side)
     layout.frame_count = 56;
     UnitSheet u;
 
-    ASSERT_TRUE(unit_sheet_build(&layout, &sprite, 1, 1, 0, 0, &u));
+    ASSERT_TRUE(unit_sheet_build(&layout, &sprite, NULL, 1, 1, 0, 0, &u));
 
     ASSERT_EQ(0u, u.column[UNIT_ANIM_MOVE]);
     ASSERT_EQ(2u, u.columns[UNIT_ANIM_MOVE]);
@@ -298,7 +298,7 @@ UTEST(unit_sheet, build_with_more_than_16_columns_of_animation)
     UnitLayout layout = plain_layout(20);
     UnitSheet u;
 
-    ASSERT_TRUE(unit_sheet_build(&layout, &sprite, 1, 1, 0, 0, &u));
+    ASSERT_TRUE(unit_sheet_build(&layout, &sprite, NULL, 1, 1, 0, 0, &u));
 
     ASSERT_EQ(20u, u.sheet.columns);
     /* The last frame: direction 7, frame 19, which is frame 175. */
@@ -322,7 +322,7 @@ UTEST(unit_sheet, build_refuses_a_sprite_with_the_wrong_number_of_frames)
     memset(&u, 0, sizeof u);
     u.anchor_x = 12345;
 
-    ASSERT_FALSE(unit_sheet_build(&layout, &sprite, 8, 6, 4, 5, &u));
+    ASSERT_FALSE(unit_sheet_build(&layout, &sprite, NULL, 8, 6, 4, 5, &u));
 
     ASSERT_EQ(12345, u.anchor_x);
     ASSERT_TRUE(u.sheet.pixels == NULL);
@@ -343,17 +343,17 @@ UTEST(unit_sheet, build_refuses_a_frame_larger_than_the_box)
     u.anchor_x = 12345;
 
     /* A box of exactly the frame's size is fine. */
-    ASSERT_TRUE(unit_sheet_build(&layout, &sprite, 2, 2, 1, 1, &u));
+    ASSERT_TRUE(unit_sheet_build(&layout, &sprite, NULL, 2, 2, 1, 1, &u));
     unit_sheet_free(&u);
 
     u.anchor_x = 12345;
-    ASSERT_FALSE(unit_sheet_build(&layout, &sprite, 1, 2, 0, 0, &u));
-    ASSERT_FALSE(unit_sheet_build(&layout, &sprite, 2, 1, 0, 0, &u));
+    ASSERT_FALSE(unit_sheet_build(&layout, &sprite, NULL, 1, 2, 0, 0, &u));
+    ASSERT_FALSE(unit_sheet_build(&layout, &sprite, NULL, 2, 1, 0, 0, &u));
     /* A box of no size, or beyond the limit. */
-    ASSERT_FALSE(unit_sheet_build(&layout, &sprite, 0, 2, 0, 0, &u));
-    ASSERT_FALSE(unit_sheet_build(&layout, &sprite, 2, 0, 0, 0, &u));
-    ASSERT_FALSE(unit_sheet_build(&layout, &sprite, 2049, 2, 0, 0, &u));
-    ASSERT_FALSE(unit_sheet_build(&layout, &sprite, 2, 2049, 0, 0, &u));
+    ASSERT_FALSE(unit_sheet_build(&layout, &sprite, NULL, 0, 2, 0, 0, &u));
+    ASSERT_FALSE(unit_sheet_build(&layout, &sprite, NULL, 2, 0, 0, 0, &u));
+    ASSERT_FALSE(unit_sheet_build(&layout, &sprite, NULL, 2049, 2, 0, 0, &u));
+    ASSERT_FALSE(unit_sheet_build(&layout, &sprite, NULL, 2, 2049, 0, 0, &u));
     ASSERT_EQ(12345, u.anchor_x);
 }
 
@@ -374,7 +374,7 @@ UTEST(unit_sheet, build_refuses_a_damaged_frame)
     UnitSheet u;
     memset(&u, 0, sizeof u);
 
-    ASSERT_FALSE(unit_sheet_build(&layout, &sprite, 4, 4, 2, 2, &u));
+    ASSERT_FALSE(unit_sheet_build(&layout, &sprite, NULL, 4, 4, 2, 2, &u));
     ASSERT_TRUE(u.sheet.pixels == NULL);
 }
 
@@ -392,7 +392,7 @@ UTEST(unit_sheet, build_of_a_unit_whose_frames_are_all_empty)
     UnitLayout layout = plain_layout(0);
     UnitSheet u;
 
-    ASSERT_TRUE(unit_sheet_build(&layout, &sprite, 8, 8, 4, 4, &u));
+    ASSERT_TRUE(unit_sheet_build(&layout, &sprite, NULL, 8, 8, 4, 4, &u));
 
     ASSERT_EQ(1u, u.sheet.cell_width);
     ASSERT_EQ(1u, u.sheet.cell_height);
@@ -439,7 +439,7 @@ UTEST(unit_sheet, build_dying_puts_dying_then_bones_in_each_row)
     UnitLayout layout = full_layout(false, 1, 0, 2, 1, 0);
     UnitSheet u;
 
-    ASSERT_TRUE(unit_sheet_build_dying(&layout, &sprite, 1, 1, 0, 0, &u));
+    ASSERT_TRUE(unit_sheet_build_dying(&layout, &sprite, NULL, 1, 1, 0, 0, &u));
 
     ASSERT_EQ(3u, u.sheet.columns);
     ASSERT_EQ(8u, u.sheet.rows);
@@ -474,7 +474,7 @@ UTEST(unit_sheet, build_dying_writes_out_the_mirrored_directions)
     UnitLayout layout = full_layout(true, 0, 0, 1, 0, 0);
     UnitSheet u;
 
-    ASSERT_TRUE(unit_sheet_build_dying(&layout, &sprite, 4, 4, 2, 2, &u));
+    ASSERT_TRUE(unit_sheet_build_dying(&layout, &sprite, NULL, 4, 4, 2, 2, &u));
 
     ASSERT_EQ(1u, u.sheet.columns);
     ASSERT_EQ(8u, u.sheet.rows);
@@ -512,7 +512,7 @@ UTEST(unit_sheet, each_sheet_is_sized_by_its_own_frames_only)
     UnitLayout layout = full_layout(false, 0, 0, 1, 0, 1);
     UnitSheet u;
 
-    ASSERT_TRUE(unit_sheet_build(&layout, &sprite, 8, 8, 4, 4, &u));
+    ASSERT_TRUE(unit_sheet_build(&layout, &sprite, NULL, 8, 8, 4, 4, &u));
     ASSERT_EQ(2u, u.sheet.cell_width);
     ASSERT_EQ(2u, u.sheet.cell_height);
     ASSERT_EQ(0u, u.columns[UNIT_ANIM_DYING]);
@@ -523,7 +523,7 @@ UTEST(unit_sheet, each_sheet_is_sized_by_its_own_frames_only)
     ASSERT_EQ(3, cell_at(&u, 0, 8, 1, 1));
     unit_sheet_free(&u);
 
-    ASSERT_TRUE(unit_sheet_build_dying(&layout, &sprite, 8, 8, 4, 4, &u));
+    ASSERT_TRUE(unit_sheet_build_dying(&layout, &sprite, NULL, 8, 8, 4, 4, &u));
     ASSERT_EQ(6u, u.sheet.cell_width);
     ASSERT_EQ(1u, u.sheet.cell_height);
     /* The frame sits at 1, 3 in the box, and so does the cell. */
@@ -551,12 +551,13 @@ UTEST(unit_sheet, build_dying_refuses_a_unit_with_frames_in_another_file)
     memset(&u, 0, sizeof u);
     u.anchor_x = 12345;
 
-    ASSERT_FALSE(unit_sheet_build_dying(&layout, &sprite, 1, 1, 0, 0, &u));
+    ASSERT_FALSE(unit_sheet_build_dying(&layout, &sprite, NULL, 1, 1, 0, 0,
+        &u));
 
     ASSERT_EQ(12345, u.anchor_x);
     ASSERT_TRUE(u.sheet.pixels == NULL);
     /* Its main sheet is still fine. */
-    ASSERT_TRUE(unit_sheet_build(&layout, &sprite, 1, 1, 0, 0, &u));
+    ASSERT_TRUE(unit_sheet_build(&layout, &sprite, NULL, 1, 1, 0, 0, &u));
     unit_sheet_free(&u);
 }
 
@@ -574,7 +575,8 @@ UTEST(unit_sheet, build_dying_refuses_a_unit_without_dying_frames)
     memset(&u, 0, sizeof u);
     u.anchor_x = 12345;
 
-    ASSERT_FALSE(unit_sheet_build_dying(&layout, &sprite, 1, 1, 0, 0, &u));
+    ASSERT_FALSE(unit_sheet_build_dying(&layout, &sprite, NULL, 1, 1, 0, 0,
+        &u));
 
     ASSERT_EQ(12345, u.anchor_x);
     ASSERT_TRUE(u.sheet.pixels == NULL);
@@ -593,6 +595,176 @@ UTEST(unit_sheet, build_dying_refuses_a_sprite_with_too_few_frames)
     UnitSheet u;
     memset(&u, 0, sizeof u);
 
-    ASSERT_FALSE(unit_sheet_build_dying(&layout, &sprite, 1, 1, 0, 0, &u));
+    ASSERT_FALSE(unit_sheet_build_dying(&layout, &sprite, NULL, 1, 1, 0, 0,
+        &u));
+    ASSERT_TRUE(u.sheet.pixels == NULL);
+}
+
+/* ---- the soft edges ---- */
+
+/* A sprite of 16 standing frames: frame 0 is `width` by `height` and
+ * filled with `value`, the others are 1 by 1 and filled with 1. */
+static bool make_standing(MakeSprite *m, uint32_t width, uint32_t height,
+    uint8_t value, Sprite256 *out)
+{
+    make_sprite_start(m);
+    make_sprite_solid(m, width, height, value);
+    for (int i = 1; i < 16; i++) {
+        make_sprite_solid(m, 1, 1, 1);
+    }
+    return make_sprite_finish(m, out);
+}
+
+UTEST(unit_sheet, build_without_edges_has_no_edge_sheet)
+{
+    static MakeSprite m;
+    Sprite256 sprite;
+    ASSERT_TRUE(make_standing(&m, 2, 2, 5, &sprite));
+    UnitLayout layout = plain_layout(0);
+    UnitSheet u;
+
+    ASSERT_TRUE(unit_sheet_build(&layout, &sprite, NULL, 8, 8, 4, 4, &u));
+
+    ASSERT_TRUE(u.edges.pixels == NULL);
+    unit_sheet_free(&u);
+}
+
+UTEST(unit_sheet, build_puts_the_edges_on_a_sheet_with_the_same_cells)
+{
+    /* The figure's frame 0 is 2 by 2 and its edge 4 by 4, in a box of 8
+     * by 8: the figure sits at 3, 3 and the edge at 2, 2, around it. The
+     * cell has to hold the edge, so it is 4 by 4, from 2, 2. */
+    static MakeSprite m;
+    static MakeSprite e;
+    Sprite256 sprite;
+    Sprite256 edges;
+    ASSERT_TRUE(make_standing(&m, 2, 2, 5, &sprite));
+    ASSERT_TRUE(make_standing(&e, 4, 4, 9, &edges));
+    UnitLayout layout = plain_layout(0);
+    UnitSheet u;
+
+    ASSERT_TRUE(unit_sheet_build(&layout, &sprite, &edges, 8, 8, 4, 6, &u));
+
+    ASSERT_EQ(4u, u.sheet.cell_width);
+    ASSERT_EQ(4u, u.sheet.cell_height);
+    ASSERT_EQ(4u, u.edges.cell_width);
+    ASSERT_EQ(4u, u.edges.cell_height);
+    ASSERT_EQ(u.sheet.columns, u.edges.columns);
+    ASSERT_EQ(u.sheet.rows, u.edges.rows);
+    ASSERT_EQ(2, u.anchor_x);
+    ASSERT_EQ(4, u.anchor_y);
+    /* The figure in the middle of its cell. */
+    ASSERT_EQ(0, cell_at(&u, 0, 0, 0, 0));
+    ASSERT_EQ(5, cell_at(&u, 0, 0, 1, 1));
+    ASSERT_EQ(5, cell_at(&u, 0, 0, 2, 2));
+    ASSERT_EQ(0, cell_at(&u, 0, 0, 3, 3));
+    /* The edge fills the whole of the same cell on its own sheet. */
+    ASSERT_EQ(9, u.edges.pixels[0]);
+    ASSERT_EQ(9, u.edges.pixels[3 * sheet_width(&u.edges) + 3]);
+    /* And not the next cell, where the edge is a single pixel. */
+    ASSERT_EQ(0, u.edges.pixels[4]);
+    unit_sheet_free(&u);
+    ASSERT_TRUE(u.edges.pixels == NULL);
+}
+
+UTEST(unit_sheet, build_mirrors_the_edges_like_the_figure)
+{
+    /* A flipped unit with 9 standing frames. The edge frames are 2 by 1
+     * with their number on the left and 100 more on the right. */
+    static MakeSprite m;
+    static MakeSprite e;
+    make_sprite_start(&m);
+    make_sprite_start(&e);
+    for (uint8_t i = 0; i < 9; i++) {
+        const uint8_t pixels[2] = {(uint8_t)(i + 1), (uint8_t)(i + 101)};
+        make_sprite_solid(&m, 2, 1, 7);
+        make_sprite_frame(&e, 2, 1, pixels);
+    }
+    Sprite256 sprite;
+    Sprite256 edges;
+    ASSERT_TRUE(make_sprite_finish(&m, &sprite));
+    ASSERT_TRUE(make_sprite_finish(&e, &edges));
+    UnitLayout layout = flipped_layout(0);
+    UnitSheet u;
+
+    ASSERT_TRUE(unit_sheet_build(&layout, &sprite, &edges, 4, 4, 2, 2, &u));
+
+    uint32_t cell = u.edges.cell_width;
+    ASSERT_EQ(2u, cell);
+    /* Step 1 as stored. */
+    ASSERT_EQ(2, u.edges.pixels[1 * cell]);
+    ASSERT_EQ(102, u.edges.pixels[1 * cell + 1]);
+    /* Step 15 is frame 1 mirrored. */
+    ASSERT_EQ(102, u.edges.pixels[15 * cell]);
+    ASSERT_EQ(2, u.edges.pixels[15 * cell + 1]);
+    unit_sheet_free(&u);
+}
+
+UTEST(unit_sheet, build_dying_takes_edges_too)
+{
+    static MakeSprite m;
+    static MakeSprite e;
+    make_sprite_start(&m);
+    make_sprite_start(&e);
+    for (int i = 0; i < 24; i++) {
+        make_sprite_solid(&m, 1, 1, 3);
+        make_sprite_solid(&e, 3, 1, 4);
+    }
+    Sprite256 sprite;
+    Sprite256 edges;
+    ASSERT_TRUE(make_sprite_finish(&m, &sprite));
+    ASSERT_TRUE(make_sprite_finish(&e, &edges));
+    UnitLayout layout = full_layout(false, 0, 0, 1, 0, 0);
+    UnitSheet u;
+
+    ASSERT_TRUE(unit_sheet_build_dying(&layout, &sprite, &edges, 5, 1, 2, 0,
+        &u));
+
+    ASSERT_EQ(3u, u.sheet.cell_width);
+    ASSERT_EQ(3u, u.edges.cell_width);
+    ASSERT_EQ(8u, u.edges.rows);
+    ASSERT_EQ(0, cell_at(&u, 0, 0, 0, 0));
+    ASSERT_EQ(3, cell_at(&u, 0, 0, 1, 0));
+    ASSERT_EQ(4, u.edges.pixels[0]);
+    unit_sheet_free(&u);
+}
+
+UTEST(unit_sheet, build_refuses_edges_with_another_number_of_frames)
+{
+    static MakeSprite m;
+    static MakeSprite e;
+    Sprite256 sprite;
+    Sprite256 edges;
+    ASSERT_TRUE(make_standing(&m, 2, 2, 5, &sprite));
+    make_sprite_start(&e);
+    for (int i = 0; i < 15; i++) {
+        make_sprite_solid(&e, 1, 1, 1);
+    }
+    ASSERT_TRUE(make_sprite_finish(&e, &edges));
+    UnitLayout layout = plain_layout(0);
+    UnitSheet u;
+    memset(&u, 0, sizeof u);
+    u.anchor_x = 12345;
+
+    ASSERT_FALSE(unit_sheet_build(&layout, &sprite, &edges, 8, 8, 4, 4, &u));
+
+    ASSERT_EQ(12345, u.anchor_x);
+    ASSERT_TRUE(u.sheet.pixels == NULL);
+    ASSERT_TRUE(u.edges.pixels == NULL);
+}
+
+UTEST(unit_sheet, build_refuses_an_edge_frame_larger_than_the_box)
+{
+    static MakeSprite m;
+    static MakeSprite e;
+    Sprite256 sprite;
+    Sprite256 edges;
+    ASSERT_TRUE(make_standing(&m, 2, 2, 5, &sprite));
+    ASSERT_TRUE(make_standing(&e, 9, 2, 9, &edges));
+    UnitLayout layout = plain_layout(0);
+    UnitSheet u;
+    memset(&u, 0, sizeof u);
+
+    ASSERT_FALSE(unit_sheet_build(&layout, &sprite, &edges, 8, 8, 4, 4, &u));
     ASSERT_TRUE(u.sheet.pixels == NULL);
 }

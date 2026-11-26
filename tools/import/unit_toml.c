@@ -79,12 +79,15 @@ static bool put_pair(ByteBuffer *b, const char *key, int32_t first,
     return toml_int_list(b, key, pair, 2);
 }
 
-/* Adds what every sheet has: its file, the size of a cell, and where the
- * unit's centre is in a cell. */
+/* Adds what every sheet has: its file, the file of its soft edges if it
+ * has them, the size of a cell, and where the unit's centre is in a
+ * cell. */
 static bool put_sheet(ByteBuffer *b, const char *file,
-    const UnitSheet *sheet)
+    const char *edges_file, const UnitSheet *sheet)
 {
     return toml_text(b, "sheet", file)
+        && (sheet->edges.pixels == NULL
+            || toml_text(b, "edges", edges_file))
         && put_pair(b, "cell", (int32_t)sheet->sheet.cell_width,
             (int32_t)sheet->sheet.cell_height)
         && put_pair(b, "anchor", sheet->anchor_x, sheet->anchor_y);
@@ -204,7 +207,7 @@ bool unit_toml_write(ByteBuffer *b, const Reg *reg, int32_t id,
             || toml_int_list(b, "sounds", sounds, sound_count));
 
     ok = ok && toml_table(b, "sprite")
-        && put_sheet(b, "sprites.png", sheet)
+        && put_sheet(b, "sprites.png", "edges.png", sheet)
         && (palettes == NULL
             || (put_palettes(b, palettes->file, palettes->rows)
                 && toml_text(b, "palette_by",
@@ -230,7 +233,7 @@ bool unit_toml_write(ByteBuffer *b, const Reg *reg, int32_t id,
 
     if (ok && dying != NULL) {
         ok = toml_table(b, "dying")
-            && put_sheet(b, "dying.png", dying)
+            && put_sheet(b, "dying.png", "dying_edges.png", dying)
             && (palettes == NULL
                 || put_palettes(b, palettes->dying_file,
                     palettes->dying_rows))

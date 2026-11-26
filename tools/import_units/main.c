@@ -9,6 +9,8 @@
  *                    numbers, which come from data.bin in world.res
  *     sprites.png    standing, moving, attacking and idle
  *     dying.png      dying and bones
+ *     edges.png, dying_edges.png
+ *                    the soft edges of those two, to draw under them
  *     palettes.png   the unit's colourings, one in each row
  *
  * A unit whose dying frames come from a unit with other colours also
@@ -75,6 +77,10 @@ typedef struct Unit {
     int32_t center_y;
     char path[128];
     Sprite256 sprite;
+    /* The sprite file with the soft edges, the one whose name ends in
+     * "b", if the unit has one. */
+    Sprite256 edges;
+    bool has_edges;
     /* The unit's colourings: `palette_rows` palettes of 256 colours, one
      * after the other. The first is the one the sheets are written with.
      * `by_player` says whether the player picks one, or the unit's face. */
@@ -207,21 +213,37 @@ static const char *unit_read(const ResArchive *archive, const Reg *reg,
         return "the sprite file does not have the number of frames the "
             "registry describes";
     }
+
+    /* The soft edges are in a file of the same name with "b" before the
+     * ending. A unit without one is drawn without them. */
+    char edges_path[sizeof out->path + 1];
+    size_t stem = strlen(out->path) - 4;
+    snprintf(edges_path, sizeof edges_path, "%.*sb.256", (int)stem,
+        out->path);
+    out->has_edges = res_find(archive, edges_path, &entry)
+        && !entry.is_folder
+        && sprite256_open(archive->data + entry.offset, entry.size,
+            &out->edges)
+        && out->edges.frame_count == out->sprite.frame_count;
     return unit_read_palettes(archive, reg, out);
 }
 
-/* Writes a sheet as a PNG file in a folder. */
-static bool sheet_write(const UnitSheet *sheet, const Rgb palette[256],
+/* Writes a sheet as a PNG file in a folder. A sheet without pixels, which
+ * is the edges of a unit that has none, writes nothing. */
+static bool sheet_write(const Sheet *sheet, const Rgb palette[256],
     const char *folder, const char *name)
 {
+    if (sheet->pixels == NULL) {
+        return true;
+    }
     char path[1024];
     int written = snprintf(path, sizeof path, "%s/%s", folder, name);
     if (written < 0 || (size_t)written >= sizeof path) {
         return false;
     }
     ByteBuffer png = {0};
-    bool ok = png_write_indexed(&png, sheet_width(&sheet->sheet),
-            sheet_height(&sheet->sheet), sheet->sheet.pixels, palette)
+    bool ok = png_write_indexed(&png, sheet_width(sheet),
+            sheet_height(sheet), sheet->pixels, palette)
         && file_write_all(path, png.data, png.size);
     buffer_free(&png);
     return ok;
@@ -283,12 +305,14 @@ static const char *unit_write(const ResArchive *archive, const Reg *reg,
 
     UnitSheet sheet;
     UnitSheet dying;
-    if (!unit_sheet_build(&unit.layout, &unit.sprite, (uint32_t)unit.width,
+    if (!unit_sheet_build(&unit.layout, &unit.sprite,
+            unit.has_edges ? &unit.edges : NULL, (uint32_t)unit.width,
             (uint32_t)unit.height, unit.center_x, unit.center_y, &sheet)) {
         return "the main sheet could not be built";
     }
     if (has_dying && !unit_sheet_build_dying(&source->layout,
-            &source->sprite, (uint32_t)source->width,
+            &source->sprite, source->has_edges ? &source->edges : NULL,
+            (uint32_t)source->width,
             (uint32_t)source->height, source->center_x, source->center_y,
             &dying)) {
         unit_sheet_free(&sheet);
@@ -318,10 +342,14 @@ static const char *unit_write(const ResArchive *archive, const Reg *reg,
         problem = "the unit's values could not be written out";
     } else if (!file_make_folder(folder)
         || !file_write_all(path, toml.data, toml.size)
-        || !sheet_write(&sheet, unit.palettes, folder, "sprites.png")
+        || !sheet_write(&sheet.sheet, unit.palettes, folder, "sprites.png")
+        || !sheet_write(&sheet.edges, unit.palettes, folder, "edges.png")
         || !palettes_write(&unit, folder, "palettes.png")
         || (has_dying
-            && !sheet_write(&dying, source->palettes, folder, "dying.png"))
+            && (!sheet_write(&dying.sheet, source->palettes, folder,
+                    "dying.png")
+                || !sheet_write(&dying.edges, source->palettes, folder,
+                    "dying_edges.png")))
         || (other_colours
             && !palettes_write(source, folder, "dying_palettes.png"))) {
         problem = "the unit's folder could not be written";
