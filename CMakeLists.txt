@@ -78,6 +78,7 @@ rom2_set_warnings(rom2_core)
 # importer uses them; the game itself never reads an original file.
 add_library(rom2_import STATIC
     tools/import/png.c
+    tools/import/reg.c
     tools/import/res.c
     tools/import/sprite256.c
 )
@@ -100,6 +101,7 @@ add_executable(rom2_tests
     tests/base/test_pack.c
     tests/base/test_reader.c
     tests/import/test_png.c
+    tests/import/test_reg.c
     tests/import/test_res.c
     tests/import/test_sprite256.c
 )
