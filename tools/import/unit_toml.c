@@ -90,6 +90,13 @@ static bool put_sheet(ByteBuffer *b, const char *file,
         && put_pair(b, "anchor", sheet->anchor_x, sheet->anchor_y);
 }
 
+/* Adds the picture a sheet's palettes are in, and how many there are. */
+static bool put_palettes(ByteBuffer *b, const char *file, uint32_t rows)
+{
+    return toml_text(b, "palettes", file)
+        && toml_int(b, "palette_rows", (int32_t)rows);
+}
+
 /* Adds the box to click on, counted from the unit's centre. */
 static bool put_selection(ByteBuffer *b, const Reg *reg, int32_t id,
     int32_t center_x, int32_t center_y)
@@ -172,7 +179,7 @@ static bool put_shoot_offsets(ByteBuffer *b, const Reg *reg, int32_t id,
 
 bool unit_toml_write(ByteBuffer *b, const Reg *reg, int32_t id,
     const UnitLayout *layout, const UnitSheet *sheet,
-    const UnitSheet *dying)
+    const UnitSheet *dying, const UnitTomlPalettes *palettes)
 {
     int32_t center_x = 0;
     int32_t center_y = 0;
@@ -198,6 +205,10 @@ bool unit_toml_write(ByteBuffer *b, const Reg *reg, int32_t id,
 
     ok = ok && toml_table(b, "sprite")
         && put_sheet(b, "sprites.png", sheet)
+        && (palettes == NULL
+            || (put_palettes(b, palettes->file, palettes->rows)
+                && toml_text(b, "palette_by",
+                    palettes->by_player ? "player" : "face")))
         && put_selection(b, reg, id, center_x, center_y);
 
     if (ok && sheet->columns[UNIT_ANIM_MOVE] > 0) {
@@ -220,6 +231,9 @@ bool unit_toml_write(ByteBuffer *b, const Reg *reg, int32_t id,
     if (ok && dying != NULL) {
         ok = toml_table(b, "dying")
             && put_sheet(b, "dying.png", dying)
+            && (palettes == NULL
+                || put_palettes(b, palettes->dying_file,
+                    palettes->dying_rows))
             && toml_int(b, "dying",
                 (int32_t)dying->columns[UNIT_ANIM_DYING])
             && toml_int(b, "bones",

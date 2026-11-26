@@ -17,7 +17,7 @@
 #include "base/buffer.h"
 #include "import/rgb.h"
 
-/* The largest width or height that png_write_indexed() accepts. */
+/* The largest width or height that can be written. */
 #define PNG_MAX_SIDE 16384u
 
 /* Adds a complete PNG file to the end of `out`.
@@ -30,5 +30,16 @@
  * or more than PNG_MAX_SIDE, or memory runs out. */
 bool png_write_indexed(ByteBuffer *out, uint32_t width, uint32_t height,
     const uint8_t *pixels, const Rgb palette[256]);
+
+/* Adds a complete PNG file in full colour to the end of `out`: every
+ * pixel has its own colour and none is transparent. ROM2 uses this for
+ * pictures of palettes, where a row of 256 pixels is one palette.
+ *
+ * `pixels` holds `width * height` colours, row after row from the top.
+ *
+ * Returns false, and leaves `out` as it was, if the width or height is 0
+ * or more than PNG_MAX_SIDE, or memory runs out. */
+bool png_write_rgb(ByteBuffer *out, uint32_t width, uint32_t height,
+    const Rgb *pixels);
 
 #endif

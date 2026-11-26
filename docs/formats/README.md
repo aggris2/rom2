@@ -15,6 +15,7 @@ and a few lines of values as examples.
 | `.res` | 10 | archives | [res.md](res.md) |
 | `.reg` | 17 | registries of named values | [reg.md](reg.md) |
 | `.256` | 1,929 | sprites in 256 colours | [256.md](256.md) |
+| `.pal` | 159 | palettes for colour variants | [units.md](units.md) |
 | | | how a unit's values and frames fit together | [units.md](units.md) |
 
 ## Not described yet
@@ -23,7 +24,6 @@ and a few lines of values as examples.
 |---|---|---|
 | `.16a` | 623 | sprites with see-through pixels: inventory, interface |
 | `.16` | 3 | fonts |
-| `.pal` | 159 | palettes for colour variants; see [units.md](units.md) |
 | `data.bin` | 1 | stats of units, items, spells and structures |
 | `.alm` | 46 | maps |
 | `.dat`, `itemname.*` | 8 | small tables |

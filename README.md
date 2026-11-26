@@ -39,8 +39,8 @@ them into ROM2's own content folder, once. So far it imports the units:
 ```
 
 This writes a folder for each unit into `content/units`, with its
-definition and its sprite sheets. The `content` folder is yours and is
-not part of this repository.
+definition, its sprite sheets and its palettes. The `content` folder is
+yours and is not part of this repository.
 
 ## Licence
 

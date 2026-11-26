@@ -197,7 +197,8 @@ UTEST(unit_toml, write_gives_the_whole_file_of_a_unit)
     ByteBuffer b = {0};
     ASSERT_TRUE(reg_open(m.bytes, make_two_units(&m), &reg));
 
-    ASSERT_TRUE(unit_toml_write(&b, &reg, 3, &layout, &sheet, &dying));
+    ASSERT_TRUE(unit_toml_write(&b, &reg, 3, &layout, &sheet, &dying,
+        NULL));
 
     ASSERT_TRUE(holds(&b,
         "# Human Swordsman\n"
@@ -245,7 +246,8 @@ UTEST(unit_toml, write_takes_missing_values_from_the_parent)
     ByteBuffer b = {0};
     ASSERT_TRUE(reg_open(m.bytes, make_two_units(&m), &reg));
 
-    ASSERT_TRUE(unit_toml_write(&b, &reg, 14, &layout, &sheet, NULL));
+    ASSERT_TRUE(unit_toml_write(&b, &reg, 14, &layout, &sheet, NULL,
+        NULL));
 
     /* Its own. */
     ASSERT_TRUE(has(&b, "id = 14\n"));
@@ -268,7 +270,8 @@ UTEST(unit_toml, write_counts_shots_from_the_centre)
     ByteBuffer b = {0};
     ASSERT_TRUE(reg_open(m.bytes, make_two_units(&m), &reg));
 
-    ASSERT_TRUE(unit_toml_write(&b, &reg, 14, &layout, &sheet, NULL));
+    ASSERT_TRUE(unit_toml_write(&b, &reg, 14, &layout, &sheet, NULL,
+        NULL));
 
     /* The pairs 61, 90 and 36, 80 and so on, less the centre 64, 78. */
     ASSERT_TRUE(has(&b, "delay = 4\nshoot_delay = 21\nprojectile = 1\n"
@@ -286,7 +289,8 @@ UTEST(unit_toml, write_without_a_dying_sheet_has_no_dying_part)
     ByteBuffer b = {0};
     ASSERT_TRUE(reg_open(m.bytes, make_two_units(&m), &reg));
 
-    ASSERT_TRUE(unit_toml_write(&b, &reg, 3, &layout, &sheet, NULL));
+    ASSERT_TRUE(unit_toml_write(&b, &reg, 3, &layout, &sheet, NULL,
+        NULL));
 
     ASSERT_FALSE(has(&b, "[dying]"));
     ASSERT_FALSE(has(&b, "dying.png"));
@@ -303,7 +307,8 @@ UTEST(unit_toml, write_leaves_out_an_animation_with_no_columns)
     ByteBuffer b = {0};
     ASSERT_TRUE(reg_open(m.bytes, make_two_units(&m), &reg));
 
-    ASSERT_TRUE(unit_toml_write(&b, &reg, 3, &layout, &sheet, NULL));
+    ASSERT_TRUE(unit_toml_write(&b, &reg, 3, &layout, &sheet, NULL,
+        NULL));
 
     ASSERT_TRUE(has(&b, "[anim.move]"));
     ASSERT_FALSE(has(&b, "[anim.attack]"));
@@ -323,7 +328,8 @@ UTEST(unit_toml, write_of_an_animation_without_lists_gives_its_columns)
     ByteBuffer b = {0};
     ASSERT_TRUE(reg_open(m.bytes, make_two_units(&m), &reg));
 
-    ASSERT_TRUE(unit_toml_write(&b, &reg, 3, &layout, &sheet, NULL));
+    ASSERT_TRUE(unit_toml_write(&b, &reg, 3, &layout, &sheet, NULL,
+        NULL));
 
     ASSERT_TRUE(has(&b, "\n[anim.idle]\ncolumn = 7\ncolumns = 5\n"));
     buffer_free(&b);
@@ -344,9 +350,11 @@ UTEST(unit_toml, write_refuses_a_unit_without_a_centre)
     make_reg_int(&m, "CenterX", 64);
     ASSERT_TRUE(reg_open(m.bytes, make_reg_finish(&m), &reg));
 
-    ASSERT_FALSE(unit_toml_write(&b, &reg, 3, &layout, &sheet, NULL));
+    ASSERT_FALSE(unit_toml_write(&b, &reg, 3, &layout, &sheet, NULL,
+        NULL));
     /* And a unit that is not there at all. */
-    ASSERT_FALSE(unit_toml_write(&b, &reg, 4, &layout, &sheet, NULL));
+    ASSERT_FALSE(unit_toml_write(&b, &reg, 4, &layout, &sheet, NULL,
+        NULL));
     buffer_free(&b);
 }
 
@@ -370,7 +378,8 @@ UTEST(unit_toml, write_refuses_frame_and_tick_lists_of_different_length)
     make_reg_int_list(&m, "MoveAnimTime", times, 2);
     ASSERT_TRUE(reg_open(m.bytes, make_reg_finish(&m), &reg));
 
-    ASSERT_FALSE(unit_toml_write(&b, &reg, 3, &layout, &sheet, NULL));
+    ASSERT_FALSE(unit_toml_write(&b, &reg, 3, &layout, &sheet, NULL,
+        NULL));
     buffer_free(&b);
 }
 
@@ -392,7 +401,8 @@ UTEST(unit_toml, write_refuses_shots_that_are_not_8_pairs)
     make_reg_int_list(&m, "ShootOffset", shoot, 4);
     ASSERT_TRUE(reg_open(m.bytes, make_reg_finish(&m), &reg));
 
-    ASSERT_FALSE(unit_toml_write(&b, &reg, 3, &layout, &sheet, NULL));
+    ASSERT_FALSE(unit_toml_write(&b, &reg, 3, &layout, &sheet, NULL,
+        NULL));
     buffer_free(&b);
 }
 
@@ -414,6 +424,53 @@ UTEST(unit_toml, write_refuses_a_list_longer_than_the_limit)
     make_reg_int_list(&m, "Sound", sounds, UNIT_MAX_PHASES + 1);
     ASSERT_TRUE(reg_open(m.bytes, make_reg_finish(&m), &reg));
 
-    ASSERT_FALSE(unit_toml_write(&b, &reg, 3, &layout, &sheet, NULL));
+    ASSERT_FALSE(unit_toml_write(&b, &reg, 3, &layout, &sheet, NULL,
+        NULL));
+    buffer_free(&b);
+}
+
+UTEST(unit_toml, write_names_the_palettes_of_both_sheets)
+{
+    static MakeReg m;
+    Reg reg;
+    UnitLayout layout;
+    UnitSheet sheet = make_main_sheet(&layout);
+    UnitSheet dying = make_dying_sheet();
+    const UnitTomlPalettes palettes = {
+        "palettes.png", 5, false, "dying_palettes.png", 2
+    };
+    ByteBuffer b = {0};
+    ASSERT_TRUE(reg_open(m.bytes, make_two_units(&m), &reg));
+
+    ASSERT_TRUE(unit_toml_write(&b, &reg, 3, &layout, &sheet, &dying,
+        &palettes));
+
+    ASSERT_TRUE(has(&b, "anchor = [44, 50]\n"
+        "palettes = \"palettes.png\"\npalette_rows = 5\n"
+        "palette_by = \"face\"\nselection"));
+    ASSERT_TRUE(has(&b, "anchor = [24, 46]\n"
+        "palettes = \"dying_palettes.png\"\npalette_rows = 2\n"
+        "dying = 4\n"));
+    buffer_free(&b);
+}
+
+UTEST(unit_toml, write_says_when_the_player_picks_the_palette)
+{
+    static MakeReg m;
+    Reg reg;
+    UnitLayout layout;
+    UnitSheet sheet = make_main_sheet(&layout);
+    const UnitTomlPalettes palettes = {
+        "palettes.png", 16, true, "palettes.png", 16
+    };
+    ByteBuffer b = {0};
+    ASSERT_TRUE(reg_open(m.bytes, make_two_units(&m), &reg));
+
+    ASSERT_TRUE(unit_toml_write(&b, &reg, 3, &layout, &sheet, NULL,
+        &palettes));
+
+    ASSERT_TRUE(has(&b, "palette_rows = 16\npalette_by = \"player\"\n"));
+    /* No dying sheet, so nothing about its palettes either. */
+    ASSERT_FALSE(has(&b, "[dying]"));
     buffer_free(&b);
 }

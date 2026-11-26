@@ -284,3 +284,79 @@ UTEST(png, a_picture_larger_than_the_limit_is_refused)
     ASSERT_EQ(0u, png.size);
     buffer_free(&png);
 }
+
+/* ---- png_write_rgb ---- */
+
+UTEST(png, rgb_file_is_the_signature_and_three_chunks)
+{
+    const Rgb pixels[2] = {{1, 2, 3}, {4, 5, 6}};
+    ByteBuffer png = {0};
+    ASSERT_TRUE(png_write_rgb(&png, 2, 1, pixels));
+
+    Reader r = reader_init(png.data, png.size);
+    reader_skip(&r, 8);
+    Chunk c = {0};
+    ASSERT_TRUE(read_chunk(&r, &c));
+    ASSERT_STREQ("IHDR", c.type);
+    ASSERT_TRUE(c.crc_ok);
+    ASSERT_EQ(13u, c.size);
+    /* Width 2, height 1, 8 bits, colour type 2: red, green, blue. */
+    ASSERT_EQ(2, c.data[3]);
+    ASSERT_EQ(1, c.data[7]);
+    ASSERT_EQ(8, c.data[8]);
+    ASSERT_EQ(2, c.data[9]);
+    ASSERT_TRUE(read_chunk(&r, &c));
+    ASSERT_STREQ("IDAT", c.type);
+    ASSERT_TRUE(c.crc_ok);
+    ASSERT_TRUE(read_chunk(&r, &c));
+    ASSERT_STREQ("IEND", c.type);
+    ASSERT_TRUE(c.crc_ok);
+    ASSERT_EQ(0u, reader_remaining(&r));
+    buffer_free(&png);
+}
+
+UTEST(png, rgb_every_colour_comes_back_red_first)
+{
+    /* 3 by 2. Pixel n is (n, 100 + n, 200 + n). */
+    Rgb pixels[6];
+    for (uint8_t i = 0; i < 6; i++) {
+        pixels[i].r = i;
+        pixels[i].g = (uint8_t)(100 + i);
+        pixels[i].b = (uint8_t)(200 + i);
+    }
+    ByteBuffer png = {0};
+    ASSERT_TRUE(png_write_rgb(&png, 3, 2, pixels));
+
+    Reader r = reader_init(png.data, png.size);
+    reader_skip(&r, 8);
+    Chunk c = {0};
+    ASSERT_TRUE(read_chunk(&r, &c));
+    ASSERT_TRUE(read_chunk(&r, &c));
+    ByteBuffer raw = {0};
+    ASSERT_TRUE(unpack_zlib(&raw, c.data, c.size, 20));
+    /* Two rows of a filter byte and 3 pixels of 3 bytes. */
+    ASSERT_EQ(20u, raw.size);
+    const uint8_t expected[20] = {
+        0, 0, 100, 200, 1, 101, 201, 2, 102, 202,
+        0, 3, 103, 203, 4, 104, 204, 5, 105, 205
+    };
+    ASSERT_EQ(0, memcmp(expected, raw.data, 20));
+    buffer_free(&raw);
+    buffer_free(&png);
+}
+
+UTEST(png, rgb_picture_with_no_size_or_too_large_is_refused)
+{
+    const Rgb pixels[1] = {{1, 2, 3}};
+    const uint8_t before[2] = {7, 8};
+    ByteBuffer png = {0};
+    ASSERT_TRUE(buffer_append(&png, before, 2));
+
+    ASSERT_FALSE(png_write_rgb(&png, 0, 1, pixels));
+    ASSERT_FALSE(png_write_rgb(&png, 1, 0, pixels));
+    ASSERT_FALSE(png_write_rgb(&png, PNG_MAX_SIDE + 1, 1, pixels));
+    ASSERT_FALSE(png_write_rgb(&png, 1, PNG_MAX_SIDE + 1, pixels));
+
+    ASSERT_EQ(2u, png.size);
+    buffer_free(&png);
+}

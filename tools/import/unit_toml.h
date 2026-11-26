@@ -14,6 +14,9 @@
  *     sheet = "sprites.png"
  *     cell = [88, 72]
  *     anchor = [44, 50]
+ *     palettes = "palettes.png"
+ *     palette_rows = 16
+ *     palette_by = "player"
  *     selection = [-16, -30, 16, 12]
  *
  *     [anim.move]
@@ -34,6 +37,8 @@
  *     sheet = "dying.png"
  *     cell = [48, 64]
  *     anchor = [24, 46]
+ *     palettes = "palettes.png"
+ *     palette_rows = 16
  *     dying = 4
  *     bones = 3
  *
@@ -51,6 +56,13 @@
  *
  * On the dying sheet the `dying` columns come first and the `bones`
  * columns after them.
+ *
+ * `palettes` is a picture 256 pixels wide in which every row is one
+ * palette, one colouring of the unit, and `palette_rows` is how many
+ * there are. `palette_by` says what picks the row: "player" for a human,
+ * who wears the colour of the player he belongs to, and "face" for a
+ * monster, whose kind has a number. The pixels of a sheet are numbers
+ * from 0 to 255, and a row gives the colour of each.
  */
 #ifndef ROM2_IMPORT_UNIT_TOML_H
 #define ROM2_IMPORT_UNIT_TOML_H
@@ -77,9 +89,23 @@
 bool unit_toml_folder_name(const Reg *reg, int32_t id,
     char out[UNIT_TOML_FOLDER_SIZE]);
 
+/* The palettes of a unit, as unit.toml names them. */
+typedef struct UnitTomlPalettes {
+    /* The picture with the palettes of the main sheet, and its rows. */
+    const char *file;
+    uint32_t rows;
+    /* True if the player picks the row, false if the unit's face does. */
+    bool by_player;
+    /* The same for the dying sheet. It is another picture when the dying
+     * frames come from a unit with other colours. */
+    const char *dying_file;
+    uint32_t dying_rows;
+} UnitTomlPalettes;
+
 /* Adds the text of unit.toml for the unit with the given ID to `b`.
  * `layout` is the unit's own layout and `sheet` its main sheet. `dying`
  * is its dying sheet, or NULL for a unit without dying frames.
+ * `palettes` may be NULL, and then the file says nothing of palettes.
  *
  * Returns false if the unit has no "CenterX" and "CenterY", a frame list
  * and its tick list are not the same length, a list is longer than
@@ -87,6 +113,6 @@ bool unit_toml_folder_name(const Reg *reg, int32_t id,
  * text. */
 bool unit_toml_write(ByteBuffer *b, const Reg *reg, int32_t id,
     const UnitLayout *layout, const UnitSheet *sheet,
-    const UnitSheet *dying);
+    const UnitSheet *dying, const UnitTomlPalettes *palettes);
 
 #endif

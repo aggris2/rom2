@@ -145,7 +145,7 @@ feet.
 ## Palettes
 
 A sprite file has one palette inside it. The other colourings of a unit
-are in `.pal` files, which ROM2 does not read yet. Measured on the 159
+are in `.pal` files, read by `tools/import/pal.c`. Measured on the 159
 `.pal` files of `graphics.res`:
 
 - 156 are ordinary 8-bit BMP pictures. The palette is the picture's
@@ -158,16 +158,22 @@ are in `.pal` files, which ROM2 does not read yet. Measured on the 159
   `palette.pal` to `palette5.pal`, and 1 for a unit with one colouring.
   No unit states more than its folder has.
 - Humans state `Palette` 0 and have no `.pal` in their folders. They use
-  `units/humans/human.pal`, which is not a BMP: 16,384 bytes, 16 palettes
-  of 256 entries of 4 bytes, one after the other. The 16 differ from each
-  other in 55 entries, which fits one palette for each player colour.
+  the `human.pal` one folder up, `units/humans/human.pal`, which is not a
+  BMP: 16,384 bytes, 16 palettes of 256 entries of 4 bytes, one after the
+  other. The 16 differ from each other in 55 entries, and every human
+  sprite's own palette is the same as them in the other 201. Rendered,
+  the 55 are the cloth that shows the colour of the unit's player.
+- Which of a monster's colourings is used is not in these files. It is
+  expected to be the "face" number of the monster's kind in `data.bin`,
+  with 1 for `palette.pal`. Not checked against `data.bin` yet.
 
 ## What ROM2 writes for a unit
 
 `import_units` writes a folder for every unit, named after its ID and
 its name: `003_human_swordsman`. In it are the unit's definition,
-`unit.toml`, and two pictures, `sprites.png` and `dying.png`. Both are
-8-bit indexed PNGs, and each is a grid of cells of one size.
+`unit.toml`, two sheets, `sprites.png` and `dying.png`, and the unit's
+colourings, `palettes.png`. The sheets are 8-bit indexed PNGs, and each
+is a grid of cells of one size.
 
 - **The main sheet.** Row 0 has the 16 standing steps. Rows 1 to 8 are
   the 8 directions, and each has the moving, attack and idle frames one
@@ -186,6 +192,13 @@ so that a mirrored frame fits. The anchor of a sheet is `CenterX`,
 `CenterY` counted from the corner of the cell. For the Swordsman the main
 sheet has cells of 88 by 72 with the anchor at 44, 50.
 
+`palettes.png` is 256 pixels wide, and every row is one palette: 16
+rows for a human, one for each player colour, and for a monster as many
+as its `Palette` says. A pixel of a sheet is a number from 0 to 255, and
+a row gives the colour of each. The sheets themselves carry the first
+row, so they look right in a picture viewer. A unit whose dying frames
+come from a unit with other palettes also gets `dying_palettes.png`.
+
 `unit.toml` has the unit's values from the registry, with those of its
 parent written out, so a folder does not depend on another unit. The
 file is described at the top of `tools/import/unit_toml.h`. Places inside
@@ -199,8 +212,7 @@ are left out with a message.
 
 - Where the box is drawn relative to the unit's place on the map. That
   needs a comparison with the original game.
-- What decides which of a unit's colourings is used, and what the
-  `palette_.pal` files are for.
+- What the `palette_.pal` files are for.
 - `TileSize` is 1, 2 or 3 and is stated by large or unusual units (2 for
   the ogre and the catapult, 3 for the dragon). It is probably the number
   of map tiles the unit takes. Not checked.

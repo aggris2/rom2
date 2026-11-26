@@ -5,9 +5,13 @@
  * Every unit gets a folder of its own in <content folder>/units, named
  * after its ID and its name, with three files in it:
  *
- *     unit.toml     the unit's definition
- *     sprites.png   standing, moving, attacking and idle
- *     dying.png     dying and bones
+ *     unit.toml      the unit's definition
+ *     sprites.png    standing, moving, attacking and idle
+ *     dying.png      dying and bones
+ *     palettes.png   the unit's colourings, one in each row
+ *
+ * A unit whose dying frames come from a unit with other colours also
+ * gets dying_palettes.png.
  *
  * With a unit ID only that unit is written.
  */
@@ -17,6 +21,7 @@
 
 #include "base/buffer.h"
 #include "base/file.h"
+#include "import/pal.h"
 #include "import/png.h"
 #include "import/reg.h"
 #include "import/res.h"
@@ -53,6 +58,10 @@ static bool sprite_path(const Reg *reg, int32_t id, char *out, size_t size)
     return true;
 }
 
+/* The most colourings a unit may have. The game's most is 16, the
+ * player colours. */
+#define MAX_PALETTES 32
+
 /* A unit as the registry describes it, with its sprite file opened. */
 typedef struct Unit {
     int32_t id;
@@ -64,8 +73,107 @@ typedef struct Unit {
     int32_t center_y;
     char path[128];
     Sprite256 sprite;
-    Rgb palette[256];
+    /* The unit's colourings: `palette_rows` palettes of 256 colours, one
+     * after the other. The first is the one the sheets are written with.
+     * `by_player` says whether the player picks one, or the unit's face. */
+    Rgb palettes[MAX_PALETTES * 256];
+    uint32_t palette_rows;
+    bool by_player;
 } Unit;
+
+/* Reads the .pal file with the given name next to the unit's sprite
+ * file, or, with `levels_up` 1, one folder further up. Sets `*data` and
+ * `*size` to its bytes. */
+static bool pal_file(const ResArchive *archive, const Unit *unit,
+    int levels_up, const char *name, const uint8_t **data, size_t *size)
+{
+    char path[160];
+    ResEntry entry;
+    /* The folder is the sprite's path up to its last '/', or to the one
+     * before that. */
+    size_t length = strlen(unit->path);
+    for (int cut = 0; cut <= levels_up; cut++) {
+        while (length > 0 && unit->path[length - 1] != '/') {
+            length--;
+        }
+        if (length == 0) {
+            return false;
+        }
+        if (cut < levels_up) {
+            length--;
+        }
+    }
+    int written = snprintf(path, sizeof path, "%.*s%s", (int)length,
+        unit->path, name);
+    if (written < 0 || (size_t)written >= sizeof path
+        || !res_find(archive, path, &entry) || entry.is_folder) {
+        return false;
+    }
+    *data = archive->data + entry.offset;
+    *size = entry.size;
+    return true;
+}
+
+/* Reads the unit's colourings. The registry's "Palette" says how many
+ * the unit has of its own: palette.pal, palette2.pal and so on, next to
+ * its sprite file. 0 stands for the humans' shared human.pal, one folder
+ * up, with a palette for each player colour. A unit with neither has the
+ * one palette inside its sprite file. */
+static const char *unit_read_palettes(const ResArchive *archive,
+    const Reg *reg, Unit *unit)
+{
+    int32_t count = 1;
+    const uint8_t *data = NULL;
+    size_t size = 0;
+    units_int(reg, unit->id, "Palette", &count);
+    if (count < 0 || count > MAX_PALETTES) {
+        return "the unit's number of palettes is not usable";
+    }
+
+    /* Whatever follows, the sprite's own palette is the fallback. */
+    if (!sprite256_palette(&unit->sprite, unit->palettes)) {
+        return "the unit's sprite file has no palette";
+    }
+    unit->palette_rows = 1;
+    unit->by_player = false;
+
+    if (count == 0) {
+        if (!pal_file(archive, unit, 1, "human.pal", &data, &size)) {
+            return NULL;
+        }
+        uint32_t rows = pal_table_count(size);
+        if (rows == 0 || rows > MAX_PALETTES) {
+            return "human.pal is not a table of palettes";
+        }
+        for (uint32_t i = 0; i < rows; i++) {
+            pal_table_read(data, size, i, unit->palettes + i * 256);
+        }
+        unit->palette_rows = rows;
+        unit->by_player = true;
+        return NULL;
+    }
+
+    for (int32_t i = 0; i < count; i++) {
+        char name[32];
+        if (i == 0) {
+            snprintf(name, sizeof name, "palette.pal");
+        } else {
+            snprintf(name, sizeof name, "palette%d.pal", (int)i + 1);
+        }
+        if (!pal_file(archive, unit, 0, name, &data, &size)) {
+            /* The first may be missing: it is the one in the sprite. */
+            if (i == 0) {
+                continue;
+            }
+            return "one of the unit's .pal files is missing";
+        }
+        if (!pal_bmp_read(data, size, unit->palettes + (size_t)i * 256)) {
+            return "one of the unit's .pal files cannot be read";
+        }
+    }
+    unit->palette_rows = (uint32_t)count;
+    return NULL;
+}
 
 /* Reads everything about one unit. Returns a message saying what went
  * wrong, or NULL. */
@@ -93,14 +201,11 @@ static const char *unit_read(const ResArchive *archive, const Reg *reg,
             &out->sprite)) {
         return "the unit's sprite file is not in the archive";
     }
-    if (!sprite256_palette(&out->sprite, out->palette)) {
-        return "the unit's sprite file has no palette";
-    }
     if (out->sprite.frame_count != out->layout.frame_count) {
         return "the sprite file does not have the number of frames the "
             "registry describes";
     }
-    return NULL;
+    return unit_read_palettes(archive, reg, out);
 }
 
 /* Writes a sheet as a PNG file in a folder. */
@@ -115,6 +220,23 @@ static bool sheet_write(const UnitSheet *sheet, const Rgb palette[256],
     ByteBuffer png = {0};
     bool ok = png_write_indexed(&png, sheet_width(&sheet->sheet),
             sheet_height(&sheet->sheet), sheet->sheet.pixels, palette)
+        && file_write_all(path, png.data, png.size);
+    buffer_free(&png);
+    return ok;
+}
+
+/* Writes a unit's palettes as a picture, 256 pixels wide with one row
+ * for each palette. */
+static bool palettes_write(const Unit *unit, const char *folder,
+    const char *name)
+{
+    char path[1024];
+    int written = snprintf(path, sizeof path, "%s/%s", folder, name);
+    if (written < 0 || (size_t)written >= sizeof path) {
+        return false;
+    }
+    ByteBuffer png = {0};
+    bool ok = png_write_rgb(&png, 256, unit->palette_rows, unit->palettes)
         && file_write_all(path, png.data, png.size);
     buffer_free(&png);
     return ok;
@@ -170,17 +292,34 @@ static const char *unit_write(const ResArchive *archive, const Reg *reg,
         return "the dying sheet could not be built";
     }
 
+    /* The dying sheet has the unit's own palettes, unless its frames
+     * come from a unit whose palettes are not the same. */
+    bool other_colours = has_dying
+        && (source->palette_rows != unit.palette_rows
+            || memcmp(source->palettes, unit.palettes,
+                unit.palette_rows * 256 * sizeof(Rgb)) != 0);
+    UnitTomlPalettes palettes;
+    palettes.file = "palettes.png";
+    palettes.rows = unit.palette_rows;
+    palettes.by_player = unit.by_player;
+    palettes.dying_file = other_colours ? "dying_palettes.png"
+        : "palettes.png";
+    palettes.dying_rows = source->palette_rows;
+
     ByteBuffer toml = {0};
     char path[1040];
     snprintf(path, sizeof path, "%s/unit.toml", folder);
     if (!unit_toml_write(&toml, reg, id, &unit.layout, &sheet,
-            has_dying ? &dying : NULL)) {
+            has_dying ? &dying : NULL, &palettes)) {
         problem = "the unit's values could not be written out";
     } else if (!file_make_folder(folder)
         || !file_write_all(path, toml.data, toml.size)
-        || !sheet_write(&sheet, unit.palette, folder, "sprites.png")
+        || !sheet_write(&sheet, unit.palettes, folder, "sprites.png")
+        || !palettes_write(&unit, folder, "palettes.png")
         || (has_dying
-            && !sheet_write(&dying, source->palette, folder, "dying.png"))) {
+            && !sheet_write(&dying, source->palettes, folder, "dying.png"))
+        || (other_colours
+            && !palettes_write(source, folder, "dying_palettes.png"))) {
         problem = "the unit's folder could not be written";
     }
     buffer_free(&toml);
