@@ -4,6 +4,7 @@
 #ifndef ROM2_IMPORT_NAME_H
 #define ROM2_IMPORT_NAME_H
 
+#include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
 
@@ -13,5 +14,19 @@
  * zero. Does nothing if `dst_size` is 0. */
 void name_copy(char *dst, size_t dst_size, const uint8_t *field,
     size_t field_size);
+
+/* The room a folder name from name_folder() needs, with its closing
+ * zero. */
+#define NAME_FOLDER_SIZE 64
+
+/* Makes the name of a thing's folder from its ID and its name: the ID in
+ * three digits, then the name in lower case with '_' for anything that
+ * is not a letter or a digit. 3 and "Human Swordsman" give
+ * "003_human_swordsman". A name that is too long is cut, and a thing
+ * without a name is its number alone.
+ *
+ * Returns false, and leaves `out` alone, if the ID is not between 0 and
+ * 999. */
+bool name_folder(int32_t id, const char *name, char out[NAME_FOLDER_SIZE]);
 
 #endif

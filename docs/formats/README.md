@@ -18,6 +18,7 @@ and a few lines of values as examples.
 | `.pal` | 159 | palettes for colour variants | [units.md](units.md) |
 | `data.bin` | 1 | kinds of units, items, spells, buildings | [databin.md](databin.md) |
 | | | how a unit's values and frames fit together | [units.md](units.md) |
+| | | how an object's values and frames fit together | [objects.md](objects.md) |
 
 ## Not described yet
 

@@ -80,3 +80,49 @@ UTEST(name, copy_into_a_buffer_of_no_size_writes_nothing)
     ASSERT_EQ('G', name[0]);
     ASSERT_EQ('G', name[1]);
 }
+
+/* ---- name_folder ---- */
+
+UTEST(name, folder_is_the_id_in_three_digits_and_the_name)
+{
+    char out[NAME_FOLDER_SIZE];
+    ASSERT_TRUE(name_folder(3, "Human Swordsman", out));
+    ASSERT_STREQ("003_human_swordsman", out);
+    ASSERT_TRUE(name_folder(0, "Pine 1", out));
+    ASSERT_STREQ("000_pine_1", out);
+    ASSERT_TRUE(name_folder(999, "x", out));
+    ASSERT_STREQ("999_x", out);
+}
+
+UTEST(name, folder_turns_runs_of_other_characters_into_one_underscore)
+{
+    char out[NAME_FOLDER_SIZE];
+    ASSERT_TRUE(name_folder(66, " Ogre  (Lord) 2-handed! ", out));
+    ASSERT_STREQ("066_ogre_lord_2_handed", out);
+    ASSERT_TRUE(name_folder(7, "", out));
+    ASSERT_STREQ("007", out);
+    ASSERT_TRUE(name_folder(7, "!!!", out));
+    ASSERT_STREQ("007", out);
+}
+
+UTEST(name, folder_cuts_a_name_that_is_too_long)
+{
+    char text[200];
+    char out[NAME_FOLDER_SIZE + 1];
+    memset(text, 'a', sizeof text - 1);
+    text[sizeof text - 1] = '\0';
+    memset(out, 'x', sizeof out);
+
+    ASSERT_TRUE(name_folder(5, text, out));
+
+    ASSERT_EQ((size_t)NAME_FOLDER_SIZE - 1, strlen(out));
+    ASSERT_EQ('x', out[NAME_FOLDER_SIZE]);
+}
+
+UTEST(name, folder_refuses_an_id_outside_0_to_999)
+{
+    char out[NAME_FOLDER_SIZE] = "untouched";
+    ASSERT_FALSE(name_folder(-1, "a", out));
+    ASSERT_FALSE(name_folder(1000, "a", out));
+    ASSERT_STREQ("untouched", out);
+}

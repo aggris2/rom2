@@ -78,13 +78,18 @@ rom2_set_warnings(rom2_core)
 # importer uses them; the game itself never reads an original file.
 add_library(rom2_import STATIC
     tools/import/databin.c
+    tools/import/frames.c
     tools/import/name.c
+    tools/import/object_sheet.c
+    tools/import/object_toml.c
+    tools/import/objects.c
     tools/import/pal.c
     tools/import/png.c
     tools/import/reg.c
     tools/import/res.c
     tools/import/sheet.c
     tools/import/sprite256.c
+    tools/import/things.c
     tools/import/toml.c
     tools/import/unit_layout.c
     tools/import/unit_sheet.c
@@ -105,6 +110,12 @@ add_executable(import_units tools/import_units/main.c)
 target_link_libraries(import_units PRIVATE rom2_import)
 rom2_set_warnings(import_units)
 
+# import_objects: writes the objects of the original game as ROM2
+# content.
+add_executable(import_objects tools/import_objects/main.c)
+target_link_libraries(import_objects PRIVATE rom2_import)
+rom2_set_warnings(import_objects)
+
 # Tests: one program, rom2_tests, built from every test file.
 enable_testing()
 
@@ -116,12 +127,16 @@ add_executable(rom2_tests
     tests/base/test_reader.c
     tests/import/test_databin.c
     tests/import/test_name.c
+    tests/import/test_object_sheet.c
+    tests/import/test_object_toml.c
+    tests/import/test_objects.c
     tests/import/test_pal.c
     tests/import/test_png.c
     tests/import/test_reg.c
     tests/import/test_res.c
     tests/import/test_sheet.c
     tests/import/test_sprite256.c
+    tests/import/test_things.c
     tests/import/test_toml.c
     tests/import/test_unit_layout.c
     tests/import/test_unit_sheet.c

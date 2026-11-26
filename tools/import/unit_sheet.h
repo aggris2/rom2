@@ -72,9 +72,9 @@ typedef struct UnitSheet {
  * unit_sheet_free().
  *
  * Returns false, and leaves `*out` alone, if a sprite does not have
- * exactly the number of frames the layout says, a frame cannot be read or
- * is larger than the box, the box is larger than UNIT_SHEET_MAX_BOX, or
- * memory runs out. */
+ * exactly the number of frames the layout says, a frame cannot be read,
+ * a frame that goes on the sheet is larger than the box, the box is
+ * larger than UNIT_SHEET_MAX_BOX, or memory runs out. */
 bool unit_sheet_build(const UnitLayout *layout, const Sprite256 *sprite,
     const Sprite256 *edges, uint32_t box_width, uint32_t box_height,
     int32_t center_x, int32_t center_y, UnitSheet *out);

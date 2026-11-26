@@ -78,12 +78,13 @@
 
 #include "base/buffer.h"
 #include "import/databin.h"
+#include "import/name.h"
 #include "import/reg.h"
 #include "import/unit_layout.h"
 #include "import/unit_sheet.h"
 
 /* The room a folder name needs, with its closing zero. */
-#define UNIT_TOML_FOLDER_SIZE 64
+#define UNIT_TOML_FOLDER_SIZE NAME_FOLDER_SIZE
 
 /* Makes the name of a unit's folder from its ID and its "DescText": the
  * ID in three digits, then the text in lower case with '_' for anything

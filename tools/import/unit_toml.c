@@ -3,6 +3,7 @@
 #include <stdio.h>
 #include <string.h>
 
+#include "import/name.h"
 #include "import/toml.h"
 #include "import/units.h"
 
@@ -10,38 +11,12 @@ bool unit_toml_folder_name(const Reg *reg, int32_t id,
     char out[UNIT_TOML_FOLDER_SIZE])
 {
     char section[UNITS_SECTION_SIZE];
-    if (id < 0 || id > 999 || !units_section(reg, id, section)) {
+    const char *text = "";
+    if (!units_section(reg, id, section)) {
         return false;
     }
-    const char *text = "";
     units_text(reg, id, "DescText", &text);
-
-    char name[UNIT_TOML_FOLDER_SIZE];
-    size_t length = (size_t)snprintf(name, sizeof name, "%03d", (int)id);
-    /* A '_' is owed before the next letter or digit: after the ID, and
-     * after any run of other characters. */
-    bool gap = true;
-    for (const char *p = text; *p != '\0'; p++) {
-        char c = *p;
-        if (c >= 'A' && c <= 'Z') {
-            c = (char)(c - 'A' + 'a');
-        }
-        if (!((c >= 'a' && c <= 'z') || (c >= '0' && c <= '9'))) {
-            gap = true;
-            continue;
-        }
-        if (length + (gap ? 2u : 1u) >= sizeof name) {
-            break;
-        }
-        if (gap) {
-            name[length++] = '_';
-            gap = false;
-        }
-        name[length++] = c;
-    }
-    name[length] = '\0';
-    memcpy(out, name, length + 1);
-    return true;
+    return name_folder(id, text, out);
 }
 
 /* Adds a whole number of the unit under another name, if the unit or a

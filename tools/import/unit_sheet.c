@@ -1,66 +1,8 @@
 #include "import/unit_sheet.h"
 
-#include <stdlib.h>
 #include <string.h>
 
-/* Every frame of a sprite, decoded. */
-typedef struct Frames {
-    Frame256 *items;
-    uint32_t count;
-} Frames;
-
-static void frames_free(Frames *frames)
-{
-    for (uint32_t i = 0; i < frames->count; i++) {
-        frame256_free(&frames->items[i]);
-    }
-    free(frames->items);
-    frames->items = NULL;
-    frames->count = 0;
-}
-
-/* Decodes all frames of a sprite. Fails if one cannot be read or is
- * larger than the box. */
-static bool frames_read(const Sprite256 *sprite, uint32_t box_width,
-    uint32_t box_height, Frames *out)
-{
-    Frames frames = {NULL, 0};
-    frames.items = calloc(sprite->frame_count > 0 ? sprite->frame_count : 1,
-        sizeof *frames.items);
-    if (frames.items == NULL) {
-        return false;
-    }
-    Reader r = sprite256_frames(sprite);
-    for (uint32_t i = 0; i < sprite->frame_count; i++) {
-        Frame256 *frame = &frames.items[i];
-        if (!sprite256_frame_read(&r, frame)) {
-            frames_free(&frames);
-            return false;
-        }
-        frames.count = i + 1;
-        if (frame->width > box_width || frame->height > box_height) {
-            frames_free(&frames);
-            return false;
-        }
-    }
-    *out = frames;
-    return true;
-}
-
-/* The part of the box that the cells show: columns `left` up to `right`
- * and rows `top` up to `bottom`. */
-typedef struct Window {
-    uint32_t left;
-    uint32_t top;
-    uint32_t right;
-    uint32_t bottom;
-} Window;
-
-/* A frame is the middle of the box. */
-static uint32_t centred(uint32_t box, uint32_t frame)
-{
-    return (box - frame) / 2;
-}
+#include "import/frames.h"
 
 /* What a sheet is being built from. */
 typedef struct Plan {
@@ -78,39 +20,18 @@ typedef struct Plan {
  * larger so that it holds the frame. With a sheet, the frame is put into
  * its cell, at the place it has in the box. */
 static bool place(const Plan *plan, uint32_t index, bool mirror,
-    uint32_t column, uint32_t row, Window *window, Sheet *sheet)
+    uint32_t column, uint32_t row, FrameWindow *window, Sheet *sheet)
 {
-    if (index >= plan->frames->count) {
-        return false;
-    }
-    const Frame256 *frame = &plan->frames->items[index];
-    if (frame->width == 0 || frame->height == 0) {
-        return true;
-    }
-    uint32_t x = centred(plan->box_width, frame->width);
-    uint32_t y = centred(plan->box_height, frame->height);
-
     if (sheet == NULL) {
-        if (x < window->left) {
-            window->left = x;
-        }
-        if (y < window->top) {
-            window->top = y;
-        }
-        if (y + frame->height > window->bottom) {
-            window->bottom = y + frame->height;
-        }
-        return true;
+        return frames_measure(plan->frames, index, plan->box_width,
+            plan->box_height, window);
     }
-    if (mirror) {
-        x = plan->box_width - x - frame->width;
-    }
-    return sheet_put(sheet, column, row, frame->pixels, frame->width,
-        frame->height, x - window->left, y - window->top, mirror);
+    return frames_put(plan->frames, index, mirror, plan->box_width,
+        plan->box_height, window, sheet, column, row);
 }
 
 /* Goes through every frame of the plan, in the order of the sheet. */
-static bool place_all(const Plan *plan, Window *window, Sheet *sheet)
+static bool place_all(const Plan *plan, FrameWindow *window, Sheet *sheet)
 {
     uint32_t first_row = plan->standing_row ? 1 : 0;
     bool ok = true;
@@ -153,11 +74,10 @@ static bool build(const UnitLayout *layout, const Sprite256 *sprite,
 
     Frames frames;
     Frames edge_frames = {NULL, 0};
-    if (!frames_read(sprite, box_width, box_height, &frames)) {
+    if (!frames_read(sprite, &frames)) {
         return false;
     }
-    if (edges != NULL
-        && !frames_read(edges, box_width, box_height, &edge_frames)) {
+    if (edges != NULL && !frames_read(edges, &edge_frames)) {
         frames_free(&frames);
         return false;
     }
@@ -194,21 +114,10 @@ static bool build(const UnitLayout *layout, const Sprite256 *sprite,
 
     /* First find the window that holds every frame, of the figure and of
      * its edge, then fill sheets of that cell size. */
-    Window window = {box_width, box_height, 0, 0};
+    FrameWindow window = frame_window_empty(box_width, box_height);
     bool ok = columns > 0 && place_all(&plan, &window, NULL)
         && (edges == NULL || place_all(&edge_plan, &window, NULL));
-    if (ok && (window.left >= box_width || window.top >= window.bottom)) {
-        /* Nothing to show: one empty pixel in the middle of the box. */
-        window.left = box_width / 2;
-        window.top = box_height / 2;
-        window.bottom = window.top + 1;
-        window.right = window.left + 1;
-    } else {
-        /* As far from the right edge as from the left. A frame that could
-         * not be centred exactly has its spare pixel on the right, and
-         * mirrored on the left, and this leaves room for both. */
-        window.right = box_width - window.left;
-    }
+    frame_window_close(&window, box_width, box_height);
 
     UnitSheet result;
     memset(&result, 0, sizeof result);

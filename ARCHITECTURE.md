@@ -43,21 +43,23 @@ file system.
 compression inside a PNG, and has the CRC that goes with it. The work is
 done by the zlib library, and this is the only file that calls it.
 
-`tools/import` reads the original game's files: so far the `.res`
-archives, the `.reg` registries, the `.256` sprites, the `.pal`
-palettes and the tables of `data.bin`. It is the only
-code that knows those formats. The game itself never opens an original
-file. The formats are described in
-[docs/formats](docs/formats/README.md). It also writes what the
-import produces: ROM2's own content, one folder for each thing. So far
-that is units. A unit's folder has its definition, `unit.toml`, which
-also lists the unit's kinds with their numbers, and its
-frames laid out as two sprite sheets, grids of cells of one size, in
-8-bit indexed PNG pictures: a main sheet and one with its dying frames.
-Its colourings are a third picture, with one palette in each row.
+`tools/import` reads the original game's files: so far the `.res` archives,
+the `.reg` registries, the `.256` sprites, the `.pal` palettes and the
+tables of `data.bin`. It is the only code that knows those formats. The
+game itself never opens an original file. The formats are described in
+[docs/formats](docs/formats/README.md). It also writes what the import
+produces: ROM2's own content, one folder for each thing. So far that is
+units and objects. A unit's folder has its definition, `unit.toml`, which
+also lists the unit's kinds with their numbers, and its frames laid out as
+two sprite sheets, grids of cells of one size, in 8-bit indexed PNG
+pictures: a main sheet and one with its dying frames. Its colourings are a
+third picture, with one palette in each row. An object's folder is the same
+with less in it: `object.toml` and one row of frames. Next to every sheet
+is a picture of its soft edges.
 
-Two small programs run it. `res_list` prints the files in an archive,
-and `import_units` writes the folders of all units, or of one.
+Three small programs run it. `res_list` prints the files in an archive,
+`import_units` writes the folders of all units, or of one, and
+`import_objects` does the same for objects.
 
 ## Libraries
 
