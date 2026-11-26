@@ -40,10 +40,17 @@ back. It is the only code in `base` that touches the file system.
 compression inside a PNG, and has the CRC that goes with it. The work is
 done by the zlib library, and this is the only file that calls it.
 
-`tools/import` reads the original game's files: the `.res` archives and
-the `.256` sprites so far. It is the only code that knows those formats.
-The game itself never opens an original file. It also writes what the
-import produces, which so far is 8-bit indexed PNG pictures.
+`tools/import` reads the original game's files: so far the `.res`
+archives, the `.reg` registries and the `.256` sprites. It is the only
+code that knows those formats. The game itself never opens an original
+file. It also writes what the
+import produces, which so far is 8-bit indexed PNG pictures: a unit's
+frames are laid out as sprite sheets, grids of cells of one size. A unit
+has two, a main sheet and one with its dying frames.
+
+Two small programs let you look at what the importer reads. `res_list`
+prints the files in an archive, and `unit_sheet` writes the sprite sheets
+of one unit.
 
 ## Libraries
 

@@ -81,7 +81,10 @@ add_library(rom2_import STATIC
     tools/import/png.c
     tools/import/reg.c
     tools/import/res.c
+    tools/import/sheet.c
     tools/import/sprite256.c
+    tools/import/unit_layout.c
+    tools/import/unit_sheet.c
     tools/import/units.c
 )
 target_include_directories(rom2_import PUBLIC tools)
@@ -92,6 +95,11 @@ rom2_set_warnings(rom2_import)
 add_executable(res_list tools/res_list/main.c)
 target_link_libraries(res_list PRIVATE rom2_import)
 rom2_set_warnings(res_list)
+
+# unit_sheet: writes the sprite sheet of one unit as a PNG picture.
+add_executable(unit_sheet tools/unit_sheet/main.c)
+target_link_libraries(unit_sheet PRIVATE rom2_import)
+rom2_set_warnings(unit_sheet)
 
 # Tests: one program, rom2_tests, built from every test file.
 enable_testing()
@@ -106,7 +114,10 @@ add_executable(rom2_tests
     tests/import/test_png.c
     tests/import/test_reg.c
     tests/import/test_res.c
+    tests/import/test_sheet.c
     tests/import/test_sprite256.c
+    tests/import/test_unit_layout.c
+    tests/import/test_unit_sheet.c
     tests/import/test_units.c
 )
 # tests/utest.h is the test framework (github.com/sheredom/utest.h, public
