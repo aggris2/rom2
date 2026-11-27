@@ -73,6 +73,18 @@ For a flipped unit, standing step `s` above 8 is the mirror image of step
 This was checked by rendering: the flipped Unarmed Fighter, mirrored this
 way, turns step for step like the Swordsman, who is not flipped.
 
+## Which step a facing shows
+
+A map gives each unit a facing from 0 to 15. The standing step it
+shows is not the one of that number but the one half a turn further
+on: facing `f` shows step `(f + 8) mod 16`. Facing 8 shows the first
+step of the file.
+
+This was not measured in the game itself, where units turn about as
+they stand and so do not keep the facing of the map. It is how the
+game's drawing code reads, and a map editor of the game shows units
+turned this way.
+
 ## Frame order
 
 The frames in the file come in this order. `D` is 8, or 5 for a flipped

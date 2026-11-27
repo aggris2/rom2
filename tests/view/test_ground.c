@@ -250,7 +250,7 @@ UTEST(ground, most_is_enough_for_any_place_of_the_camera)
     }
 }
 
-UTEST(ground, what_stands_on_a_square_is_raised_by_the_mean_of_its_corners)
+UTEST(ground, the_height_of_a_square_is_the_mean_of_its_corners_cut_down)
 {
     MakeGround m;
     make_ground(&m);
@@ -258,16 +258,56 @@ UTEST(ground, what_stands_on_a_square_is_raised_by_the_mean_of_its_corners)
     m.heights[1 * 6 + 2] = 64;
     m.heights[2 * 6 + 1] = 32;
     m.heights[2 * 6 + 2] = 96;
-    /* The same all over square (1, 1). */
-    EXPECT_EQ(48, ground_height_at(&m.map, 32, 32));
-    EXPECT_EQ(48, ground_height_at(&m.map, 48, 48));
-    EXPECT_EQ(48, ground_height_at(&m.map, 63, 63));
+    EXPECT_EQ(48, ground_square_height(&m.map, 1, 1));
     /* The square to its right has two of those corners and two that
      * are down. */
-    EXPECT_EQ(40, ground_height_at(&m.map, 64, 32));
-    /* A mean that is not whole is cut down. */
+    EXPECT_EQ(40, ground_square_height(&m.map, 2, 1));
+    /* A mean that is not whole is cut down: 195 by 4. */
     m.heights[1 * 6 + 1] = 3;
+    EXPECT_EQ(48, ground_square_height(&m.map, 1, 1));
+}
+
+UTEST(ground, the_height_at_a_point_goes_evenly_between_the_corners)
+{
+    MakeGround m;
+    make_ground(&m);
+    /* The square (1, 1): 0 and 64 on top, 32 and 96 below. */
+    m.heights[1 * 6 + 1] = 0;
+    m.heights[1 * 6 + 2] = 64;
+    m.heights[2 * 6 + 1] = 32;
+    m.heights[2 * 6 + 2] = 96;
+    EXPECT_EQ(0, ground_height_at(&m.map, 32, 32));
+    EXPECT_EQ(64, ground_height_at(&m.map, 64, 32));
+    EXPECT_EQ(96, ground_height_at(&m.map, 64, 64));
+    EXPECT_EQ(32, ground_height_at(&m.map, 48, 32));
+    EXPECT_EQ(16, ground_height_at(&m.map, 32, 48));
     EXPECT_EQ(48, ground_height_at(&m.map, 48, 48));
+    EXPECT_EQ(16, ground_height_at(&m.map, 40, 32));
+    EXPECT_EQ(62 + 31, ground_height_at(&m.map, 63, 63));
+}
+
+UTEST(ground, the_height_at_a_point_is_worked_out_as_the_original_does)
+{
+    /* Squares measured in the original game, each with the height it
+     * raises a unit by that stands in the middle. The steps are cut
+     * towards zero one after the other, which is not the mean of the
+     * four cut down, nor the mean rounded. */
+    const int cases[5][5] = {
+        {59, 59, 55, 33, 52},   /* the mean is 51 and a half */
+        {33, 32, 29, 32, 32},   /* 31 and a half */
+        {28, 31, 29, 29, 29},   /* 29 and a quarter */
+        {81, 60, 62, 56, 65},   /* 64 and three quarters */
+        {39, 35, 33, 36, 36}    /* 35 and three quarters */
+    };
+    for (int i = 0; i < 5; i++) {
+        MakeGround m;
+        make_ground(&m);
+        m.heights[1 * 6 + 1] = (uint8_t)cases[i][0];
+        m.heights[1 * 6 + 2] = (uint8_t)cases[i][1];
+        m.heights[2 * 6 + 1] = (uint8_t)cases[i][2];
+        m.heights[2 * 6 + 2] = (uint8_t)cases[i][3];
+        EXPECT_EQ(cases[i][4], ground_height_at(&m.map, 48, 48));
+    }
 }
 
 UTEST(ground, the_height_outside_the_map_is_that_of_its_nearest_corner)
@@ -276,6 +316,8 @@ UTEST(ground, the_height_outside_the_map_is_that_of_its_nearest_corner)
     make_ground(&m);
     m.heights[0] = 40;
     EXPECT_EQ(40, ground_height_at(&m.map, -500, -500));
+    EXPECT_EQ(40, ground_square_height(&m.map, -3, -3));
     m.heights[4 * 6 + 5] = 70;
     EXPECT_EQ(70, ground_height_at(&m.map, 9000, 9000));
+    EXPECT_EQ(70, ground_square_height(&m.map, 90, 90));
 }

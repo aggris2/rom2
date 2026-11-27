@@ -41,8 +41,9 @@ size_t structures_most(const Map *map, const StructureLook *looks);
  * ID.
  *
  * A structure stands with the bottom of its picture on the front of
- * its base, raised by the height of the ground under the middle of the
- * base, shows its first frame, and is as bright as LIGHT_STANDING. A
+ * its base, shows its first frame, and is as bright as LIGHT_STANDING.
+ * All of it is raised by one height, that of the ground under the
+ * middle of its base, however the ground lies under the rest. A
  * bridge of variable size is not drawn.
  *
  * The sprites are not in the order they are to be drawn, but each has

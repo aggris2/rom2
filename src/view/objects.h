@@ -37,7 +37,7 @@ size_t objects_most(const Camera *camera, const ObjectLook *looks);
  * many it wrote. `looks` has OBJECT_KINDS entries, one for each ID.
  *
  * An object stands with its anchor on the middle of its square, raised
- * by the height of the ground there, shows its first frame, and is as
+ * by the height of its square, shows its first frame, and is as
  * bright as LIGHT_STANDING.
  *
  * The sprites come in the order they are to be drawn: row after row

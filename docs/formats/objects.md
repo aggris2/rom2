@@ -73,6 +73,15 @@ ties a tree to its burning object is not stated in the registry.
 - **18 dead trees state 7 frames and have 1.** Their `Phases` is 7, as
   the living tree's, and their file has one frame. They have no
   animation lists. ROM2 gives them the one frame.
+- **The original was seen to ignore `Index`.** On the map Fury, with
+  animations switched off in its settings, the original game shows the
+  first frame of the sprite file for every object looked at that states
+  an `Index` above 0: Fence 2 to 7 on 44 squares look like Fence 1, Dark
+  fence 2 and 3 like Dark fence 1, and CEHO 3 like CEHO 1. The maps
+  place the fences so that their own frames make a fence that runs
+  straight, so this is taken to be a mistake of the original, perhaps
+  only of how it draws with animations off: with them on it was not
+  looked at. ROM2 draws each object with its own frame.
 
 ## What ROM2 writes for an object
 

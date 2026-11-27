@@ -115,20 +115,47 @@ UTEST(structures, a_strip_takes_its_turn_between_its_neighbours_in_the_row)
     EXPECT_LT(sprite_order(0, 4), m.sprites[0].order);
 }
 
-UTEST(structures, all_of_a_structure_is_raised_by_the_ground_under_its_middle)
+UTEST(structures, a_structure_is_raised_by_the_ground_under_its_middle)
 {
     MakeStructures m;
     make_structures(&m);
     put(&m, 4, 5, 12);
-    /* The middle of the base is the corner (5, 6), which is the top
-     * left corner of the square (5, 6): its four corners. */
-    m.heights[6 * 10 + 5] = 40;
-    m.heights[6 * 10 + 6] = 40;
-    m.heights[7 * 10 + 5] = 20;
-    m.heights[7 * 10 + 6] = 20;
+    /* The base is 2 by 2 squares, so its middle is the corner (5, 6).
+     * The other corners of the base do not count. */
+    m.heights[6 * 10 + 5] = 30;
+    m.heights[5 * 10 + 4] = 90;
+    m.heights[5 * 10 + 5] = 80;
+    m.heights[6 * 10 + 4] = 70;
+    m.heights[7 * 10 + 6] = 60;
     ASSERT_EQ(2u, sprites_for(&m, 0, 0, 320, 320));
     EXPECT_EQ(4 * 32 - 30, m.sprites[0].y);
     EXPECT_EQ(6 * 32 - 30, m.sprites[1].y);
+}
+
+UTEST(structures, the_middle_of_an_odd_base_lies_between_corners)
+{
+    MakeStructures m;
+    make_structures(&m);
+    /* A base of one square: the height in the middle of the square,
+     * as measured on a campfire in the original game. */
+    put(&m, 1, 1, 8);
+    m.heights[1 * 10 + 1] = 39;
+    m.heights[1 * 10 + 2] = 35;
+    m.heights[2 * 10 + 1] = 33;
+    m.heights[2 * 10 + 2] = 36;
+    ASSERT_EQ(1u, sprites_for(&m, 0, 0, 320, 320));
+    EXPECT_EQ(1 * 32 - 36, m.sprites[0].y);
+    /* A base of 3 by 2 squares: its middle is halfway between the
+     * corners (6, 6) and (7, 6), as measured on a hut. */
+    m.looks[12].width = 3;
+    put(&m, 5, 5, 12);
+    m.heights[6 * 10 + 6] = 34;
+    m.heights[6 * 10 + 7] = 35;
+    m.heights[5 * 10 + 6] = 99;
+    m.heights[7 * 10 + 6] = 99;
+    ASSERT_EQ(3u, sprites_for(&m, 0, 0, 320, 320));
+    EXPECT_EQ(5 * 32 - 32 - 34, m.sprites[1].y);
+    EXPECT_EQ(6 * 32 - 34, m.sprites[2].y);
 }
 
 UTEST(structures, a_strip_off_the_screen_is_left_out)

@@ -46,9 +46,13 @@ size_t units_most(const Map *map);
  * ID as UnitKind has it, and 0 for a kind that is not known.
  *
  * A unit stands with its anchor on its place, raised by the height of
- * the ground there, shows the standing frame of the way it faces, and
- * is as bright as LIGHT_STANDING. One that faces a way there is not is
- * not drawn.
+ * the ground at that point, shows the standing frame of the way
+ * it faces, and is as bright as LIGHT_STANDING. One that faces a way
+ * there is not is not drawn.
+ *
+ * The frames of the first row do not start with the way a map counts
+ * from: the frame of a facing is the one half a turn further on,
+ * facing 0 the ninth frame and facing 8 the first.
  *
  * A unit whose sheet goes by the player is drawn in the palette that
  * its player's colour numbers, and any other in the palette of its

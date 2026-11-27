@@ -32,9 +32,20 @@ size_t ground_squares(const Map *map, const uint8_t *light,
                       const Camera *camera, uint32_t sheet_width,
                       uint32_t sheet_height, GroundSquare *out);
 
-/* How far what stands at a point of the map is raised, the point given
- * in pixels: the mean of the heights at the four corners of its
- * square, so the same all over a square. */
+/* The height of the ground at a point of the map, given in pixels:
+ * how far a unit or a structure that stands there is raised.
+ *
+ * It lies between the heights at the four corners of the point's
+ * square, and is worked out as the original does it, in whole numbers:
+ * first along the top and along the low edge of the square, then from
+ * the one to the other, each step cut towards zero. A corner outside
+ * the map counts as the nearest inside it. */
 int32_t ground_height_at(const Map *map, int32_t x, int32_t y);
+
+/* How far an object that stands on the square (`column`, `row`) is
+ * raised: the mean of the heights at the square's four corners, cut
+ * down to a whole number. The original does not raise a tree quite as
+ * it does a unit. */
+int32_t ground_square_height(const Map *map, int32_t column, int32_t row);
 
 #endif

@@ -53,7 +53,8 @@ size_t units_sprites(const Map *map, const UnitLook *looks,
         }
         Sprite *sprite = &out[count++];
         sprite->sheet = look->sheet;
-        sprite->source_x = (uint16_t)(unit->angle * look->cell_width);
+        int32_t frame = (unit->angle + UNIT_FACINGS / 2) % UNIT_FACINGS;
+        sprite->source_x = (uint16_t)(frame * look->cell_width);
         sprite->source_y = 0;
         sprite->width = look->cell_width;
         sprite->height = look->cell_height;

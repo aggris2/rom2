@@ -34,14 +34,34 @@ size_t ground_most(const Camera *camera)
     return across * down;
 }
 
+/* The height at the corner (`x`, `y`) of the map. */
+static int32_t corner_height(const Map *map, int32_t x, int32_t y)
+{
+    return map->heights[corner_index(map, x, y)];
+}
+
 int32_t ground_height_at(const Map *map, int32_t x, int32_t y)
 {
     int32_t square_x = square_of(x);
     int32_t square_y = square_of(y);
+    int32_t across = x - square_x * MAP_SQUARE;
+    int32_t down = y - square_y * MAP_SQUARE;
+    int32_t top_left = corner_height(map, square_x, square_y);
+    int32_t top_right = corner_height(map, square_x + 1, square_y);
+    int32_t low_left = corner_height(map, square_x, square_y + 1);
+    int32_t low_right = corner_height(map, square_x + 1, square_y + 1);
+    /* Division of whole numbers in C cuts towards zero, which is what
+     * the original does here. */
+    int32_t top = top_left + (top_right - top_left) * across / MAP_SQUARE;
+    int32_t low = low_left + (low_right - low_left) * across / MAP_SQUARE;
+    return top + (low - top) * down / MAP_SQUARE;
+}
+
+int32_t ground_square_height(const Map *map, int32_t column, int32_t row)
+{
     int32_t sum = 0;
     for (int32_t i = 0; i < FRAME_SQUARE_CORNERS; i++) {
-        sum += map->heights[corner_index(map, square_x + (i & 1),
-            square_y + (i >> 1))];
+        sum += corner_height(map, column + (i & 1), row + (i >> 1));
     }
     return sum / FRAME_SQUARE_CORNERS;
 }

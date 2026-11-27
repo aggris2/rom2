@@ -105,7 +105,7 @@ size_t objects_sprites(const Map *map, const ObjectLook *looks,
             int32_t middle_y = y * MAP_SQUARE + MAP_SQUARE / 2;
             int32_t left = middle_x - look->anchor_x - camera->left;
             int32_t top = middle_y - look->anchor_y - camera->top
-                - ground_height_at(map, middle_x, middle_y);
+                - ground_square_height(map, x, y);
             /* The squares looked at reach further than any one object:
              * leave out what is wholly off the screen. */
             if (left >= camera->width || top >= camera->height

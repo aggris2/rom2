@@ -96,16 +96,20 @@ UTEST(units, the_way_a_unit_faces_picks_its_frame_of_the_first_row)
     MakeUnits m;
     make_units(&m);
     MapUnit *unit = put(&m, 4, 5, 3);
+    /* The frame of a facing is the one half a turn further on. */
     ASSERT_EQ(1u, sprites_for(&m, 0, 0, 320, 320));
-    EXPECT_EQ(0u, m.sprites[0].source_x);
+    EXPECT_EQ(8u * 64, m.sprites[0].source_x);
     EXPECT_EQ(0u, m.sprites[0].source_y);
     unit->angle = 5;
     ASSERT_EQ(1u, sprites_for(&m, 0, 0, 320, 320));
-    EXPECT_EQ(5u * 64, m.sprites[0].source_x);
+    EXPECT_EQ(13u * 64, m.sprites[0].source_x);
     EXPECT_EQ(0u, m.sprites[0].source_y);
+    unit->angle = 8;
+    ASSERT_EQ(1u, sprites_for(&m, 0, 0, 320, 320));
+    EXPECT_EQ(0u, m.sprites[0].source_x);
     unit->angle = 15;
     ASSERT_EQ(1u, sprites_for(&m, 0, 0, 320, 320));
-    EXPECT_EQ(15u * 64, m.sprites[0].source_x);
+    EXPECT_EQ(7u * 64, m.sprites[0].source_x);
 }
 
 UTEST(units, a_unit_that_faces_a_way_there_is_not_is_not_drawn)
@@ -131,6 +135,27 @@ UTEST(units, a_unit_is_raised_by_the_ground_it_stands_on)
     m.heights[6 * 10 + 5] = 40;
     ASSERT_EQ(1u, sprites_for(&m, 0, 0, 320, 320));
     EXPECT_EQ(176 - 40 - 40, m.sprites[0].y);
+}
+
+UTEST(units, on_uneven_ground_a_unit_is_raised_by_the_height_at_its_point)
+{
+    MakeUnits m;
+    make_units(&m);
+    MapUnit *unit = put(&m, 4, 5, 3);
+    /* In the middle of its square, the mean of the four corners,
+     * rounded: 51 and a half is 52. */
+    m.heights[5 * 10 + 4] = 59;
+    m.heights[5 * 10 + 5] = 59;
+    m.heights[6 * 10 + 4] = 55;
+    m.heights[6 * 10 + 5] = 33;
+    ASSERT_EQ(1u, sprites_for(&m, 0, 0, 320, 320));
+    EXPECT_EQ(176 - 40 - 52, m.sprites[0].y);
+    /* On the top left corner of the square, the height of that
+     * corner. */
+    unit->x = 4 * 256;
+    unit->y = 5 * 256;
+    ASSERT_EQ(1u, sprites_for(&m, 0, 0, 320, 320));
+    EXPECT_EQ(160 - 40 - 59, m.sprites[0].y);
 }
 
 UTEST(units, a_unit_whose_sheet_goes_by_the_player_has_its_players_colour)
