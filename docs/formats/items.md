@@ -7,7 +7,7 @@ scroll. Their numbers are in six tables of `data.bin`, described in
 
 Measured on the GOG release.
 
-Read by `tools/import/items.c`.
+Read by `tools/import/item.c`.
 
 ## An item is a shape in a material and a class
 
@@ -185,7 +185,7 @@ the four kinds, under ROM2's names for them: `fighter_man`,
 `fighter_woman`, `mage_man` and `mage_woman`. So the first fighter is
 `characters/fighter_man/001.png`.
 
-The files are described at the top of `tools/import/item_toml.h`.
+The files are described at the top of `tools/import/item.h`.
 
 65 shapes and 96 magic items are written, with all 491 pictures for the
 inventory, 984 pictures of items worn, and 116 characters.

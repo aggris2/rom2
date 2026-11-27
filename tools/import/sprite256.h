@@ -13,7 +13,7 @@
 #include <stdint.h>
 
 #include "base/reader.h"
-#include "import/rgb.h"
+#include "base/rgb.h"
 
 /* An open sprite file: its bytes and what its trailer says. Does not own
  * the bytes. */

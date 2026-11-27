@@ -12,6 +12,8 @@
 #include <stdint.h>
 #include <string.h>
 
+#include "base/buffer.h"
+#include "expect.h"
 #include "import/sprite256.h"
 
 /* A sprite file built by hand, without a palette: frames one after the
@@ -69,6 +71,28 @@ static inline bool make_sprite_finish(MakeSprite *m, Sprite256 *out)
     put_u32(m->bytes + m->size, m->frames);
     m->size += 4;
     return sprite256_open(m->bytes, m->size, out);
+}
+
+/* Adds a .16a frame of 2 by 1: two pixels, each a colour and a
+ * solidness of 0 to 15. */
+static inline void add_16a_frame(ByteBuffer *b, uint32_t colour0,
+    uint32_t alpha0, uint32_t colour1, uint32_t alpha1)
+{
+    buffer_u32_le(b, 2);
+    buffer_u32_le(b, 1);
+    buffer_u32_le(b, 6);
+    put_u16(b, 2);
+    put_u16(b, (alpha0 << 9) | (colour0 << 1));
+    put_u16(b, (alpha1 << 9) | (colour1 << 1));
+}
+
+/* Ends a sprite file built in a buffer with its count of frames, and
+ * opens it. */
+static inline bool finish_16a(ByteBuffer *b, uint32_t frames,
+    Sprite256 *out)
+{
+    buffer_u32_le(b, frames);
+    return sprite256_open(b->data, b->size, out);
 }
 
 #endif

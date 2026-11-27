@@ -16,14 +16,18 @@ or a network. And single player and multiplayer run the same rules code.
 
 ```
 src/
-  base/      small building blocks with no dependencies
+  base/      small building blocks with no dependencies, and ROM2's own
+             two file formats, PNG and TOML
 tools/
-  import/    readers for the original game's file formats
+  import/    the importer: readers for the original game's file formats,
+             a module for each kind of thing, and main.c, the program
+    steps/   one file for each step of the program
 docs/
   formats/   the original game's file formats, as measured
 tests/
   utest.h    the test framework, one header
   main.c     the test runner
+  expect.h   small checks many tests share
   base/      tests for src/base
   import/    tests for tools/import
 ```
@@ -42,6 +46,10 @@ file system.
 `src/base/pack` packs and unpacks data in the zlib format, the lossless
 compression inside a PNG, and has the CRC that goes with it. The work is
 done by the zlib library, and this is the only file that calls it.
+
+`src/base/png` and `src/base/toml` write ROM2's own two file formats: a
+picture as a PNG, and a definition as TOML, a plain text of names and
+values. Readers for both are to come, for the game.
 
 `tools/import` reads the original game's files: so far the `.res` archives,
 the `.reg` registries, the `.256`, `.16a` and `.16` sprites, the `.pal`
@@ -79,16 +87,27 @@ are written as TOML under the names they have. A mission of the campaign is a
 folder with its map and its text. The maps for several players are apart from
 those.
 
-One program runs it, `rom2_import`, in `tools/rom2_import`. Each kind of
-thing is a step, in a file of its own: `units.c`, `objects.c` and so on,
-with `steps.h` naming them all. `main.c` opens the original's archives
-once, runs the steps in turn and hands each the archives it needs. An
-archive notes every file a step reads, so at the end the program can say
-which of the original's files no step has read yet. That list is how we
-know what is left to import. The few files that are left out knowingly,
-such as a spare palette, are named in `main.c` with the reason, and the
-program counts them apart. A second small program, `res_list`, prints
-the files in an archive.
+`tools/import` has three sorts of module. One for each of the original's
+formats: `res`, `reg`, `databin`, `sprite256`, `sprite16a`, `sprite16`,
+`bmp`, `pal` and `text`. One for each kind of thing, with everything
+about it: reading its values, laying out its pictures and writing its
+definition. Those are `unit`, `object`, `structure`, `projectile`, `item`
+and `spell`. And a few the kinds share: `things`, `sheet`, `frames`,
+`plain_sheet`, `name` and `reg_toml`.
+
+One program runs it, `rom2_import`: `tools/import/main.c`. Each kind of
+thing is a step, in a file of its own in `tools/import/steps`: `units.c`,
+`objects.c` and so on, with `steps.h` naming them all and `shared.c` holding
+what they share. The steps are the part that touches the file system and
+prints; the modules beside `main.c` work on bytes in memory, and are what
+the tests cover. `main.c` opens the original's archives once, runs the steps
+in turn and hands each the archives it needs. An archive notes every file a
+step reads, so at the end the program can say which of the original's files
+no step has read yet. That list is how we know what is left to import. The
+few files that are left out knowingly, such as a spare palette, are named in
+`main.c` with the reason, and the program counts them apart. It also writes
+a list of every file in the archives, with its size and the step that reads
+it.
 
 ## Libraries
 

@@ -68,7 +68,9 @@ add_library(rom2_core STATIC
     src/base/buffer.c
     src/base/file.c
     src/base/pack.c
+    src/base/png.c
     src/base/reader.c
+    src/base/toml.c
 )
 target_include_directories(rom2_core PUBLIC src)
 target_link_libraries(rom2_core PRIVATE ${ROM2_ZLIB})
@@ -79,68 +81,47 @@ rom2_set_warnings(rom2_core)
 add_library(rom2_import STATIC
     tools/import/bmp.c
     tools/import/databin.c
-    tools/import/font_sheet.c
     tools/import/frames.c
-    tools/import/icon_strip.c
-    tools/import/item_names.c
-    tools/import/item_toml.c
-    tools/import/items.c
+    tools/import/item.c
     tools/import/name.c
-    tools/import/object_sheet.c
-    tools/import/object_toml.c
-    tools/import/objects.c
+    tools/import/object.c
     tools/import/pal.c
     tools/import/plain_sheet.c
-    tools/import/png.c
-    tools/import/projectile_sheet.c
-    tools/import/projectile_toml.c
-    tools/import/projectiles.c
+    tools/import/projectile.c
     tools/import/reg.c
     tools/import/reg_toml.c
     tools/import/res.c
     tools/import/sheet.c
-    tools/import/spell_toml.c
+    tools/import/spell.c
     tools/import/sprite16.c
     tools/import/sprite16a.c
     tools/import/sprite256.c
-    tools/import/structure_sheet.c
-    tools/import/structure_toml.c
-    tools/import/structures.c
+    tools/import/structure.c
     tools/import/text.c
     tools/import/things.c
-    tools/import/toml.c
-    tools/import/unit_layout.c
-    tools/import/unit_sheet.c
-    tools/import/unit_toml.c
-    tools/import/units.c
+    tools/import/unit.c
 )
 target_include_directories(rom2_import PUBLIC tools)
 target_link_libraries(rom2_import PUBLIC rom2_core)
 rom2_set_warnings(rom2_import)
 
-# res_list: prints the contents of a .res archive.
-add_executable(res_list tools/res_list/main.c)
-target_link_libraries(res_list PRIVATE rom2_import)
-rom2_set_warnings(res_list)
-
 # rom2_import: writes the original game's files as ROM2 content. Each
-# kind of thing is a step, in a file of its own.
+# kind of thing is a step, in a file of its own in tools/import/steps.
 # The library of readers has the name already, so the target is called
 # import_program and only the file it builds is rom2_import.
 add_executable(import_program
-    tools/rom2_import/main.c
-    tools/rom2_import/copies.c
-    tools/rom2_import/fonts.c
-    tools/rom2_import/interface.c
-    tools/rom2_import/items.c
-    tools/rom2_import/objects.c
-    tools/rom2_import/projectiles.c
-    tools/rom2_import/spells.c
-    tools/rom2_import/sprite_files.c
-    tools/rom2_import/structures.c
-    tools/rom2_import/terrain.c
-    tools/rom2_import/tree.c
-    tools/rom2_import/units.c
+    tools/import/main.c
+    tools/import/steps/copies.c
+    tools/import/steps/fonts.c
+    tools/import/steps/interface.c
+    tools/import/steps/items.c
+    tools/import/steps/objects.c
+    tools/import/steps/projectiles.c
+    tools/import/steps/shared.c
+    tools/import/steps/spells.c
+    tools/import/steps/structures.c
+    tools/import/steps/terrain.c
+    tools/import/steps/units.c
 )
 set_target_properties(import_program PROPERTIES OUTPUT_NAME rom2_import)
 target_link_libraries(import_program PRIVATE rom2_import)
@@ -154,42 +135,29 @@ add_executable(rom2_tests
     tests/base/test_buffer.c
     tests/base/test_file.c
     tests/base/test_pack.c
+    tests/base/test_png.c
     tests/base/test_reader.c
+    tests/base/test_toml.c
     tests/import/test_bmp.c
     tests/import/test_databin.c
-    tests/import/test_font_sheet.c
-    tests/import/test_icon_strip.c
-    tests/import/test_item_names.c
-    tests/import/test_item_toml.c
-    tests/import/test_items.c
+    tests/import/test_item.c
     tests/import/test_name.c
-    tests/import/test_object_sheet.c
-    tests/import/test_object_toml.c
-    tests/import/test_objects.c
+    tests/import/test_object.c
     tests/import/test_pal.c
     tests/import/test_plain_sheet.c
-    tests/import/test_png.c
-    tests/import/test_projectile_sheet.c
-    tests/import/test_projectile_toml.c
-    tests/import/test_projectiles.c
+    tests/import/test_projectile.c
     tests/import/test_reg.c
     tests/import/test_reg_toml.c
     tests/import/test_res.c
     tests/import/test_sheet.c
-    tests/import/test_spell_toml.c
+    tests/import/test_spell.c
     tests/import/test_sprite16.c
     tests/import/test_sprite16a.c
     tests/import/test_sprite256.c
-    tests/import/test_structure_sheet.c
-    tests/import/test_structure_toml.c
-    tests/import/test_structures.c
-    tests/import/test_things.c
+    tests/import/test_structure.c
     tests/import/test_text.c
-    tests/import/test_toml.c
-    tests/import/test_unit_layout.c
-    tests/import/test_unit_sheet.c
-    tests/import/test_unit_toml.c
-    tests/import/test_units.c
+    tests/import/test_things.c
+    tests/import/test_unit.c
 )
 # tests/utest.h is the test framework (github.com/sheredom/utest.h, public
 # domain). SYSTEM: it is not held to our warning settings.

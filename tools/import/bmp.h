@@ -17,7 +17,7 @@
 #include <stddef.h>
 #include <stdint.h>
 
-#include "import/rgb.h"
+#include "base/rgb.h"
 
 /* The largest width or height a picture may have. */
 #define BMP_MAX_SIDE 16384u

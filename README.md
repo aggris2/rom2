@@ -61,7 +61,8 @@ thing into a folder of `content`:
 At the end it says how many of the original's files it read, how many
 it left out on purpose, such as a spare palette, and how many it has
 not read yet. The last two are listed in `content/not_imported.txt`,
-each with the reason.
+each with the reason, and every file of the original with its size in
+`content/original_files.txt`.
 
 A step can be run alone, and most can write one thing alone, by its ID:
 

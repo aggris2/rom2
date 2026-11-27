@@ -3,11 +3,12 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include "import/png.h"
+#include "base/png.h"
+#include "import/sprite16.h"
 #include "import/sprite16a.h"
 
 /* One frame as it was read, whichever kind of file it came from. `alpha`
- * is NULL for a frame of a .256 file. */
+ * is NULL for a frame of a .256 file, and `pixels` for one of a .16. */
 typedef struct Piece {
     uint32_t width;
     uint32_t height;
@@ -25,7 +26,7 @@ static void pieces_free(Piece *pieces, uint32_t count)
 }
 
 /* Reads every frame of the sprite. Returns NULL if one cannot be read. */
-static Piece *pieces_read(const Sprite256 *sprite, bool is_16a)
+static Piece *pieces_read(const Sprite256 *sprite, PlainSheetKind kind)
 {
     Piece *pieces = calloc(sprite->frame_count, sizeof *pieces);
     if (pieces == NULL) {
@@ -33,28 +34,39 @@ static Piece *pieces_read(const Sprite256 *sprite, bool is_16a)
     }
     Reader r = sprite256_frames(sprite);
     for (uint32_t i = 0; i < sprite->frame_count; i++) {
+        Piece piece = {0, 0, NULL, NULL};
         bool ok;
-        if (is_16a) {
+        if (kind == PLAIN_SHEET_16A) {
             Frame16a frame;
             ok = sprite16a_frame_read(&r, &frame);
             if (ok) {
-                Piece piece = {frame.width, frame.height, frame.pixels,
-                    frame.alpha};
-                pieces[i] = piece;
+                piece.width = frame.width;
+                piece.height = frame.height;
+                piece.pixels = frame.pixels;
+                piece.alpha = frame.alpha;
+            }
+        } else if (kind == PLAIN_SHEET_16) {
+            Frame16 frame;
+            ok = sprite16_frame_read(&r, &frame);
+            if (ok) {
+                piece.width = frame.width;
+                piece.height = frame.height;
+                piece.alpha = frame.alpha;
             }
         } else {
             Frame256 frame;
             ok = sprite256_frame_read(&r, &frame);
             if (ok) {
-                Piece piece = {frame.width, frame.height, frame.pixels,
-                    NULL};
-                pieces[i] = piece;
+                piece.width = frame.width;
+                piece.height = frame.height;
+                piece.pixels = frame.pixels;
             }
         }
         if (!ok) {
             pieces_free(pieces, sprite->frame_count);
             return NULL;
         }
+        pieces[i] = piece;
     }
     return pieces;
 }
@@ -62,22 +74,27 @@ static Piece *pieces_read(const Sprite256 *sprite, bool is_16a)
 /* Sets the size of the grid for frames whose largest is `width` by
  * `height`, and gets its memory. */
 static bool sheet_create(PlainSheet *sheet, uint32_t frames, uint32_t width,
-    uint32_t height)
+    uint32_t height, uint32_t columns)
 {
     memset(sheet, 0, sizeof *sheet);
     if (frames == 0 || width == 0 || height == 0
         || width > PNG_MAX_SIDE) {
         return false;
     }
-    uint32_t columns = PLAIN_SHEET_WIDTH / width;
+    /* A row of a set number of cells is that wide whatever the frames
+     * are. Without one, a row is as many as fit, and no wider than
+     * there are frames. */
     if (columns == 0) {
-        columns = 1;
-    }
-    if (columns > frames) {
-        columns = frames;
+        columns = PLAIN_SHEET_WIDTH / width;
+        if (columns == 0) {
+            columns = 1;
+        }
+        if (columns > frames) {
+            columns = frames;
+        }
     }
     uint32_t rows = (frames + columns - 1) / columns;
-    if (rows > PNG_MAX_SIDE / height) {
+    if (columns > PNG_MAX_SIDE / width || rows > PNG_MAX_SIDE / height) {
         return false;
     }
     size_t total = (size_t)columns * width * rows * height;
@@ -99,12 +116,13 @@ static bool sheet_create(PlainSheet *sheet, uint32_t frames, uint32_t width,
     return true;
 }
 
-static bool build(const Sprite256 *sprite, bool is_16a, PlainSheet *out)
+bool plain_sheet_build(const Sprite256 *sprite, PlainSheetKind kind,
+    uint32_t columns, PlainSheet *out)
 {
     if (sprite->frame_count == 0) {
         return false;
     }
-    Piece *pieces = pieces_read(sprite, is_16a);
+    Piece *pieces = pieces_read(sprite, kind);
     if (pieces == NULL) {
         return false;
     }
@@ -119,7 +137,8 @@ static bool build(const Sprite256 *sprite, bool is_16a, PlainSheet *out)
         }
     }
     PlainSheet sheet;
-    if (!sheet_create(&sheet, sprite->frame_count, width, height)) {
+    if (!sheet_create(&sheet, sprite->frame_count, width, height,
+            columns)) {
         pieces_free(pieces, sprite->frame_count);
         return false;
     }
@@ -133,7 +152,8 @@ static bool build(const Sprite256 *sprite, bool is_16a, PlainSheet *out)
             size_t to = (top + y) * stride + left;
             size_t from = (size_t)y * piece->width;
             for (uint32_t x = 0; x < piece->width; x++) {
-                uint8_t index = piece->pixels[from + x];
+                uint8_t index = piece->pixels != NULL
+                    ? piece->pixels[from + x] : 0;
                 sheet.pixels[to + x] = index;
                 /* The file's 15 levels, spread over 17 to 255. */
                 sheet.solid[to + x] = piece->alpha != NULL
@@ -150,16 +170,6 @@ static bool build(const Sprite256 *sprite, bool is_16a, PlainSheet *out)
     pieces_free(pieces, sprite->frame_count);
     *out = sheet;
     return true;
-}
-
-bool plain_sheet_build_256(const Sprite256 *sprite, PlainSheet *out)
-{
-    return build(sprite, false, out);
-}
-
-bool plain_sheet_build_16a(const Sprite256 *sprite, PlainSheet *out)
-{
-    return build(sprite, true, out);
 }
 
 void plain_sheet_free(PlainSheet *sheet)

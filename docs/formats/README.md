@@ -55,5 +55,5 @@ five have a few Cyrillic letters left in them.
 The importer copies the maps, the sounds and the videos as they are, and
 writes the texts as UTF-8 with plain line ends.
 
-The counts are over the ten archives. `res_list` prints the files of an
-archive.
+The counts are over the ten archives. `rom2_import` lists every file of
+them, with its size, in `original_files.txt` in the content folder.

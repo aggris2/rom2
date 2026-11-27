@@ -1,4 +1,5 @@
-/* Reading the things a registry lists: units, objects and the like.
+/* Reading the things a registry lists, units, objects and the like,
+ * and writing a value of one under ROM2's name for it.
  *
  * Such a registry has one section for each thing, named after the kind
  * of thing and a position: "Unit0", "Unit1", or "Object0", "Object1".
@@ -17,6 +18,8 @@
 #include <stddef.h>
 #include <stdint.h>
 
+#include "base/buffer.h"
+#include "import/name.h"
 #include "import/reg.h"
 
 /* The room a section name needs: a prefix of up to 16 characters, up to
@@ -76,5 +79,39 @@ bool things_text(const Things *t, int32_t id, const char *key,
  * fail. The parent's list is not used instead. */
 bool things_int_list(const Things *t, int32_t id, const char *key,
     int32_t *out, size_t capacity, size_t *out_count);
+
+/* What the writers of unit.toml, object.toml, structure.toml and
+ * projectile.toml have in common: taking a value of a thing from its
+ * registry and writing it under ROM2's name for it.
+ */
+/* Makes the name of a thing's folder from its ID and the text it has
+ * under `key`: the ID in three digits, then the text as name_folder()
+ * writes it. A thing without that text gets its ID alone.
+ *
+ * Returns false, and leaves `out` alone, if there is no thing with that
+ * ID or the ID is not between 0 and 999. */
+bool thing_toml_folder_name(const Things *t, int32_t id, const char *key,
+    char out[NAME_FOLDER_SIZE]);
+
+/* Adds a whole number of the thing as `name`, if the thing or a parent
+ * states it under `key`. Returns false only if memory runs out. */
+bool thing_toml_int(ByteBuffer *b, const Things *t, int32_t id,
+    const char *key, const char *name);
+
+/* Adds a text of the thing as `name`, if it is stated under `key`. With
+ * `even_empty` an empty text is written too; without, it is left out.
+ * Returns false only if memory runs out. */
+bool thing_toml_text(ByteBuffer *b, const Things *t, int32_t id,
+    const char *key, const char *name, bool even_empty);
+
+/* Reads a list of whole numbers of the thing into `out`, which has room
+ * for `capacity`. A list that nobody states has `*count` 0, and so has
+ * one written as an empty text, which is how the original writes a list
+ * it wants empty.
+ *
+ * Returns false for a list that is stated and cannot be read: one that
+ * is too long, or a text that is not empty in its place. */
+bool thing_toml_list(const Things *t, int32_t id, const char *key,
+    int32_t *out, size_t capacity, size_t *count);
 
 #endif

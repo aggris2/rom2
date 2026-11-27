@@ -8,7 +8,7 @@ numbers. The registry format is in [reg.md](reg.md), the sprite format in
 
 Measured on all 179 structures of the GOG release.
 
-Read by `tools/import/structures.c`.
+Read by `tools/import/structure.c`.
 
 ## The sections of structures.reg
 
@@ -101,7 +101,7 @@ The row's other columns are `scanRange`, `healthMax`, `Passability` and
 
 The importer writes a folder for every structure, named after
 its ID and its name: `005_windmill_1`. In it are `structure.toml`,
-described at the top of `tools/import/structure_toml.h`, and these
+described at the top of `tools/import/structure.h`, and these
 pictures:
 
 - `sprites.png`: the pictures of the animation in one row, each put

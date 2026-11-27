@@ -7,7 +7,7 @@ healing sparkle. The registry `projectiles/projectiles.reg` in
 
 Measured on all 31 projectiles of the GOG release.
 
-Read by `tools/import/projectiles.c`.
+Read by `tools/import/projectile.c`.
 
 ## The sections of projectiles.reg
 
@@ -90,7 +90,7 @@ registry has no centre: it is the middle too.
 The importer writes a folder for every projectile, named after
 its ID and its file: `010_firebolt_sprites`. In it are
 `projectile.toml`, described at the top of
-`tools/import/projectile_toml.h`, and three pictures:
+`tools/import/projectile.h`, and three pictures:
 
 - `sprites.png`: the colour of each pixel as a number, an 8-bit indexed
   PNG as for a unit. It has a row for each direction, 16 or 1, with the

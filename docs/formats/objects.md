@@ -7,7 +7,7 @@ sprite files hold their frames. The registry format is in
 
 Measured on all 192 objects of the GOG release.
 
-Read by `tools/import/objects.c`, with `tools/import/things.c` for what
+Read by `tools/import/object.c`, with `tools/import/things.c` for what
 objects share with units.
 
 ## The sections of objects.reg
@@ -78,7 +78,7 @@ ties a tree to its burning object is not stated in the registry.
 
 The importer writes a folder for every object, named after its ID
 and its name: `000_pine_1`. In it are `object.toml`, described at the
-top of `tools/import/object_toml.h`, and two pictures with the same
+top of `tools/import/object.h`, and two pictures with the same
 cells: `sprites.png`, the object's frames in one row, and `edges.png`,
 their soft edges. An object gets only its own frames, also when its
 file is shared, and the values of its parent written out.

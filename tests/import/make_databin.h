@@ -11,17 +11,12 @@
 #include <string.h>
 
 #include "base/buffer.h"
+#include "expect.h"
 
 static inline void put_text(ByteBuffer *b, const char *text)
 {
     buffer_push(b, (uint8_t)strlen(text));
     buffer_append(b, (const uint8_t *)text, strlen(text));
-}
-
-static inline void put_u16(ByteBuffer *b, uint32_t value)
-{
-    buffer_push(b, (uint8_t)(value & 0xff));
-    buffer_push(b, (uint8_t)((value >> 8) & 0xff));
 }
 
 static inline void put_i32(ByteBuffer *b, int32_t value)

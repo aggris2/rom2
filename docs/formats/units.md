@@ -7,7 +7,7 @@ This page says how the two fit together. The registry format itself is in
 
 Measured on all 61 units of the GOG release.
 
-Read by `tools/import/units.c` and `tools/import/unit_layout.c`.
+Read by `tools/import/unit.c`.
 
 ## The sections of units.reg
 
@@ -211,7 +211,7 @@ come from a unit with other palettes also gets `dying_palettes.png`.
 
 `unit.toml` has the unit's values from the registry, with those of its
 parent written out, so a folder does not depend on another unit. The
-file is described at the top of `tools/import/unit_toml.h`. Places inside
+file is described at the top of `tools/import/unit.h`. Places inside
 the unit's box, which are the selection box and the points a shot leaves
 from, are written counted from `CenterX`, `CenterY`.
 

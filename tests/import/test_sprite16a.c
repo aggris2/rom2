@@ -3,15 +3,8 @@
 #include <string.h>
 
 #include "base/buffer.h"
+#include "expect.h"
 #include "utest.h"
-
-/* A frame built by hand: its three numbers and its codes. */
-
-static void put_u16(ByteBuffer *b, uint32_t value)
-{
-    buffer_push(b, (uint8_t)(value & 0xff));
-    buffer_push(b, (uint8_t)((value >> 8) & 0xff));
-}
 
 /* A code: kind 0 for pixels, 1 to skip rows, 2 to skip pixels. */
 static void put_code(ByteBuffer *b, uint32_t kind, uint32_t count)

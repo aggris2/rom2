@@ -1,6 +1,6 @@
 /* Laying the frames of a sprite file out as a sheet, in the order of the
- * file, for the sprites no registry describes: the cursors and the
- * moving parts of the interface.
+ * file, for the sprites no registry describes: the cursors, the moving
+ * parts of the interface, and the fonts, whose frames are their glyphs.
  *
  * The sheet is a grid of cells of one size, the size of the largest
  * frame. The frames fill it row by row from the top left, and each lies
@@ -36,17 +36,22 @@ typedef struct PlainSheet {
     bool one_size;
 } PlainSheet;
 
-/* Builds the sheet of a .256 sprite. A pixel is solid, 255, unless its
- * index is 0.
+/* The three kinds of sprite file. They differ in what a pixel holds. */
+typedef enum PlainSheetKind {
+    PLAIN_SHEET_256, /* an index; solid, 255, unless the index is 0 */
+    PLAIN_SHEET_16A, /* an index and its own solidness */
+    PLAIN_SHEET_16   /* solidness alone: every index is 0 */
+} PlainSheetKind;
+
+/* Builds the sheet of a sprite. `columns` is how many cells a row has,
+ * or 0 for as many as fit in PLAIN_SHEET_WIDTH. A file's 15 levels of
+ * solidness are spread over 17 to 255.
  *
  * Returns false, and leaves `*out` alone, if the sprite has no frames, a
- * frame cannot be read, the sheet would be higher than a PNG can be, or
+ * frame cannot be read, the sheet would be larger than a PNG can be, or
  * memory runs out. */
-bool plain_sheet_build_256(const Sprite256 *sprite, PlainSheet *out);
-
-/* The same for a .16a sprite, whose pixels carry their own solidness:
- * the file's 15 levels are spread over 17 to 255. */
-bool plain_sheet_build_16a(const Sprite256 *sprite, PlainSheet *out);
+bool plain_sheet_build(const Sprite256 *sprite, PlainSheetKind kind,
+    uint32_t columns, PlainSheet *out);
 
 /* Frees the sheet and sets it to zero. */
 void plain_sheet_free(PlainSheet *sheet);

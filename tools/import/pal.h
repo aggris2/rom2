@@ -20,7 +20,7 @@
 #include <stddef.h>
 #include <stdint.h>
 
-#include "import/rgb.h"
+#include "base/rgb.h"
 
 /* Reads the palette of a .pal file that is a BMP picture.
  *

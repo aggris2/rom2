@@ -3,6 +3,8 @@
 #include <stdio.h>
 #include <string.h>
 
+#include "base/toml.h"
+
 bool things_count(const Things *t, uint32_t *out)
 {
     int32_t count = 0;
@@ -96,4 +98,44 @@ bool things_int_list(const Things *t, int32_t id, const char *key,
     char section[THINGS_SECTION_SIZE];
     return find_stated(t, id, key, section)
         && reg_int_list(t->reg, section, key, out, capacity, out_count);
+}
+
+bool thing_toml_folder_name(const Things *t, int32_t id, const char *key,
+    char out[NAME_FOLDER_SIZE])
+{
+    char section[THINGS_SECTION_SIZE];
+    const char *text = "";
+    if (!things_section(t, id, section)) {
+        return false;
+    }
+    things_text(t, id, key, &text);
+    return name_folder(id, text, out);
+}
+
+bool thing_toml_int(ByteBuffer *b, const Things *t, int32_t id,
+    const char *key, const char *name)
+{
+    int32_t value = 0;
+    return !things_int(t, id, key, &value) || toml_int(b, name, value);
+}
+
+bool thing_toml_text(ByteBuffer *b, const Things *t, int32_t id,
+    const char *key, const char *name, bool even_empty)
+{
+    const char *text = NULL;
+    return !things_text(t, id, key, &text)
+        || (text[0] == '\0' && !even_empty)
+        || toml_text(b, name, text);
+}
+
+bool thing_toml_list(const Things *t, int32_t id, const char *key,
+    int32_t *out, size_t capacity, size_t *count)
+{
+    const char *text = NULL;
+    *count = 0;
+    if (things_int_list(t, id, key, out, capacity, count)
+        || !things_has(t, id, key)) {
+        return true;
+    }
+    return things_text(t, id, key, &text) && text[0] == '\0';
 }

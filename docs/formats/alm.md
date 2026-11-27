@@ -54,7 +54,7 @@ The sections come in the same order in every map, by their ids: 0, 1,
 |---|---|---|
 | 0 | 660 | the map as a whole |
 | 1 | width × height × 2 | the ground, a 16-bit number for each square, which also says what kind of ground it is: see [terrain.md](terrain.md) |
-| 2 | width × height | the height of each square, a byte from 0 to 127 |
+| 2 | width × height | the height at each square, a byte from 0 to 127: see below |
 | 3 | width × height | the object on each square, a byte: 0 for none |
 | 4 | 20 for each structure, 28 for a bridge | the structures |
 | 5 | 76 for each player | the players |
@@ -281,12 +281,41 @@ The two kinds are one format and differ in what they hold:
 | 8 | 20 to 140 bytes in 25, empty in 21 | empty in all |
 | 10 | empty in all | 224 to 3,808 bytes in all |
 
-## The objects
+## Section 2, the heights
 
-A byte of section 3 that is not 0 is taken to be an object's `ID` from
+A byte for each square, 0 to 127 in all 1,152,512 squares of the 58
+maps. It is the height of the ground at the top left corner of the
+square, in pixels: a corner is drawn that many pixels higher up the
+screen than it would be on flat ground. A square's tile is stretched
+between its four corners, which are its own and those of the squares
+to its right, below it, and below to its right. What stands on the
+ground is raised by the height at its place, taken between the four
+corners around it.
+
+The slope of the ground also lights it: ground that faces the sun is
+drawn brighter and ground that faces away darker, by the sun's angle
+in section 0. Flat ground is drawn brighter than its picture, about
+1.56 times.
+
+This reading and the rule for the light are the original program's,
+from earlier work on it. Heights are not measured against the game
+here. Drawn so, mission 10 has its mountains standing up with a lit
+and a dark side, its river lying low, and its trees, bridge and tower
+sitting on the ground.
+
+## Section 3, the objects
+
+A byte of section 3 that is not 0 is an object's `ID` from
 `objects.reg`, plus 1. Drawing a map that way puts trees and rocks
-where a wood and a road's edge are. In the 46 missions 735,895 of the
-812,288 squares have no object.
+where a wood and a road's edge are.
+
+The 58 maps use 191 different objects. All but one are in the
+registry. The one that is not, 208, is on 11 squares of mission 52,
+in its second and fourth rows. Five of the objects the maps use are
+burning trees, which the registry names and the archive has no
+pictures for: they are
+on 100 squares, every one of them in the 8 squares along the edge of
+its map, where nothing is seen and nothing can go. So is the 208.
 
 ## Not known
 
@@ -296,6 +325,5 @@ where a wood and a road's edge are. In the 46 missions 735,895 of the
   effect, and the flags of a unit, a player, a group and an inn.
 - The size in the file's header, and the type and version in a
   section's.
-- Byte values in section 3 above 192, which is more than there are
-  objects.
-- How the height of a square moves what stands on it.
+- The exact rule by which the game takes a height between four
+  corners, and the numbers of its light at each time of day.

@@ -3,13 +3,8 @@
 #include <string.h>
 
 #include "base/buffer.h"
+#include "expect.h"
 #include "utest.h"
-
-static void put_u16(ByteBuffer *b, uint32_t value)
-{
-    buffer_push(b, (uint8_t)(value & 0xff));
-    buffer_push(b, (uint8_t)((value >> 8) & 0xff));
-}
 
 /* Builds an 8-bit BMP of `width` by `height` with a table of `colours`
  * colours, where colour n is blue n, green n + 1, red n + 2. The pixel

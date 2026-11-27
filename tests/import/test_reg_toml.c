@@ -2,14 +2,9 @@
 
 #include <string.h>
 
+#include "expect.h"
 #include "make_reg.h"
 #include "utest.h"
-
-/* Says whether the buffer holds exactly `text`. */
-static bool holds(const ByteBuffer *b, const char *text)
-{
-    return b->size == strlen(text) && memcmp(b->data, text, b->size) == 0;
-}
 
 UTEST(reg_toml, write_gives_each_section_as_a_table_in_the_order_it_has)
 {
