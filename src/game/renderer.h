@@ -2,9 +2,9 @@
  * this module is the only one that talks to the graphics card.
  *
  * A sheet is a picture with a palette, put on the card once. A sprite
- * is a part of a sheet at a place on the screen. A frame is drawn by
- * handing over all its sprites at once, in the order they are to be
- * drawn: a later one covers an earlier one.
+ * is a part of a sheet at a place on the screen: see view/sprite.h. A
+ * frame is drawn by handing over all its sprites at once, in the order
+ * they are to be drawn: a later one covers an earlier one.
  */
 #ifndef ROM2_GAME_RENDERER_H
 #define ROM2_GAME_RENDERER_H
@@ -16,20 +16,9 @@
 #include <SDL3/SDL.h>
 
 #include "base/png.h"
+#include "view/sprite.h"
 
 typedef struct Renderer Renderer;
-
-/* One thing to draw: a part of a sheet, at a place on the screen. All
- * of it is in pixels. */
-typedef struct Sprite {
-    uint16_t sheet;         /* from renderer_add_sheet() */
-    uint16_t source_x;      /* the part of the sheet to take */
-    uint16_t source_y;
-    uint16_t width;
-    uint16_t height;
-    int16_t x;              /* where its top left corner goes */
-    int16_t y;
-} Sprite;
 
 /* Opens the graphics card for a window. Returns NULL, with SDL's error
  * set, if it cannot. */

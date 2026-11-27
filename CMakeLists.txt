@@ -105,6 +105,8 @@ add_library(rom2_core STATIC
     src/base/toml.c
     src/data/map.c
     src/data/sprite_sheet.c
+    src/view/camera.c
+    src/view/ground.c
 )
 target_include_directories(rom2_core PUBLIC src)
 target_link_libraries(rom2_core PRIVATE ${ROM2_ZLIB})
@@ -165,6 +167,7 @@ rom2_set_warnings(import_program)
 if(ROM2_BUILD_GAME)
     add_executable(rom2
         src/game/main.c
+        src/game/map_screen.c
         src/game/renderer.c
         src/game/shader.c
         src/game/shaders/data.c
@@ -189,6 +192,8 @@ add_executable(rom2_tests
     tests/base/test_reader.c
     tests/base/test_toml.c
     tests/data/test_sprite_sheet.c
+    tests/view/test_camera.c
+    tests/view/test_ground.c
     tests/import/test_bmp.c
     tests/import/test_databin.c
     tests/import/test_item.c

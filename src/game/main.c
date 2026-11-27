@@ -1,7 +1,7 @@
-/* rom2: the game. So far it shows one thing of the content, a frame at
- * a time: a unit, an object or a structure, named by its definition
- * file. The left and right arrow keys go through its frames, and a
- * number after the file says which to start at.
+/* rom2: the game. So far it opens a map and shows its ground.
+ *
+ * This file is the window and the loop. What is in the window is the
+ * map screen's.
  *
  * The window covers the whole screen at the screen's own size, without
  * changing the mode of the monitor, and the mouse stays inside it.
@@ -9,16 +9,12 @@
  * starts in one. Escape or the window's own button closes it.
  */
 #include <stdio.h>
-#include <stdlib.h>
 #include <string.h>
 
 #include <SDL3/SDL.h>
 #include <SDL3/SDL_main.h>
 
-#include "base/file.h"
-#include "base/png.h"
-#include "base/toml.h"
-#include "data/sprite_sheet.h"
+#include "game/map_screen.h"
 #include "game/renderer.h"
 
 /* The size of the plain window, which Alt+Enter and `--window` give.
@@ -27,85 +23,10 @@
 #define WINDOW_WIDTH 1024
 #define WINDOW_HEIGHT 768
 
-/* The thing that is shown: how its sheet is cut, and the sheet. */
-typedef struct Thing {
-    SpriteSheet layout;
-    Png sheet;
-} Thing;
-
-/* Reads a definition and the sheet it names, which lies beside it.
- * Returns false, with a message printed, if it cannot. */
-static bool thing_read(const char *path, Thing *thing)
-{
-    uint8_t *data = NULL;
-    size_t size = 0;
-    if (!file_read_all(path, &data, &size)) {
-        fprintf(stderr, "rom2: cannot read %s\n", path);
-        return false;
-    }
-    TomlTable *top = NULL;
-    size_t line = 0;
-    bool ok = toml_read(data, size, &top, &line);
-    free(data);
-    if (!ok) {
-        fprintf(stderr, "rom2: %s: line %zu is not understood\n", path,
-            line);
-        return false;
-    }
-    ok = sprite_sheet_read(top, &thing->layout);
-    toml_free(top);
-    if (!ok) {
-        fprintf(stderr, "rom2: %s has no usable [sprite] part\n", path);
-        return false;
-    }
-
-    /* The sheet's path: the definition's, with its file name changed. */
-    const char *slash = strrchr(path, '/');
-    size_t folder = slash == NULL ? 0 : (size_t)(slash - path) + 1;
-    char sheet_path[1024];
-    int length = snprintf(sheet_path, sizeof sheet_path, "%.*s%s",
-        (int)folder, path, thing->layout.file);
-    if (length < 0 || (size_t)length >= sizeof sheet_path) {
-        fprintf(stderr, "rom2: the path of %s is too long\n", path);
-        return false;
-    }
-    if (!file_read_all(sheet_path, &data, &size)) {
-        fprintf(stderr, "rom2: cannot read %s\n", sheet_path);
-        return false;
-    }
-    ok = png_read(data, size, &thing->sheet);
-    free(data);
-    if (!ok) {
-        fprintf(stderr, "rom2: %s is not a PNG picture\n", sheet_path);
-    }
-    return ok;
-}
-
-/* How many whole cells the sheet has. */
-static uint32_t thing_frames(const Thing *thing)
-{
-    return (thing->sheet.width / thing->layout.cell_width)
-        * (thing->sheet.height / thing->layout.cell_height);
-}
-
-/* The record that draws one frame with its anchor at a point of the
- * screen. */
-static Sprite thing_sprite(const Thing *thing, uint16_t sheet,
-                           uint32_t frame, int x, int y)
-{
-    uint32_t columns = thing->sheet.width / thing->layout.cell_width;
-    Sprite sprite;
-    sprite.sheet = sheet;
-    sprite.source_x
-        = (uint16_t)(frame % columns * thing->layout.cell_width);
-    sprite.source_y
-        = (uint16_t)(frame / columns * thing->layout.cell_height);
-    sprite.width = thing->layout.cell_width;
-    sprite.height = thing->layout.cell_height;
-    sprite.x = (int16_t)(x - thing->layout.anchor_x);
-    sprite.y = (int16_t)(y - thing->layout.anchor_y);
-    return sprite;
-}
+/* The longest a frame is taken to have lasted, in seconds. After a
+ * pause, such as the window being dragged, the game goes on from where
+ * it was and does not jump. */
+#define LONGEST_FRAME 0.1f
 
 /* Switches between the whole screen and a plain window. On the whole
  * screen the mouse is kept inside the game, so that it cannot slip onto
@@ -122,27 +43,16 @@ static void toggle_fullscreen(SDL_Window *window)
     }
 }
 
-/* Takes what the player did since the last frame. `*step` gets how
- * many frames to go on, or back if it is below 0. Returns false when
- * the player wants to leave. */
-static bool handle_events(SDL_Window *window, int *step)
+/* Takes what happened since the last frame. Returns false when the
+ * player wants to leave. */
+static bool handle_events(SDL_Window *window)
 {
     SDL_Event event;
-    *step = 0;
     while (SDL_PollEvent(&event)) {
         if (event.type == SDL_EVENT_QUIT) {
             return false;
         }
-        if (event.type != SDL_EVENT_KEY_DOWN) {
-            continue;
-        }
-        /* A key held down goes on stepping through the frames. */
-        if (event.key.key == SDLK_RIGHT) {
-            *step += 1;
-        } else if (event.key.key == SDLK_LEFT) {
-            *step -= 1;
-        }
-        if (event.key.repeat) {
+        if (event.type != SDL_EVENT_KEY_DOWN || event.key.repeat) {
             continue;
         }
         if (event.key.key == SDLK_ESCAPE) {
@@ -156,39 +66,29 @@ static bool handle_events(SDL_Window *window, int *step)
     return true;
 }
 
-/* Shows the thing in a window, from the frame `frame` on, until the
- * player leaves. */
-static bool show(SDL_Window *window, const Thing *thing, uint32_t frame)
+/* Runs the game in a window until the player leaves. */
+static bool run(SDL_Window *window, const char *content, const char *map)
 {
     Renderer *renderer = renderer_open(window);
-    uint16_t sheet = 0;
-    if (renderer == NULL
-        || !renderer_add_sheet(renderer, &thing->sheet, &sheet)) {
+    if (renderer == NULL) {
         fprintf(stderr, "rom2: cannot use the graphics card: %s\n",
             SDL_GetError());
-        renderer_close(renderer);
         return false;
     }
+    MapScreen *screen = map_screen_open(renderer, content, map);
     /* The window was hidden until there is something to show in it.
      * Opening the graphics card takes a moment, and a window shown
      * before that holds whatever was on the screen behind it. */
-    bool ok = SDL_ShowWindow(window);
-    uint32_t frames = thing_frames(thing);
-    int step = 0;
-    while (ok && handle_events(window, &step)) {
-        /* Round and round: after the last frame comes the first. */
-        int64_t next = ((int64_t)frame + step) % (int64_t)frames;
-        frame = (uint32_t)(next < 0 ? next + frames : next);
-        int width = 0;
-        int height = 0;
-        renderer_size(renderer, &width, &height);
-        Sprite sprite = thing_sprite(thing, sheet, frame, width / 2,
-            height / 2);
-        ok = renderer_draw(renderer, &sprite, 1);
-        if (!ok) {
-            fprintf(stderr, "rom2: cannot draw: %s\n", SDL_GetError());
-        }
+    bool ok = screen != NULL && SDL_ShowWindow(window);
+    Uint64 before = SDL_GetTicksNS();
+    while (ok && handle_events(window)) {
+        Uint64 now = SDL_GetTicksNS();
+        float seconds = (float)(now - before) / 1e9f;
+        before = now;
+        ok = map_screen_frame(screen,
+            seconds > LONGEST_FRAME ? LONGEST_FRAME : seconds);
     }
+    map_screen_close(screen);
     renderer_close(renderer);
     return ok;
 }
@@ -202,53 +102,47 @@ int main(int argc, char **argv)
         | SDL_WINDOW_MOUSE_GRABBED;
     SDL_WindowFlags flags = SDL_WINDOW_RESIZABLE | SDL_WINDOW_HIDDEN
         | SDL_WINDOW_HIGH_PIXEL_DENSITY | whole_screen;
-    const char *path = NULL;
-    const char *first = NULL;
-    for (int i = 1; i < argc; i++) {
+    const char *content = "content";
+    const char *map = NULL;
+    bool understood = true;
+    for (int i = 1; i < argc && understood; i++) {
         if (strcmp(argv[i], "--window") == 0) {
             flags &= ~whole_screen;
-        } else if (path == NULL) {
-            path = argv[i];
-        } else if (first == NULL) {
-            first = argv[i];
+        } else if (strcmp(argv[i], "--content") == 0 && i + 1 < argc) {
+            content = argv[++i];
+        } else if (argv[i][0] != '-' && map == NULL) {
+            map = argv[i];
         } else {
-            path = NULL;
-            break;
+            understood = false;
         }
     }
-    /* The frame to start at is digits and nothing else. */
-    char *end = NULL;
-    unsigned long frame = first == NULL ? 0 : strtoul(first, &end, 10);
-    if (path == NULL || (first != NULL
-            && (*first < '0' || *first > '9' || *end != '\0'))) {
+    if (!understood) {
         fprintf(stderr,
-            "usage: rom2 <definition.toml> [frame] [--window]\n");
+            "usage: rom2 [mission number | map file] [--content <folder>]"
+            " [--window]\n"
+            "\n"
+            "Shows a map: mission 10 if none is named. The content is\n"
+            "taken from the folder `content` if no other is named. The\n"
+            "arrow keys or W, A, S and D move over the map, and Escape\n"
+            "leaves.\n");
         return 2;
     }
-    Thing thing;
-    if (!thing_read(path, &thing)) {
-        return 1;
+    if (map == NULL) {
+        map = "10";
     }
-    if (frame >= thing_frames(&thing)) {
-        fprintf(stderr, "rom2: %s has %u frames, counted from 0\n", path,
-            (unsigned)thing_frames(&thing));
-        png_free(&thing.sheet);
-        return 1;
-    }
-    bool ok = SDL_Init(SDL_INIT_VIDEO);
-    if (!ok) {
+    if (!SDL_Init(SDL_INIT_VIDEO)) {
         fprintf(stderr, "rom2: cannot start: %s\n", SDL_GetError());
+        return 1;
     }
-    SDL_Window *window = !ok ? NULL
-        : SDL_CreateWindow("ROM2", WINDOW_WIDTH, WINDOW_HEIGHT, flags);
-    if (ok && window == NULL) {
+    SDL_Window *window = SDL_CreateWindow("ROM2", WINDOW_WIDTH,
+        WINDOW_HEIGHT, flags);
+    if (window == NULL) {
         fprintf(stderr, "rom2: cannot open a window: %s\n", SDL_GetError());
     }
-    ok = window != NULL && show(window, &thing, (uint32_t)frame);
+    bool ok = window != NULL && run(window, content, map);
     if (window != NULL) {
         SDL_DestroyWindow(window);
     }
     SDL_Quit();
-    png_free(&thing.sheet);
     return ok ? 0 : 1;
 }

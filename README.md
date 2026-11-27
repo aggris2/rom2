@@ -83,15 +83,15 @@ The `content` folder is yours and is not part of this repository.
 ## Running
 
 ```bash
-./build/rom2 content/units/001_unarmed_fighter/unit.toml
+./build/rom2 10
 ```
 
-So far the game shows one unit or object of the content, a frame at a
-time, with the point it stands on in the middle of the screen. The left
-and right arrow keys go through its frames, and a number after the file
-says which to start at. The window covers the whole screen; Alt+Enter
-switches to a plain window and back, and `--window` starts in one. Escape
-closes it.
+So far the game shows the ground of a map, laid flat: mission 10 here. A
+map's file can be named in place of the number, such as
+`content/maps/beach.alm`. The content is taken from the folder `content`
+where the game is started, or from the one named with `--content`. The arrow keys or W, A, S and D move over the
+map. The window covers the whole screen; Alt+Enter switches to a plain
+window and back, and `--window` starts in one. Escape closes it.
 
 ## Licence
 
