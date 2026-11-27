@@ -1,4 +1,4 @@
-#include "defs/sprite_def.h"
+#include "data/sprite_sheet.h"
 
 #include <string.h>
 
@@ -25,12 +25,12 @@ static bool read_pair(const TomlTable *table, const char *key, int32_t low,
 static bool is_plain_file_name(const char *name)
 {
     size_t length = strlen(name);
-    return length > 0 && length < SPRITE_DEF_NAME_SIZE
+    return length > 0 && length < SPRITE_SHEET_NAME_SIZE
         && strchr(name, '/') == NULL && strchr(name, '\\') == NULL
         && strcmp(name, ".") != 0 && strcmp(name, "..") != 0;
 }
 
-bool sprite_def_read(const TomlTable *top, SpriteDef *out)
+bool sprite_sheet_read(const TomlTable *top, SpriteSheet *out)
 {
     const TomlTable *sprite = toml_get_table(top, "sprite");
     const char *sheet = NULL;
@@ -45,7 +45,7 @@ bool sprite_def_read(const TomlTable *top, SpriteDef *out)
         return false;
     }
     memset(out, 0, sizeof *out);
-    memcpy(out->sheet, sheet, strlen(sheet));
+    memcpy(out->file, sheet, strlen(sheet));
     out->cell_width = (uint16_t)cell_width;
     out->cell_height = (uint16_t)cell_height;
     out->anchor_x = (int16_t)anchor_x;

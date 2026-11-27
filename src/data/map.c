@@ -1,4 +1,4 @@
-#include "map/alm.h"
+#include "data/map.h"
 
 #include <stdlib.h>
 #include <string.h>
@@ -56,7 +56,7 @@ typedef struct Counts {
     uint32_t units;
 } Counts;
 
-static bool read_info(Reader *r, AlmInfo *info, Counts *counts)
+static bool read_info(Reader *r, MapInfo *info, Counts *counts)
 {
     info->width = reader_u32(r);
     info->height = reader_u32(r);
@@ -70,14 +70,14 @@ static bool read_info(Reader *r, AlmInfo *info, Counts *counts)
     counts->units = reader_u32(r);
     /* Seven counts for the sections this does not read. */
     reader_skip(r, 28);
-    read_text(r, ALM_NAME_SIZE - 1, info->name);
+    read_text(r, MAP_NAME_SIZE - 1, info->name);
     info->for_players = reader_u32(r);
     info->level = reader_u32(r);
     reader_skip(r, 8);
-    read_text(r, ALM_AUTHOR_SIZE - 1, info->author);
+    read_text(r, MAP_AUTHOR_SIZE - 1, info->author);
     return reader_ok(r) && info->width > 0 && info->height > 0
-        && info->width <= ALM_MAX_SIDE && info->height <= ALM_MAX_SIDE
-        && counts->players <= ALM_MAX_PLAYERS;
+        && info->width <= MAP_MAX_SIDE && info->height <= MAP_MAX_SIDE
+        && counts->players <= MAP_MAX_PLAYERS;
 }
 
 static bool read_ground(Reader *r, size_t squares, uint16_t **out)
@@ -110,7 +110,7 @@ static bool read_bytes(Reader *r, size_t squares, uint8_t **out)
     return true;
 }
 
-static bool read_structures(Reader *r, uint32_t count, Alm *map)
+static bool read_structures(Reader *r, uint32_t count, Map *map)
 {
     if (map->structures != NULL) {
         return false;
@@ -120,12 +120,12 @@ static bool read_structures(Reader *r, uint32_t count, Alm *map)
     if (count > reader_remaining(r) / 20) {
         return false;
     }
-    AlmStructure *list = calloc(count > 0 ? count : 1, sizeof *list);
+    MapStructure *list = calloc(count > 0 ? count : 1, sizeof *list);
     if (list == NULL) {
         return false;
     }
     for (uint32_t i = 0; i < count; i++) {
-        AlmStructure *s = &list[i];
+        MapStructure *s = &list[i];
         /* A place is the square times 256, plus 128 for its middle. */
         s->x = reader_i32(r) >> 8;
         s->y = reader_i32(r) >> 8;
@@ -148,22 +148,22 @@ static bool read_structures(Reader *r, uint32_t count, Alm *map)
     return true;
 }
 
-static bool read_players(Reader *r, uint32_t count, Alm *map)
+static bool read_players(Reader *r, uint32_t count, Map *map)
 {
     if (map->players != NULL || reader_remaining(r) != (size_t)count * 76) {
         return false;
     }
-    AlmPlayer *list = calloc(count > 0 ? count : 1, sizeof *list);
+    MapPlayer *list = calloc(count > 0 ? count : 1, sizeof *list);
     if (list == NULL) {
         return false;
     }
     for (uint32_t i = 0; i < count; i++) {
-        AlmPlayer *p = &list[i];
+        MapPlayer *p = &list[i];
         p->colour = reader_i32(r);
         p->flags = reader_u32(r);
         p->money = reader_i32(r);
-        read_text(r, ALM_PLAYER_NAME_SIZE - 1, p->name);
-        for (uint32_t k = 0; k < ALM_MAX_PLAYERS; k++) {
+        read_text(r, MAP_PLAYER_NAME_SIZE - 1, p->name);
+        for (uint32_t k = 0; k < MAP_MAX_PLAYERS; k++) {
             p->stance[k] = reader_u16(r);
         }
     }
@@ -172,17 +172,17 @@ static bool read_players(Reader *r, uint32_t count, Alm *map)
     return true;
 }
 
-static bool read_units(Reader *r, uint32_t count, Alm *map)
+static bool read_units(Reader *r, uint32_t count, Map *map)
 {
     if (map->units != NULL || reader_remaining(r) != (size_t)count * 48) {
         return false;
     }
-    AlmUnit *list = calloc(count > 0 ? count : 1, sizeof *list);
+    MapUnit *list = calloc(count > 0 ? count : 1, sizeof *list);
     if (list == NULL) {
         return false;
     }
     for (uint32_t i = 0; i < count; i++) {
-        AlmUnit *u = &list[i];
+        MapUnit *u = &list[i];
         u->x = reader_i32(r);
         u->y = reader_i32(r);
         u->type = reader_u16(r);
@@ -205,7 +205,7 @@ static bool read_units(Reader *r, uint32_t count, Alm *map)
     return true;
 }
 
-bool alm_read(const uint8_t *data, size_t size, Alm *out)
+bool map_read(const uint8_t *data, size_t size, Map *out)
 {
     Reader r = reader_init(data, size);
     uint32_t signature = reader_u32(&r);
@@ -218,7 +218,7 @@ bool alm_read(const uint8_t *data, size_t size, Alm *out)
         return false;
     }
 
-    Alm map;
+    Map map;
     Counts counts = {0, 0, 0};
     bool has_info = false;
     bool ok = true;
@@ -279,14 +279,14 @@ bool alm_read(const uint8_t *data, size_t size, Alm *out)
         && map.player_count == counts.players
         && map.unit_count == counts.units;
     if (!ok) {
-        alm_free(&map);
+        map_free(&map);
         return false;
     }
     *out = map;
     return true;
 }
 
-void alm_free(Alm *map)
+void map_free(Map *map)
 {
     free(map->ground);
     free(map->heights);

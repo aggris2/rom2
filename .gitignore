@@ -6,7 +6,7 @@ build-*/
 *.so
 
 # Content converted from the original game. Never commit this.
-content/
+/content/
 
 # Original game files, in case a copy ends up inside the checkout
 *.res

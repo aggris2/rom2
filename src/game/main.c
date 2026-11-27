@@ -18,7 +18,7 @@
 #include "base/file.h"
 #include "base/png.h"
 #include "base/toml.h"
-#include "defs/sprite_def.h"
+#include "data/sprite_sheet.h"
 #include "game/renderer.h"
 
 /* The size of the plain window, which Alt+Enter and `--window` give.
@@ -29,7 +29,7 @@
 
 /* The thing that is shown: how its sheet is cut, and the sheet. */
 typedef struct Thing {
-    SpriteDef def;
+    SpriteSheet layout;
     Png sheet;
 } Thing;
 
@@ -52,7 +52,7 @@ static bool thing_read(const char *path, Thing *thing)
             line);
         return false;
     }
-    ok = sprite_def_read(top, &thing->def);
+    ok = sprite_sheet_read(top, &thing->layout);
     toml_free(top);
     if (!ok) {
         fprintf(stderr, "rom2: %s has no usable [sprite] part\n", path);
@@ -64,7 +64,7 @@ static bool thing_read(const char *path, Thing *thing)
     size_t folder = slash == NULL ? 0 : (size_t)(slash - path) + 1;
     char sheet_path[1024];
     int length = snprintf(sheet_path, sizeof sheet_path, "%.*s%s",
-        (int)folder, path, thing->def.sheet);
+        (int)folder, path, thing->layout.file);
     if (length < 0 || (size_t)length >= sizeof sheet_path) {
         fprintf(stderr, "rom2: the path of %s is too long\n", path);
         return false;
@@ -84,8 +84,8 @@ static bool thing_read(const char *path, Thing *thing)
 /* How many whole cells the sheet has. */
 static uint32_t thing_frames(const Thing *thing)
 {
-    return (thing->sheet.width / thing->def.cell_width)
-        * (thing->sheet.height / thing->def.cell_height);
+    return (thing->sheet.width / thing->layout.cell_width)
+        * (thing->sheet.height / thing->layout.cell_height);
 }
 
 /* The record that draws one frame with its anchor at a point of the
@@ -93,15 +93,17 @@ static uint32_t thing_frames(const Thing *thing)
 static Sprite thing_sprite(const Thing *thing, uint16_t sheet,
                            uint32_t frame, int x, int y)
 {
-    uint32_t columns = thing->sheet.width / thing->def.cell_width;
+    uint32_t columns = thing->sheet.width / thing->layout.cell_width;
     Sprite sprite;
     sprite.sheet = sheet;
-    sprite.source_x = (uint16_t)(frame % columns * thing->def.cell_width);
-    sprite.source_y = (uint16_t)(frame / columns * thing->def.cell_height);
-    sprite.width = thing->def.cell_width;
-    sprite.height = thing->def.cell_height;
-    sprite.x = (int16_t)(x - thing->def.anchor_x);
-    sprite.y = (int16_t)(y - thing->def.anchor_y);
+    sprite.source_x
+        = (uint16_t)(frame % columns * thing->layout.cell_width);
+    sprite.source_y
+        = (uint16_t)(frame / columns * thing->layout.cell_height);
+    sprite.width = thing->layout.cell_width;
+    sprite.height = thing->layout.cell_height;
+    sprite.x = (int16_t)(x - thing->layout.anchor_x);
+    sprite.y = (int16_t)(y - thing->layout.anchor_y);
     return sprite;
 }
 

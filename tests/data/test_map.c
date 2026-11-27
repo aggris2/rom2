@@ -1,4 +1,4 @@
-#include "map/alm.h"
+#include "data/map.h"
 
 #include <string.h>
 
@@ -201,18 +201,18 @@ static void finish(MakeMap *m)
 }
 
 /* Puts the map together and reads it. */
-static bool reads(MakeMap *m, Alm *out)
+static bool reads(MakeMap *m, Map *out)
 {
     finish(m);
-    bool ok = alm_read(m->file.data, m->file.size, out);
+    bool ok = map_read(m->file.data, m->file.size, out);
     buffer_free(&m->file);
     return ok;
 }
 
-UTEST(alm, reads_what_the_map_says_of_itself)
+UTEST(map, reads_what_the_map_says_of_itself)
 {
     MakeMap m = make_map();
-    Alm map;
+    Map map;
     ASSERT_TRUE(reads(&m, &map));
     EXPECT_EQ(1300u, map.version);
     EXPECT_EQ(3u, map.info.width);
@@ -226,13 +226,13 @@ UTEST(alm, reads_what_the_map_says_of_itself)
     EXPECT_EQ(4u, map.info.for_players);
     EXPECT_EQ(2u, map.info.level);
     EXPECT_STREQ("Somebody", map.info.author);
-    alm_free(&map);
+    map_free(&map);
 }
 
-UTEST(alm, reads_the_ground_the_heights_and_the_objects)
+UTEST(map, reads_the_ground_the_heights_and_the_objects)
 {
     MakeMap m = make_map();
-    Alm map;
+    Map map;
     ASSERT_TRUE(reads(&m, &map));
     EXPECT_EQ(0x0100u, map.ground[0]);
     EXPECT_EQ(0x0105u, map.ground[5]);
@@ -240,13 +240,13 @@ UTEST(alm, reads_the_ground_the_heights_and_the_objects)
     EXPECT_EQ(15u, map.heights[5]);
     EXPECT_EQ(0u, map.objects[3]);
     EXPECT_EQ(7u, map.objects[4]);
-    alm_free(&map);
+    map_free(&map);
 }
 
-UTEST(alm, reads_a_structure_and_the_size_of_a_bridge)
+UTEST(map, reads_a_structure_and_the_size_of_a_bridge)
 {
     MakeMap m = make_map();
-    Alm map;
+    Map map;
     ASSERT_TRUE(reads(&m, &map));
     ASSERT_EQ(2u, map.structure_count);
     EXPECT_EQ(1, map.structures[0].x);
@@ -261,25 +261,25 @@ UTEST(alm, reads_a_structure_and_the_size_of_a_bridge)
     EXPECT_EQ(33u, map.structures[1].type);
     EXPECT_EQ(3, map.structures[1].bridge_width);
     EXPECT_EQ(5, map.structures[1].bridge_height);
-    alm_free(&map);
+    map_free(&map);
 }
 
-UTEST(alm, a_type_with_the_size_bit_has_a_size_and_loses_the_bit)
+UTEST(map, a_type_with_the_size_bit_has_a_size_and_loses_the_bit)
 {
     MakeMap m = make_map();
     m.bridge_type = 0x01000000u | 40u;
-    Alm map;
+    Map map;
     ASSERT_TRUE(reads(&m, &map));
     EXPECT_EQ(40u, map.structures[1].type);
     EXPECT_EQ(3, map.structures[1].bridge_width);
     EXPECT_EQ(5, map.structures[1].bridge_height);
-    alm_free(&map);
+    map_free(&map);
 }
 
-UTEST(alm, reads_a_player)
+UTEST(map, reads_a_player)
 {
     MakeMap m = make_map();
-    Alm map;
+    Map map;
     ASSERT_TRUE(reads(&m, &map));
     ASSERT_EQ(2u, map.player_count);
     EXPECT_EQ(5, map.players[0].colour);
@@ -293,16 +293,16 @@ UTEST(alm, reads_a_player)
     EXPECT_EQ(1u, map.players[1].stance[0]);
     EXPECT_EQ(18u, map.players[1].stance[1]);
     EXPECT_EQ(1u, map.players[1].stance[15]);
-    alm_free(&map);
+    map_free(&map);
 }
 
-UTEST(alm, reads_a_unit)
+UTEST(map, reads_a_unit)
 {
     MakeMap m = make_map();
-    Alm map;
+    Map map;
     ASSERT_TRUE(reads(&m, &map));
     ASSERT_EQ(1u, map.unit_count);
-    const AlmUnit *u = &map.units[0];
+    const MapUnit *u = &map.units[0];
     EXPECT_EQ(2 * 256 + 128, u->x);
     EXPECT_EQ(1 * 256 + 128, u->y);
     EXPECT_EQ(17u, u->type);
@@ -317,38 +317,38 @@ UTEST(alm, reads_a_unit)
     EXPECT_EQ(-1, u->health_max);
     EXPECT_EQ(301u, u->number);
     EXPECT_EQ(6, u->group);
-    alm_free(&map);
+    map_free(&map);
 }
 
-UTEST(alm, a_map_with_nothing_on_it_may_leave_those_sections_out)
+UTEST(map, a_map_with_nothing_on_it_may_leave_those_sections_out)
 {
     MakeMap m = make_map();
     m.units = 0;
     m.leave_out = 6;
-    Alm map;
+    Map map;
     ASSERT_TRUE(reads(&m, &map));
     EXPECT_EQ(0u, map.unit_count);
-    alm_free(&map);
+    map_free(&map);
 }
 
 /* True if the map is refused and `out` is left as it was. */
 static bool refuses(MakeMap *m)
 {
-    Alm map;
+    Map map;
     memset(&map, 0x5a, sizeof map);
-    Alm before = map;
+    Map before = map;
     bool ok = reads(m, &map);
     return !ok && memcmp(&map, &before, sizeof map) == 0;
 }
 
-UTEST(alm, refuses_what_is_not_a_map)
+UTEST(map, refuses_what_is_not_a_map)
 {
     MakeMap m = make_map();
     m.signature = 0x0052374eu;
     EXPECT_TRUE(refuses(&m));
 }
 
-UTEST(alm, refuses_a_map_with_no_size_or_too_large)
+UTEST(map, refuses_a_map_with_no_size_or_too_large)
 {
     MakeMap none = make_map();
     none.width = 0;
@@ -364,44 +364,44 @@ UTEST(alm, refuses_a_map_with_no_size_or_too_large)
     EXPECT_TRUE(refuses(&tall));
 }
 
-UTEST(alm, reads_a_map_of_the_largest_size_and_the_most_players)
+UTEST(map, reads_a_map_of_the_largest_size_and_the_most_players)
 {
     MakeMap wide = make_map();
     wide.width = 256;
     wide.height = 1;
-    Alm map;
+    Map map;
     ASSERT_TRUE(reads(&wide, &map));
     EXPECT_EQ(0x01ffu, map.ground[255]);
-    alm_free(&map);
+    map_free(&map);
     MakeMap tall = make_map();
     tall.width = 1;
     tall.height = 256;
     ASSERT_TRUE(reads(&tall, &map));
     EXPECT_EQ(0x01ffu, map.ground[255]);
-    alm_free(&map);
+    map_free(&map);
     MakeMap full = make_map();
     full.players = 16;
     ASSERT_TRUE(reads(&full, &map));
     EXPECT_EQ(16u, map.player_count);
     EXPECT_EQ(18u, map.players[15].stance[15]);
-    alm_free(&map);
+    map_free(&map);
 }
 
-UTEST(alm, refuses_more_players_than_there_is_room_for)
+UTEST(map, refuses_more_players_than_there_is_room_for)
 {
     MakeMap m = make_map();
     m.players = 17;
     EXPECT_TRUE(refuses(&m));
 }
 
-UTEST(alm, refuses_a_first_section_of_another_size)
+UTEST(map, refuses_a_first_section_of_another_size)
 {
     MakeMap m = make_map();
     m.info_stated = 640;
     EXPECT_TRUE(refuses(&m));
 }
 
-UTEST(alm, refuses_a_map_that_lacks_its_ground_heights_or_objects)
+UTEST(map, refuses_a_map_that_lacks_its_ground_heights_or_objects)
 {
     for (int id = 0; id <= 3; id++) {
         MakeMap m = make_map();
@@ -410,7 +410,7 @@ UTEST(alm, refuses_a_map_that_lacks_its_ground_heights_or_objects)
     }
 }
 
-UTEST(alm, refuses_a_section_given_twice)
+UTEST(map, refuses_a_section_given_twice)
 {
     for (int id = 0; id <= 6; id++) {
         MakeMap m = make_map();
@@ -419,14 +419,14 @@ UTEST(alm, refuses_a_section_given_twice)
     }
 }
 
-UTEST(alm, refuses_a_section_before_the_one_with_the_size)
+UTEST(map, refuses_a_section_before_the_one_with_the_size)
 {
     MakeMap m = make_map();
     m.info_last = true;
     EXPECT_TRUE(refuses(&m));
 }
 
-UTEST(alm, refuses_a_number_the_sections_do_not_bear_out)
+UTEST(map, refuses_a_number_the_sections_do_not_bear_out)
 {
     MakeMap width = make_map();
     width.more_width = 1;
@@ -451,7 +451,7 @@ UTEST(alm, refuses_a_number_the_sections_do_not_bear_out)
     }
 }
 
-UTEST(alm, refuses_a_section_a_byte_longer_than_it_should_be)
+UTEST(map, refuses_a_section_a_byte_longer_than_it_should_be)
 {
     for (int id = 1; id <= 6; id++) {
         MakeMap m = make_map();
@@ -460,13 +460,13 @@ UTEST(alm, refuses_a_section_a_byte_longer_than_it_should_be)
     }
 }
 
-UTEST(alm, refuses_a_map_cut_short_anywhere)
+UTEST(map, refuses_a_map_cut_short_anywhere)
 {
     MakeMap m = make_map();
     finish(&m);
     for (size_t size = 0; size < m.file.size; size++) {
-        Alm map;
-        EXPECT_FALSE(alm_read(m.file.data, size, &map));
+        Map map;
+        EXPECT_FALSE(map_read(m.file.data, size, &map));
     }
     buffer_free(&m.file);
 }

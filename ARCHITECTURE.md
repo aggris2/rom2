@@ -3,14 +3,47 @@
 This document describes how the ROM2 source is organised. It covers what
 exists today and grows with the code.
 
-## The core and the shell
+## The layers
 
-The game rules will be a library that runs one fixed tick at a time. It has
-no window, no network, no files and no clock. Everything else is a shell
-around it: the shell feeds commands in and shows what comes out.
+The source is five layers, in this order:
 
-Two things follow from that split. The rules can be tested without a window
-or a network. And single player and multiplayer run the same rules code.
+| # | Folder | What it is |
+|---|---|---|
+| 1 | `src/base` | bytes, files, PNG, TOML |
+| 2 | `src/data` | the content as the game holds it: maps and definitions, read into structs |
+| 3 | `src/mechanics` | how the game works: units, movement, combat, one tick |
+| 4 | `src/view` | what is seen: the state of the game and the camera in, a list of things to draw out |
+| 5 | `src/game` | the window, input, the renderer, sound, the loop |
+
+Each layer may use only the layers above it in the table. Code in
+`src/mechanics` never touches a file, a clock or the screen, whatever layer
+those are in.
+
+Three things follow from that order. Where something belongs is the lowest
+layer that has what it needs. Only `src/game` uses SDL, so everything with
+logic in it is plain code that unit tests can reach, and `src/game` is kept
+thin: it calls the others and talks to the graphics card. And single player
+and multiplayer run the same code of `src/mechanics`: a server, when there
+is one, is a second program on top of layers 1 to 3.
+
+A frame goes down the same order: input, then the ticks, then the view
+writes the list of what to draw, then the renderer draws it.
+
+`src/mechanics` and `src/view` are not started. The table below says where
+what is still to come will go, so that the place is decided before the
+code is written.
+
+| Thing | Place |
+|---|---|
+| Units, movement, path finding, combat | `src/mechanics` |
+| Making live units from a map file | `src/mechanics`, from what `src/data` read: the file's records are not the live state |
+| Commands, such as "move these units there" | types in `src/mechanics`, filled in by `src/game` and checked where they are defined, the same for a local player and for the network |
+| The camera, what is on screen, the order of drawing | `src/view` |
+| Ground with heights and light, and the fog | a second kind of record in `src/view`, drawn by the renderer |
+| The clock, and the last two states for smooth movement | `src/game` |
+| Sounds | `src/game`, played from what a tick reports; drawing never starts a sound |
+| The main menu | a second file beside the map's in `src/game`, and a switch in `main.c` |
+| Saving a game | the format in `src/mechanics`, the writing of the file in `src/game` |
 
 ## Layout
 
@@ -18,9 +51,9 @@ or a network. And single player and multiplayer run the same rules code.
 src/
   base/      small building blocks with no dependencies, and ROM2's own
              two file formats, PNG and TOML
-  map/       reading a map
-  defs/      reading the definitions of the content
-  game/      the game: so far a window
+  data/      the content read into structs: a map, a definition
+  game/      rom2, the game: the program a player runs
+    shaders/ the shaders, the script that compiles them, and its output
 tools/
   import/    the importer: readers for the original game's file formats,
              a module for each kind of thing, and main.c, the program
@@ -32,7 +65,7 @@ tests/
   main.c     the test runner
   expect.h   small checks many tests share
   base/      tests for src/base
-  map/       tests for src/map
+  data/      tests for src/data
   import/    tests for tools/import
 ```
 
@@ -57,17 +90,17 @@ values. Both are written by the importer and read by the game. The TOML
 reader takes what the writer writes and no more of TOML than that, and
 says which line it refused.
 
-`src/map/alm` reads a map. A map is the one file of the original that
-ROM2 takes as it is, so the game reads it and not the importer. It gives
-the map's size, ground, heights, objects, structures, players and units.
-The map's script is not read yet.
+`src/data/map` reads a map, an `.alm` file. A map is the one file of the
+original that ROM2 takes as it is, so the game reads it and not the
+importer. It gives the map's size, ground, heights, objects, structures,
+players and units. The map's script is not read yet.
 
-`src/defs` reads the definitions the importer wrote, the `.toml` files of
-the content, into plain structs. So far it reads how a sheet is cut into
-frames.
+`src/data/sprite_sheet` is the first of the readers of definitions, the
+`.toml` files the importer wrote: which file a sprite sheet is, the size
+of a cell in it, and the point of a cell that stands on the map.
 
-`src/game` is the program `rom2`, and the only code that uses SDL. So far
-it shows one unit or object, a frame at a time.
+`src/game` is the program `rom2`, and the only code that uses SDL. So
+far it shows one unit or object, a frame at a time.
 
 `renderer` is the one module that talks to the graphics card, through
 SDL's GPU API. The rest of the game says what to draw as a list of plain
@@ -146,8 +179,8 @@ it.
 
 ## Libraries
 
-`rom2_core` is a static library built from `src/base`, `src/map` and
-`src/defs`. It depends on the C standard library and on zlib.
+`rom2_core` is a static library built from `src/base` and `src/data`. It
+depends on the C standard library and on zlib.
 
 zlib and SDL are the outside libraries so far. The build downloads the
 source of each at an exact version, checked by its hash, and builds it

@@ -72,7 +72,7 @@ endif()
 # along with ROM2, unless ROM2_SYSTEM_SDL asks for the system's own. Only
 # the game uses it: ROM2_BUILD_GAME=OFF builds the importer and the tests
 # alone, with no SDL at all.
-option(ROM2_BUILD_GAME "Build the game, which needs SDL" ON)
+option(ROM2_BUILD_GAME "Build rom2, the program a player runs" ON)
 option(ROM2_SYSTEM_SDL "Use the SDL3 installed on the system" OFF)
 if(ROM2_BUILD_GAME)
     if(ROM2_SYSTEM_SDL)
@@ -103,8 +103,8 @@ add_library(rom2_core STATIC
     src/base/png.c
     src/base/reader.c
     src/base/toml.c
-    src/defs/sprite_def.c
-    src/map/alm.c
+    src/data/map.c
+    src/data/sprite_sheet.c
 )
 target_include_directories(rom2_core PUBLIC src)
 target_link_libraries(rom2_core PRIVATE ${ROM2_ZLIB})
@@ -161,7 +161,7 @@ set_target_properties(import_program PROPERTIES OUTPUT_NAME import)
 target_link_libraries(import_program PRIVATE rom2_formats)
 rom2_set_warnings(import_program)
 
-# rom2: the game.
+# rom2: the game, the program a player runs, from src/game.
 if(ROM2_BUILD_GAME)
     add_executable(rom2
         src/game/main.c
@@ -188,7 +188,7 @@ add_executable(rom2_tests
     tests/base/test_png.c
     tests/base/test_reader.c
     tests/base/test_toml.c
-    tests/defs/test_sprite_def.c
+    tests/data/test_sprite_sheet.c
     tests/import/test_bmp.c
     tests/import/test_databin.c
     tests/import/test_item.c
@@ -209,7 +209,7 @@ add_executable(rom2_tests
     tests/import/test_text.c
     tests/import/test_things.c
     tests/import/test_unit.c
-    tests/map/test_alm.c
+    tests/data/test_map.c
 )
 # tests/utest.h is the test framework (github.com/sheredom/utest.h, public
 # domain). SYSTEM: it is not held to our warning settings.
