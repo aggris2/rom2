@@ -14,6 +14,7 @@ typedef struct MakeUnits {
     MapUnit units[4];
     MapPlayer players[3];
     UnitLook looks[UNIT_TYPES];
+    uint16_t faces[UNIT_KIND_IDS];
     Sprite sprites[4];
 } MakeUnits;
 
@@ -54,7 +55,8 @@ static size_t sprites_for(MakeUnits *m, int32_t left, int32_t top,
                           int32_t width, int32_t height)
 {
     Camera camera = {left, top, width, height};
-    size_t count = units_sprites(&m->map, m->looks, &camera, m->sprites);
+    size_t count = units_sprites(&m->map, m->looks, m->faces, &camera,
+        m->sprites);
     return count <= units_most(&m->map) ? count : 9999;
 }
 
@@ -146,13 +148,37 @@ UTEST(units, a_unit_whose_sheet_goes_by_the_player_has_its_players_colour)
     EXPECT_EQ(0u, m.sprites[2].palette);
 }
 
-UTEST(units, a_unit_whose_sheet_does_not_go_by_the_player_has_the_first)
+UTEST(units, a_unit_whose_sheet_goes_by_the_kind_has_its_kinds_colouring)
 {
     MakeUnits m;
     make_units(&m);
-    put(&m, 1, 1, 3)->player = 2;
-    ASSERT_EQ(1u, sprites_for(&m, 0, 0, 320, 320));
+    /* Faces are counted from 1, and palettes from 0. */
+    m.faces[600] = 1;
+    m.faces[601] = 4;
+    MapUnit *first = put(&m, 1, 1, 3);
+    first->kind = 600;
+    first->player = 2;
+    put(&m, 2, 2, 3)->kind = 601;
+    ASSERT_EQ(2u, sprites_for(&m, 0, 0, 320, 320));
     EXPECT_EQ(0u, m.sprites[0].palette);
+    EXPECT_EQ(3u, m.sprites[1].palette);
+    /* And not when its sheet goes by the player. */
+    m.looks[3].by_player = true;
+    ASSERT_EQ(2u, sprites_for(&m, 0, 0, 320, 320));
+    EXPECT_EQ(7u, m.sprites[0].palette);
+}
+
+UTEST(units, a_unit_of_a_kind_that_is_not_known_has_the_first_palette)
+{
+    MakeUnits m;
+    make_units(&m);
+    put(&m, 1, 1, 3)->kind = 602;
+    put(&m, 2, 2, 3)->kind = -1;
+    put(&m, 3, 3, 3)->kind = UNIT_KIND_IDS;
+    ASSERT_EQ(3u, sprites_for(&m, 0, 0, 320, 320));
+    EXPECT_EQ(0u, m.sprites[0].palette);
+    EXPECT_EQ(0u, m.sprites[1].palette);
+    EXPECT_EQ(0u, m.sprites[2].palette);
 }
 
 UTEST(units, a_unit_of_a_player_the_map_does_not_have_has_the_first_palette)

@@ -9,6 +9,7 @@
 #include <stdint.h>
 
 #include "data/map.h"
+#include "data/unit_kind.h"
 #include "view/camera.h"
 #include "view/sprite.h"
 
@@ -30,7 +31,8 @@ typedef struct UnitLook {
     int16_t anchor_x;       /* the point of a cell that stands on the map */
     int16_t anchor_y;
     /* Its sheet has a palette for each colour a player can have: a
-     * human's cloth shows whose it is. */
+     * human's cloth shows whose it is. If not, it has one for each
+     * colouring of its kinds. */
     bool by_player;
 } UnitLook;
 
@@ -40,6 +42,8 @@ size_t units_most(const Map *map);
 
 /* Writes a sprite for each unit the camera can see and returns how
  * many it wrote. `looks` has UNIT_TYPES entries, one for each ID.
+ * `faces` has UNIT_KIND_IDS entries, the face of the kind with each
+ * ID as UnitKind has it, and 0 for a kind that is not known.
  *
  * A unit stands with its anchor on its place, raised by the height of
  * the ground there, shows the standing frame of the way it faces, and
@@ -47,12 +51,14 @@ size_t units_most(const Map *map);
  * not drawn.
  *
  * A unit whose sheet goes by the player is drawn in the palette that
- * its player's colour numbers, and any other in its sheet's first. So
- * is one whose player the map does not have.
+ * its player's colour numbers, and any other in the palette of its
+ * kind's face. One whose player the map does not have, or whose kind
+ * is not known, is drawn in its sheet's first.
  *
  * The sprites are not in the order they are to be drawn, but each has
  * its turn: see sprites_sort(). */
 size_t units_sprites(const Map *map, const UnitLook *looks,
-                     const Camera *camera, Sprite *out);
+                     const uint16_t *faces, const Camera *camera,
+                     Sprite *out);
 
 #endif

@@ -8,10 +8,15 @@
 
 /* Which of its sheet's palettes a unit is drawn in. */
 static uint16_t palette_of(const Map *map, const MapUnit *unit,
-                           const UnitLook *look)
+                           const UnitLook *look, const uint16_t *faces)
 {
-    if (!look->by_player || unit->player < 1
-        || (uint32_t)unit->player > map->player_count) {
+    if (!look->by_player) {
+        /* Faces are counted from 1. */
+        uint16_t face = unit->kind < 0 || unit->kind >= UNIT_KIND_IDS
+            ? 0 : faces[unit->kind];
+        return face == 0 ? 0 : (uint16_t)(face - 1);
+    }
+    if (unit->player < 1 || (uint32_t)unit->player > map->player_count) {
         return 0;
     }
     int32_t colour = map->players[unit->player - 1].colour;
@@ -24,7 +29,8 @@ size_t units_most(const Map *map)
 }
 
 size_t units_sprites(const Map *map, const UnitLook *looks,
-                     const Camera *camera, Sprite *out)
+                     const uint16_t *faces, const Camera *camera,
+                     Sprite *out)
 {
     size_t count = 0;
     for (uint32_t i = 0; i < map->unit_count; i++) {
@@ -54,7 +60,7 @@ size_t units_sprites(const Map *map, const UnitLook *looks,
         sprite->x = (int16_t)left;
         sprite->y = (int16_t)top;
         sprite->light = LIGHT_STANDING;
-        sprite->palette = palette_of(map, unit, look);
+        sprite->palette = palette_of(map, unit, look, faces);
         sprite->order = sprite_order(unit->x / PLACE_PARTS,
             unit->y / PLACE_PARTS);
     }

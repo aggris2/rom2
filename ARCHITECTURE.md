@@ -109,6 +109,9 @@ separate pictures, each of which can be looked at.
 definition: the squares it stands on, how high its picture is, and its
 sprite sheet.
 
+`src/data/unit_kind` reads a kind of unit from a unit's definition: so far
+its ID and which colouring it has.
+
 `src/view` turns what there is into what is drawn. `frame.h` is what the
 renderer is handed once a frame: the ground, and the sprites that lie on it.
 `sprite.h` is the record for one sprite, a part of a sheet at a place on the
@@ -122,10 +125,10 @@ each tree or rock the camera can see, standing on the ground at its height.
 `structures` writes each building as strips a square high, one for each row of
 its base, because something may stand behind a building's front and before its
 back. `units` writes a sprite for each unit, the standing frame of the way it
-faces, in its player's colour. Every sprite says where it stands, and `sprite`
-sorts the list into the order it is drawn: row after row from the top, and in
-a row from the right. None of it knows the graphics card, so all of it has
-unit tests.
+faces, in the colour of its player if it is a human and of its kind if it is a
+monster. Every sprite says where it stands, and `sprite` sorts the list into
+the order it is drawn: row after row from the top, and in a row from the
+right. None of it knows the graphics card, so all of it has unit tests.
 
 `src/game` is the program `rom2`, and the only code that uses SDL. `main.c`
 is the window and the loop. `map_screen` is being in a map, the one place of

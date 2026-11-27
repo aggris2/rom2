@@ -106,6 +106,7 @@ add_library(rom2_core STATIC
     src/data/map.c
     src/data/sprite_sheet.c
     src/data/structure_kind.c
+    src/data/unit_kind.c
     src/view/camera.c
     src/view/ground.c
     src/view/light.c
@@ -204,6 +205,7 @@ add_executable(rom2_tests
     tests/base/test_toml.c
     tests/data/test_sprite_sheet.c
     tests/data/test_structure_kind.c
+    tests/data/test_unit_kind.c
     tests/view/test_camera.c
     tests/view/test_ground.c
     tests/view/test_light.c

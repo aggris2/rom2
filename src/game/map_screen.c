@@ -9,6 +9,7 @@
 #include "base/file.h"
 #include "data/map.h"
 #include "data/structure_kind.h"
+#include "data/unit_kind.h"
 #include "game/sheets.h"
 #include "view/camera.h"
 #include "view/ground.h"
@@ -37,6 +38,7 @@ struct MapScreen {
     ObjectLook objects[OBJECT_KINDS];   /* how each kind of object looks */
     StructureLook structures[STRUCTURE_KINDS];  /* and of structure */
     UnitLook units[UNIT_TYPES];                 /* and type of unit */
+    uint16_t faces[UNIT_KIND_IDS];  /* the face of each kind of unit */
     GroundSquare *ground;       /* room for a frame's ground */
     size_t ground_room;
     Sprite *sprites;            /* room for a frame's sprites, twice: */
@@ -216,6 +218,15 @@ static void add_unit(MapScreen *screen, int id, const char *path,
         look->by_player = toml_get_text(toml_get_table(top, "sprite"),
             "palette_by", &by) && strcmp(by, "player") == 0;
     }
+    size_t count = toml_get_table_count(top, "kind");
+    for (size_t i = 0; i < count; i++) {
+        UnitKind kind;
+        if (unit_kind_read(toml_get_table_at(top, "kind", i), &kind)) {
+            screen->faces[kind.id] = kind.face;
+        } else {
+            fprintf(stderr, "rom2: %s: kind %zu is not usable\n", path, i);
+        }
+    }
 }
 
 /* Reads the sheets of what the map has on it: its objects, its
@@ -384,7 +395,7 @@ bool map_screen_frame(MapScreen *screen, float seconds)
     frame.sprite_count += structures_sprites(&screen->map,
         screen->structures, &camera, screen->sprites + frame.sprite_count);
     frame.sprite_count += units_sprites(&screen->map, screen->units,
-        &camera, screen->sprites + frame.sprite_count);
+        screen->faces, &camera, screen->sprites + frame.sprite_count);
     sprites_sort(screen->sprites, frame.sprite_count,
         screen->sprites + screen->sprite_room);
     if (!renderer_draw(screen->renderer, &frame)) {
