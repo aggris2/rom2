@@ -52,8 +52,9 @@ done by the zlib library, and this is the only file that calls it.
 
 `src/base/png` and `src/base/toml` are ROM2's own two file formats: a
 picture as a PNG, and a definition as TOML, a plain text of names and
-values. Both are written, and a PNG is also read. A reader for TOML is to
-come, for the game.
+values. Both are written by the importer and read by the game. The TOML
+reader takes what the writer writes and no more of TOML than that, and
+says which line it refused.
 
 `src/map/alm` reads a map. A map is the one file of the original that
 ROM2 takes as it is, so the game reads it and not the importer. It gives
