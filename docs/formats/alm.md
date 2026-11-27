@@ -53,7 +53,7 @@ The sections come in the same order in every map, by their ids: 0, 1,
 | Id | Size | What it is |
 |---|---|---|
 | 0 | 660 | the map as a whole |
-| 1 | width × height × 2 | the ground, a 16-bit number for each square: see [terrain.md](terrain.md) |
+| 1 | width × height × 2 | the ground, a 16-bit number for each square, which also says what kind of ground it is: see [terrain.md](terrain.md) |
 | 2 | width × height | the height of each square, a byte from 0 to 127 |
 | 3 | width × height | the object on each square, a byte: 0 for none |
 | 4 | 20 for each structure, 28 for a bridge | the structures |
