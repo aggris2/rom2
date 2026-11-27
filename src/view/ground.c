@@ -48,7 +48,7 @@ int32_t ground_height_at(const Map *map, int32_t x, int32_t y)
     int32_t low_right
         = map->heights[corner_index(map, square_x + 1, square_y + 1)];
     /* A square is drawn as two flat triangles, cut from its top right
-     * corner to its low left: see ground_corners(). The height is that
+     * corner to its low left: see view/frame.h. The height is that
      * of the triangle the point is in, so that what stands there
      * stands on the ground as it is drawn. */
     if (across + down <= MAP_SQUARE) {
@@ -77,6 +77,7 @@ static GroundCorner corner_of(const Map *map, const uint8_t *light,
     corner.tile_x = (uint16_t)tile_x;
     corner.tile_y = (uint16_t)tile_y;
     corner.light = light[at];
+    corner.unused = 0;
     return corner;
 }
 
@@ -112,27 +113,18 @@ size_t ground_corners(const Map *map, const uint8_t *light,
                 || tile_y + MAP_SQUARE > sheet_height) {
                 continue;
             }
-            GroundCorner square[4];
-            for (int32_t i = 0; i < 4; i++) {
+            /* Top left, top right, low left, low right. */
+            for (int32_t i = 0; i < FRAME_SQUARE_CORNERS; i++) {
                 int32_t right = i & 1;
                 int32_t low = i >> 1;
-                square[i] = corner_of(map, light, camera, x + right,
-                    y + low, tile_x, tile_y);
-                square[i].point_x
+                GroundCorner *corner = &out[count++];
+                *corner = corner_of(map, light, camera, x + right, y + low,
+                    tile_x, tile_y);
+                corner->point_x
                     = (uint16_t)(tile_x + (uint32_t)right * MAP_SQUARE);
-                square[i].point_y
+                corner->point_y
                     = (uint16_t)(tile_y + (uint32_t)low * MAP_SQUARE);
             }
-            /* Top left, top right, low left; then top right, low
-             * right, low left. */
-            GroundCorner *corners = &out[count];
-            corners[0] = square[0];
-            corners[1] = square[1];
-            corners[2] = square[2];
-            corners[3] = square[1];
-            corners[4] = square[3];
-            corners[5] = square[2];
-            count += FRAME_SQUARE_CORNERS;
         }
     }
     return count;

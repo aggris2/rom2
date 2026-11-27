@@ -15,7 +15,7 @@
  * many is enough. */
 size_t ground_most(const Camera *camera);
 
-/* Writes the six corners of each square of the map that the camera can
+/* Writes the four corners of each square of the map that the camera can
  * see, row after row from the top, and returns how many corners it
  * wrote.
  *

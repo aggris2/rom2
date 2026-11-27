@@ -13,7 +13,7 @@ typedef struct MakeGround {
     uint16_t ground[30];
     uint8_t heights[30];
     uint8_t light[30];
-    GroundCorner corners[6 * 80];
+    GroundCorner corners[4 * 80];
 } MakeGround;
 
 static void make_ground(MakeGround *m)
@@ -36,29 +36,29 @@ static void make_ground(MakeGround *m)
 #define SHEET_HEIGHT (8 * 32)
 
 /* The squares written for a camera, or 9999 if more corners were
- * written than ground_most() allows or not six to a square. */
+ * written than ground_most() allows or not four to a square. */
 static size_t squares_for(MakeGround *m, int32_t left, int32_t top,
                           int32_t width, int32_t height)
 {
     Camera camera = {left, top, width, height};
     size_t count = ground_corners(&m->map, m->light, &camera, SHEET_WIDTH,
         SHEET_HEIGHT, m->corners);
-    return count <= ground_most(&camera) && count % 6 == 0
+    return count <= ground_most(&camera) && count % 4 == 0
         && count <= sizeof m->corners / sizeof m->corners[0]
-        ? count / 6 : 9999;
+        ? count / 4 : 9999;
 }
 
-UTEST(ground, a_flat_square_is_two_triangles_over_its_tile)
+UTEST(ground, a_flat_square_is_four_corners_over_its_tile)
 {
     MakeGround m;
     make_ground(&m);
     /* A camera on the map's last square alone, (5, 4). */
     ASSERT_EQ(1u, squares_for(&m, 5 * 32, 4 * 32, 32, 32));
     const GroundCorner *c = m.corners;
-    /* Top left, top right, low left; top right, low right, low left. */
-    const int16_t x[6] = {0, 32, 0, 32, 32, 0};
-    const int16_t y[6] = {0, 0, 32, 0, 32, 32};
-    for (int i = 0; i < 6; i++) {
+    /* Top left, top right, low left, low right. */
+    const int16_t x[4] = {0, 32, 0, 32};
+    const int16_t y[4] = {0, 0, 32, 32};
+    for (int i = 0; i < 4; i++) {
         EXPECT_EQ(x[i], c[i].x);
         EXPECT_EQ(y[i], c[i].y);
         EXPECT_EQ(6 * 32 + x[i], c[i].point_x);
@@ -66,6 +66,7 @@ UTEST(ground, a_flat_square_is_two_triangles_over_its_tile)
         EXPECT_EQ(6u * 32, c[i].tile_x);
         EXPECT_EQ(4u * 32, c[i].tile_y);
         EXPECT_EQ(50u, c[i].light);
+        EXPECT_EQ(0u, c[i].unused);
     }
 }
 
@@ -94,17 +95,14 @@ UTEST(ground, a_corner_is_raised_by_its_height_and_has_its_light)
     EXPECT_EQ(0, c[2].x);
     EXPECT_EQ(32 - 30, c[2].y);
     EXPECT_EQ(33u, c[2].light);
-    EXPECT_EQ(32, c[4].x);
-    EXPECT_EQ(32 - 40, c[4].y);
-    EXPECT_EQ(44u, c[4].light);
-    /* The two that are given twice are the same both times. */
-    EXPECT_EQ(0, memcmp(&c[1], &c[3], sizeof c[1]));
-    EXPECT_EQ(0, memcmp(&c[2], &c[5], sizeof c[2]));
+    EXPECT_EQ(32, c[3].x);
+    EXPECT_EQ(32 - 40, c[3].y);
+    EXPECT_EQ(44u, c[3].light);
     /* The points of the tile do not move with the height. */
     EXPECT_EQ(2u * 32, c[0].point_x);
     EXPECT_EQ(1u * 32, c[0].point_y);
-    EXPECT_EQ(3u * 32, c[4].point_x);
-    EXPECT_EQ(2u * 32, c[4].point_y);
+    EXPECT_EQ(3u * 32, c[3].point_x);
+    EXPECT_EQ(2u * 32, c[3].point_y);
 }
 
 UTEST(ground, squares_that_meet_share_the_place_of_their_corner)
@@ -115,10 +113,10 @@ UTEST(ground, squares_that_meet_share_the_place_of_their_corner)
     /* Squares (1, 1), (2, 1), (1, 2) and (2, 2) meet at corner (2, 2). */
     /* Those four, and the two rows below them. */
     ASSERT_EQ(4u + 2u * 2u, squares_for(&m, 32, 32, 64, 64));
-    const GroundCorner *low_right_of_first = &m.corners[0 * 6 + 4];
-    const GroundCorner *low_left_of_second = &m.corners[1 * 6 + 2];
-    const GroundCorner *top_right_of_third = &m.corners[2 * 6 + 1];
-    const GroundCorner *top_left_of_fourth = &m.corners[3 * 6 + 0];
+    const GroundCorner *low_right_of_first = &m.corners[0 * 4 + 3];
+    const GroundCorner *low_left_of_second = &m.corners[1 * 4 + 2];
+    const GroundCorner *top_right_of_third = &m.corners[2 * 4 + 1];
+    const GroundCorner *top_left_of_fourth = &m.corners[3 * 4 + 0];
     EXPECT_EQ(32, low_right_of_first->x);
     EXPECT_EQ(32 - 17, low_right_of_first->y);
     EXPECT_EQ(low_right_of_first->x, low_left_of_second->x);
@@ -137,13 +135,13 @@ UTEST(ground, a_corner_past_the_edge_takes_the_one_beside_it)
     m.heights[4 * 6 + 5] = 9;
     m.light[4 * 6 + 5] = 77;
     ASSERT_EQ(1u, squares_for(&m, 5 * 32, 4 * 32, 32, 32));
-    for (int i = 0; i < 6; i++) {
+    for (int i = 0; i < 4; i++) {
         EXPECT_EQ(77u, m.corners[i].light);
     }
     EXPECT_EQ(-9, m.corners[0].y);
     EXPECT_EQ(-9, m.corners[1].y);
     EXPECT_EQ(32 - 9, m.corners[2].y);
-    EXPECT_EQ(32 - 9, m.corners[4].y);
+    EXPECT_EQ(32 - 9, m.corners[3].y);
 }
 
 UTEST(ground, squares_are_written_row_after_row_from_the_top)
@@ -153,14 +151,14 @@ UTEST(ground, squares_are_written_row_after_row_from_the_top)
     /* Squares 1 and 2 across, rows 0 and 1 seen, and the rows below
      * them that high ground could reach up from: all five. */
     ASSERT_EQ(2u * 5u, squares_for(&m, 32, 0, 64, 64));
-    EXPECT_EQ(2u * 32, m.corners[0 * 6].tile_x);
-    EXPECT_EQ(0u * 32, m.corners[0 * 6].tile_y);
-    EXPECT_EQ(3u * 32, m.corners[1 * 6].tile_x);
-    EXPECT_EQ(0u * 32, m.corners[1 * 6].tile_y);
-    EXPECT_EQ(2u * 32, m.corners[2 * 6].tile_x);
-    EXPECT_EQ(1u * 32, m.corners[2 * 6].tile_y);
-    EXPECT_EQ(3u * 32, m.corners[9 * 6].tile_x);
-    EXPECT_EQ(4u * 32, m.corners[9 * 6].tile_y);
+    EXPECT_EQ(2u * 32, m.corners[0 * 4].tile_x);
+    EXPECT_EQ(0u * 32, m.corners[0 * 4].tile_y);
+    EXPECT_EQ(3u * 32, m.corners[1 * 4].tile_x);
+    EXPECT_EQ(0u * 32, m.corners[1 * 4].tile_y);
+    EXPECT_EQ(2u * 32, m.corners[2 * 4].tile_x);
+    EXPECT_EQ(1u * 32, m.corners[2 * 4].tile_y);
+    EXPECT_EQ(3u * 32, m.corners[9 * 4].tile_x);
+    EXPECT_EQ(4u * 32, m.corners[9 * 4].tile_y);
 }
 
 UTEST(ground, rows_below_the_screen_that_can_reach_into_it_are_written)
@@ -183,7 +181,7 @@ UTEST(ground, a_camera_between_squares_shows_a_part_of_one_more)
     ASSERT_EQ(3u * 5u, squares_for(&m, 33, 0, 64, 32));
     EXPECT_EQ(-1, m.corners[0].x);
     EXPECT_EQ(31, m.corners[1].x);
-    EXPECT_EQ(63, m.corners[2 * 6].x);
+    EXPECT_EQ(63, m.corners[2 * 4].x);
     /* One pixel less wide, and square 3 is not seen. */
     EXPECT_EQ(2u * 5u, squares_for(&m, 33, 0, 63, 32));
     /* The camera's top moves every corner up the screen. */
@@ -254,7 +252,7 @@ UTEST(ground, most_is_enough_for_any_place_of_the_camera)
     make_ground(&m);
     Camera camera = {0, 0, 70, 40};
     /* 4 across, and 3 down with 4 more below. */
-    EXPECT_EQ(4u * 7u * 6u, ground_most(&camera));
+    EXPECT_EQ(4u * 7u * 4u, ground_most(&camera));
     for (int32_t left = -40; left < 240; left += 7) {
         for (int32_t top = -200; top < 200; top += 5) {
             EXPECT_NE(9999u, squares_for(&m, left, top, 70, 40));

@@ -4,7 +4,8 @@
  * its sheet is there. Both are in pixels. */
 
 layout(set = 1, binding = 0) uniform Screen {
-    vec2 size;      /* of the screen, in pixels */
+    vec2 size;          /* of the screen, in pixels */
+    float light_whole;  /* for the ground's shader: not used here */
 } screen;
 
 layout(location = 0) in vec2 place;     /* on the screen */
