@@ -18,6 +18,7 @@ or a network. And single player and multiplayer run the same rules code.
 src/
   base/      small building blocks with no dependencies, and ROM2's own
              two file formats, PNG and TOML
+  map/       reading a map
 tools/
   import/    the importer: readers for the original game's file formats,
              a module for each kind of thing, and main.c, the program
@@ -29,6 +30,7 @@ tests/
   main.c     the test runner
   expect.h   small checks many tests share
   base/      tests for src/base
+  map/       tests for src/map
   import/    tests for tools/import
 ```
 
@@ -47,9 +49,16 @@ file system.
 compression inside a PNG, and has the CRC that goes with it. The work is
 done by the zlib library, and this is the only file that calls it.
 
-`src/base/png` and `src/base/toml` write ROM2's own two file formats: a
+`src/base/png` and `src/base/toml` are ROM2's own two file formats: a
 picture as a PNG, and a definition as TOML, a plain text of names and
-values. Readers for both are to come, for the game.
+values. Both are written, and a PNG is also read. A reader for TOML is to
+come, for the game.
+
+`src/map/alm` reads a map. A map is the one file of the original that
+ROM2 takes as it is, so the game reads it and not the importer. It gives
+the map's size, ground, heights, objects, structures, players and units.
+The map's script is not read yet.
+
 
 `tools/import` reads the original game's files: so far the `.res` archives,
 the `.reg` registries, the `.256`, `.16a` and `.16` sprites, the `.pal`
@@ -111,8 +120,8 @@ it.
 
 ## Libraries
 
-`rom2_core` is a static library built from `src/base`. It depends on the C
-standard library and on zlib.
+`rom2_core` is a static library built from `src/base` and `src/map`. It depends
+on the C standard library and on zlib.
 
 zlib is the one outside library so far. The build downloads its source at
 an exact version, checked by its hash, and builds it with ROM2, so every

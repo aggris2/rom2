@@ -458,3 +458,410 @@ UTEST(png, indexed_solid_refuses_a_picture_of_no_size)
     ASSERT_EQ(0u, png.size);
     buffer_free(&png);
 }
+
+/* ---- png_read ---- */
+
+/* Adds one chunk to a file being built by hand, with its CRC. */
+static void put_chunk(ByteBuffer *out, const char type[4],
+    const uint8_t *data, size_t size)
+{
+    uint32_t crc = pack_crc32(PACK_CRC32_START, (const uint8_t *)type, 4);
+    crc = pack_crc32(crc, data, size);
+    buffer_u32_be(out, (uint32_t)size);
+    buffer_append(out, (const uint8_t *)type, 4);
+    buffer_append(out, data, size);
+    buffer_u32_be(out, crc);
+}
+
+/* Builds a PNG by hand: a header, the chunks in `middle`, the rows
+ * packed into `pieces` chunks, and the end. `rows` is each row with its
+ * storing byte before it. */
+static void build_png(ByteBuffer *out, uint32_t width, uint32_t height,
+    uint8_t depth, uint8_t colour, uint8_t interlace,
+    const ByteBuffer *middle, const uint8_t *rows, size_t rows_size,
+    int pieces)
+{
+    static const uint8_t signature[8] = {
+        0x89, 'P', 'N', 'G', 0x0d, 0x0a, 0x1a, 0x0a
+    };
+    ByteBuffer header = {0};
+    ByteBuffer packed = {0};
+    out->size = 0;
+    buffer_append(out, signature, 8);
+    buffer_u32_be(&header, width);
+    buffer_u32_be(&header, height);
+    buffer_push(&header, depth);
+    buffer_push(&header, colour);
+    buffer_push(&header, 0);
+    buffer_push(&header, 0);
+    buffer_push(&header, interlace);
+    put_chunk(out, "IHDR", header.data, header.size);
+    if (middle != NULL) {
+        buffer_append(out, middle->data, middle->size);
+    }
+    pack_zlib(&packed, rows, rows_size);
+    size_t at = 0;
+    for (int i = 0; i < pieces; i++) {
+        size_t part = i == pieces - 1 ? packed.size - at
+            : packed.size / (size_t)pieces;
+        put_chunk(out, "IDAT", packed.data + at, part);
+        at += part;
+    }
+    put_chunk(out, "IEND", NULL, 0);
+    buffer_free(&header);
+    buffer_free(&packed);
+}
+
+UTEST(png, read_gives_back_an_indexed_picture_and_its_palette)
+{
+    Rgb palette[256];
+    const uint8_t pixels[6] = {0, 1, 2, 253, 254, 255};
+    ByteBuffer file = {0};
+    Png png;
+    make_palette(palette);
+    ASSERT_TRUE(png_write_indexed(&file, 3, 2, pixels, palette));
+
+    ASSERT_TRUE(png_read(file.data, file.size, &png));
+
+    ASSERT_EQ(3u, png.width);
+    ASSERT_EQ(2u, png.height);
+    ASSERT_EQ((int)PNG_INDEXED, (int)png.kind);
+    ASSERT_EQ(0, memcmp(png.pixels, pixels, 6));
+    ASSERT_EQ(0, memcmp(png.palette, palette, sizeof palette));
+    /* Index 0 is seen through, and no other. */
+    ASSERT_EQ(0, png.alpha[0]);
+    ASSERT_EQ(255, png.alpha[1]);
+    ASSERT_EQ(255, png.alpha[255]);
+    png_free(&png);
+    ASSERT_TRUE(png.pixels == NULL);
+    buffer_free(&file);
+}
+
+UTEST(png, read_of_a_solid_indexed_picture_has_every_index_solid)
+{
+    Rgb palette[256];
+    const uint8_t pixels[2] = {0, 9};
+    ByteBuffer file = {0};
+    Png png;
+    make_palette(palette);
+    ASSERT_TRUE(png_write_indexed_solid(&file, 2, 1, pixels, palette));
+
+    ASSERT_TRUE(png_read(file.data, file.size, &png));
+
+    ASSERT_EQ(255, png.alpha[0]);
+    ASSERT_EQ(0, png.pixels[0]);
+    ASSERT_EQ(9, png.pixels[1]);
+    png_free(&png);
+    buffer_free(&file);
+}
+
+UTEST(png, read_gives_back_a_grey_and_a_full_colour_picture)
+{
+    const uint8_t grey[4] = {0, 17, 128, 255};
+    const Rgb colours[2] = {{1, 2, 3}, {250, 251, 252}};
+    ByteBuffer file = {0};
+    Png png;
+
+    ASSERT_TRUE(png_write_grey(&file, 2, 2, grey));
+    ASSERT_TRUE(png_read(file.data, file.size, &png));
+    ASSERT_EQ((int)PNG_GREY, (int)png.kind);
+    ASSERT_EQ(0, memcmp(png.pixels, grey, 4));
+    png_free(&png);
+
+    file.size = 0;
+    ASSERT_TRUE(png_write_rgb(&file, 1, 2, colours));
+    ASSERT_TRUE(png_read(file.data, file.size, &png));
+    ASSERT_EQ((int)PNG_RGB, (int)png.kind);
+    ASSERT_EQ(1u, png.width);
+    ASSERT_EQ(2u, png.height);
+    /* Three bytes for a pixel, red first. */
+    ASSERT_EQ(1, png.pixels[0]);
+    ASSERT_EQ(3, png.pixels[2]);
+    ASSERT_EQ(250, png.pixels[3]);
+    ASSERT_EQ(252, png.pixels[5]);
+    png_free(&png);
+    buffer_free(&file);
+}
+
+UTEST(png, read_of_a_large_picture_gives_every_pixel_back)
+{
+    static uint8_t pixels[300 * 200];
+    Rgb palette[256];
+    ByteBuffer file = {0};
+    Png png;
+    make_palette(palette);
+    for (size_t i = 0; i < sizeof pixels; i++) {
+        pixels[i] = (uint8_t)((i * 7 + i / 300) & 0xff);
+    }
+    ASSERT_TRUE(png_write_indexed(&file, 300, 200, pixels, palette));
+
+    ASSERT_TRUE(png_read(file.data, file.size, &png));
+
+    ASSERT_EQ(0, memcmp(png.pixels, pixels, sizeof pixels));
+    png_free(&png);
+    buffer_free(&file);
+}
+
+UTEST(png, read_undoes_each_of_the_five_ways_a_row_is_stored)
+{
+    /* A grey picture of 3 by 5, a row stored each way. The picture is
+     *     10  20  40
+     *     10  25  45
+     *     12  30  50
+     *     20  40  60
+     *     21  39  70
+     * Row 0 as it is. Row 1 as the difference from the byte to the
+     * left. Row 2 from the byte above. Row 3 from the mean of left and
+     * above, rounded down. Row 4 by PNG's guess from left, above and
+     * above-left. */
+    const uint8_t rows[] = {
+        0, 10, 20, 40,
+        1, 10, 15, 20,
+        2, 2, 5, 5,
+        /* means: (0+12)/2 = 6, (20+30)/2 = 25, (40+50)/2 = 45 */
+        3, 14, 15, 15,
+        /* guesses: 20 (above), then of 21, 40, 20 it is 40 (41 is
+         * nearest 40), then of 39, 60, 40 it is 60 (59 is nearest
+         * 60) */
+        4, 1, 255, 10
+    };
+    const uint8_t expected[15] = {
+        10, 20, 40, 10, 25, 45, 12, 30, 50, 20, 40, 60, 21, 39, 70
+    };
+    ByteBuffer file = {0};
+    Png png;
+    build_png(&file, 3, 5, 8, 0, 0, NULL, rows, sizeof rows, 1);
+
+    ASSERT_TRUE(png_read(file.data, file.size, &png));
+
+    ASSERT_EQ(0, memcmp(png.pixels, expected, 15));
+    png_free(&png);
+    buffer_free(&file);
+}
+
+UTEST(png, read_rounds_the_mean_down_and_breaks_a_tie_towards_above)
+{
+    /* Grey, 2 by 2, the first row 10 and 30 as they are, the second
+     * stored as differences from the mean of left and above. */
+    const uint8_t by_mean[] = {
+        0, 10, 30,
+        3, 2, 0
+    };
+    ByteBuffer file = {0};
+    Png png;
+    build_png(&file, 2, 2, 8, 0, 0, NULL, by_mean, sizeof by_mean, 1);
+    ASSERT_TRUE(png_read(file.data, file.size, &png));
+    /* 10 / 2 is 5, and 2 more is 7. Then 7 and 30 are 37, halved and
+     * rounded down 18. */
+    ASSERT_EQ(7, png.pixels[2]);
+    ASSERT_EQ(18, png.pixels[3]);
+    png_free(&png);
+
+    /* By PNG's guess: the first pixel has only the 10 above. The
+     * second has 0 to its left, 30 above and 10 above-left: left plus
+     * above less above-left is 20, as far from 30 as from 10, and the
+     * one above is taken. */
+    const uint8_t by_guess[] = {
+        0, 10, 30,
+        4, 246, 5
+    };
+    build_png(&file, 2, 2, 8, 0, 0, NULL, by_guess, sizeof by_guess, 1);
+    ASSERT_TRUE(png_read(file.data, file.size, &png));
+    ASSERT_EQ(0, png.pixels[2]);
+    ASSERT_EQ(35, png.pixels[3]);
+    png_free(&png);
+    buffer_free(&file);
+}
+
+UTEST(png, read_takes_the_byte_of_the_pixel_before_in_full_colour)
+{
+    /* Full colour, 2 by 1, stored as differences from the left: the
+     * byte to the left is the same colour of the pixel before, three
+     * bytes back. (10, 20, 30) and then (11, 22, 33). */
+    const uint8_t rows[] = {1, 10, 20, 30, 1, 2, 3};
+    ByteBuffer file = {0};
+    Png png;
+    build_png(&file, 2, 1, 8, 2, 0, NULL, rows, sizeof rows, 1);
+
+    ASSERT_TRUE(png_read(file.data, file.size, &png));
+
+    ASSERT_EQ(11, png.pixels[3]);
+    ASSERT_EQ(22, png.pixels[4]);
+    ASSERT_EQ(33, png.pixels[5]);
+    png_free(&png);
+    buffer_free(&file);
+}
+
+UTEST(png, read_joins_pixels_cut_into_several_chunks)
+{
+    const uint8_t rows[] = {0, 1, 2, 3, 0, 4, 5, 6, 0, 7, 8, 9};
+    const uint8_t expected[9] = {1, 2, 3, 4, 5, 6, 7, 8, 9};
+    ByteBuffer file = {0};
+    Png png;
+    build_png(&file, 3, 3, 8, 0, 0, NULL, rows, sizeof rows, 3);
+
+    ASSERT_TRUE(png_read(file.data, file.size, &png));
+
+    ASSERT_EQ(0, memcmp(png.pixels, expected, 9));
+    png_free(&png);
+    buffer_free(&file);
+}
+
+UTEST(png, read_takes_a_short_palette_and_passes_over_unknown_chunks)
+{
+    /* A palette of two colours, as an editor may save it, a chunk of
+     * text before it, and solidness for the first two indices. */
+    const uint8_t colours[6] = {1, 2, 3, 4, 5, 6};
+    const uint8_t solidness[2] = {7, 8};
+    const uint8_t rows[] = {0, 1, 0};
+    ByteBuffer middle = {0};
+    ByteBuffer file = {0};
+    Png png;
+    put_chunk(&middle, "tEXt", (const uint8_t *)"a\0b", 3);
+    put_chunk(&middle, "PLTE", colours, 6);
+    put_chunk(&middle, "tRNS", solidness, 2);
+    build_png(&file, 2, 1, 8, 3, 0, &middle, rows, sizeof rows, 1);
+
+    ASSERT_TRUE(png_read(file.data, file.size, &png));
+
+    ASSERT_EQ(4, png.palette[1].r);
+    ASSERT_EQ(6, png.palette[1].b);
+    /* The rest of the palette is black and solid. */
+    ASSERT_EQ(0, png.palette[2].r);
+    ASSERT_EQ(7, png.alpha[0]);
+    ASSERT_EQ(8, png.alpha[1]);
+    ASSERT_EQ(255, png.alpha[2]);
+    ASSERT_EQ(1, png.pixels[0]);
+    png_free(&png);
+    buffer_free(&middle);
+    buffer_free(&file);
+}
+
+/* A picture that has not been written to. */
+static Png untouched_png(void)
+{
+    Png png;
+    memset(&png, 0x5a, sizeof png);
+    return png;
+}
+
+static bool png_is_untouched(const Png *png)
+{
+    Png same = untouched_png();
+    return memcmp(png, &same, sizeof same) == 0;
+}
+
+UTEST(png, read_of_a_file_cut_short_fails_at_every_length)
+{
+    Rgb palette[256];
+    const uint8_t pixels[6] = {0, 1, 2, 3, 4, 5};
+    ByteBuffer file = {0};
+    Png png = untouched_png();
+    make_palette(palette);
+    ASSERT_TRUE(png_write_indexed(&file, 3, 2, pixels, palette));
+
+    for (size_t size = 0; size < file.size; size++) {
+        ASSERT_FALSE(png_read(file.data, size, &png));
+    }
+    ASSERT_TRUE(png_is_untouched(&png));
+    buffer_free(&file);
+}
+
+UTEST(png, read_of_a_damaged_file_fails_whichever_byte_is_changed)
+{
+    /* Every chunk has a check over its type and its data, the packed
+     * pixels have one of their own, and the sizes must add up: no one
+     * changed byte gets through. */
+    const uint8_t grey[4] = {1, 2, 3, 4};
+    ByteBuffer file = {0};
+    Png png = untouched_png();
+    ASSERT_TRUE(png_write_grey(&file, 2, 2, grey));
+
+    for (size_t i = 0; i < file.size; i++) {
+        file.data[i] ^= 0x40;
+        ASSERT_FALSE(png_read(file.data, file.size, &png));
+        file.data[i] ^= 0x40;
+    }
+    ASSERT_TRUE(png_is_untouched(&png));
+    ASSERT_TRUE(png_read(file.data, file.size, &png));
+    png_free(&png);
+    buffer_free(&file);
+}
+
+UTEST(png, read_refuses_the_kinds_of_picture_it_does_not_know)
+{
+    const uint8_t rows[32] = {0};
+    ByteBuffer file = {0};
+    Png png = untouched_png();
+
+    /* 16 bits, and 4 bits. */
+    build_png(&file, 1, 1, 16, 0, 0, NULL, rows, 3, 1);
+    ASSERT_FALSE(png_read(file.data, file.size, &png));
+    build_png(&file, 1, 1, 4, 0, 0, NULL, rows, 2, 1);
+    ASSERT_FALSE(png_read(file.data, file.size, &png));
+    /* Grey with solidness, and full colour with solidness. */
+    build_png(&file, 1, 1, 8, 4, 0, NULL, rows, 3, 1);
+    ASSERT_FALSE(png_read(file.data, file.size, &png));
+    build_png(&file, 1, 1, 8, 6, 0, NULL, rows, 5, 1);
+    ASSERT_FALSE(png_read(file.data, file.size, &png));
+    /* Interlaced. */
+    build_png(&file, 1, 1, 8, 0, 1, NULL, rows, 2, 1);
+    ASSERT_FALSE(png_read(file.data, file.size, &png));
+    /* Indexed without a palette. */
+    build_png(&file, 1, 1, 8, 3, 0, NULL, rows, 2, 1);
+    ASSERT_FALSE(png_read(file.data, file.size, &png));
+    /* A row stored in a sixth way. */
+    const uint8_t sixth[] = {5, 0};
+    build_png(&file, 1, 1, 8, 0, 0, NULL, sixth, 2, 1);
+    ASSERT_FALSE(png_read(file.data, file.size, &png));
+    ASSERT_TRUE(png_is_untouched(&png));
+    buffer_free(&file);
+}
+
+UTEST(png, read_refuses_pixels_that_are_too_few_or_too_many)
+{
+    const uint8_t rows[] = {0, 1, 2, 0, 3, 4};
+    ByteBuffer file = {0};
+    Png png = untouched_png();
+
+    /* 2 by 2 needs 6 bytes of rows: 5 are too few, and the rows of a
+     * 2 by 2 are too many for a 2 by 1. */
+    build_png(&file, 2, 2, 8, 0, 0, NULL, rows, 5, 1);
+    ASSERT_FALSE(png_read(file.data, file.size, &png));
+    build_png(&file, 2, 1, 8, 0, 0, NULL, rows, 6, 1);
+    ASSERT_FALSE(png_read(file.data, file.size, &png));
+    ASSERT_TRUE(png_is_untouched(&png));
+
+    build_png(&file, 2, 2, 8, 0, 0, NULL, rows, 6, 1);
+    ASSERT_TRUE(png_read(file.data, file.size, &png));
+    png_free(&png);
+    buffer_free(&file);
+}
+
+UTEST(png, read_refuses_a_picture_of_no_size_or_larger_than_the_most)
+{
+    const uint8_t rows[] = {0, 1};
+    ByteBuffer file = {0};
+    Png png = untouched_png();
+
+    build_png(&file, 0, 1, 8, 0, 0, NULL, rows, 2, 1);
+    ASSERT_FALSE(png_read(file.data, file.size, &png));
+    build_png(&file, 1, 0, 8, 0, 0, NULL, rows, 2, 1);
+    ASSERT_FALSE(png_read(file.data, file.size, &png));
+    build_png(&file, PNG_MAX_SIDE + 1, 1, 8, 0, 0, NULL, rows, 2, 1);
+    ASSERT_FALSE(png_read(file.data, file.size, &png));
+    build_png(&file, 1, PNG_MAX_SIDE + 1, 8, 0, 0, NULL, rows, 2, 1);
+    ASSERT_FALSE(png_read(file.data, file.size, &png));
+    ASSERT_TRUE(png_is_untouched(&png));
+    buffer_free(&file);
+}
+
+UTEST(png, read_refuses_what_is_not_a_png)
+{
+    const uint8_t text[] = "This is not a picture at all, only words.";
+    Png png = untouched_png();
+
+    ASSERT_FALSE(png_read(text, sizeof text, &png));
+    ASSERT_FALSE(png_read(NULL, 0, &png));
+    ASSERT_TRUE(png_is_untouched(&png));
+}

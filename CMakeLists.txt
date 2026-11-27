@@ -42,11 +42,11 @@ option(ROM2_SYSTEM_ZLIB "Use the zlib installed on the system" OFF)
 if(POLICY CMP0135)
     cmake_policy(SET CMP0135 NEW)
 endif()
+include(FetchContent)
 if(ROM2_SYSTEM_ZLIB)
     find_package(ZLIB REQUIRED)
     set(ROM2_ZLIB ZLIB::ZLIB)
 else()
-    include(FetchContent)
     set(ZLIB_BUILD_SHARED OFF CACHE BOOL "" FORCE)
     set(ZLIB_BUILD_TESTING OFF CACHE BOOL "" FORCE)
     set(ZLIB_INSTALL OFF CACHE BOOL "" FORCE)
@@ -71,6 +71,7 @@ add_library(rom2_core STATIC
     src/base/png.c
     src/base/reader.c
     src/base/toml.c
+    src/map/alm.c
 )
 target_include_directories(rom2_core PUBLIC src)
 target_link_libraries(rom2_core PRIVATE ${ROM2_ZLIB})
@@ -158,6 +159,7 @@ add_executable(rom2_tests
     tests/import/test_text.c
     tests/import/test_things.c
     tests/import/test_unit.c
+    tests/map/test_alm.c
 )
 # tests/utest.h is the test framework (github.com/sheredom/utest.h, public
 # domain). SYSTEM: it is not held to our warning settings.
