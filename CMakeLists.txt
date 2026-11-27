@@ -107,9 +107,14 @@ add_library(rom2_core STATIC
     src/data/sprite_sheet.c
     src/view/camera.c
     src/view/ground.c
+    src/view/light.c
 )
 target_include_directories(rom2_core PUBLIC src)
 target_link_libraries(rom2_core PRIVATE ${ROM2_ZLIB})
+if(NOT MSVC AND NOT APPLE)
+    # The mathematics of the C library, which is apart on some systems.
+    target_link_libraries(rom2_core PUBLIC m)
+endif()
 rom2_set_warnings(rom2_core)
 
 # rom2_formats: readers for the original game's file formats. Only the
@@ -194,6 +199,7 @@ add_executable(rom2_tests
     tests/data/test_sprite_sheet.c
     tests/view/test_camera.c
     tests/view/test_ground.c
+    tests/view/test_light.c
     tests/import/test_bmp.c
     tests/import/test_databin.c
     tests/import/test_item.c

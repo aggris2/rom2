@@ -11,8 +11,12 @@
 #include "data/map.h"
 #include "view/camera.h"
 #include "view/ground.h"
+#include "view/light.h"
 
-/* How fast the keys move the camera, in pixels a second. */
+/* How fast the keys move the camera, in pixels a second. In a frame
+ * it moves a whole number of pixels, the nearest to this speed: the
+ * same number every frame, so that the ground glides and does not
+ * stutter. */
 #define SCROLL_SPEED 900.0f
 
 struct MapScreen {
@@ -25,7 +29,8 @@ struct MapScreen {
      * move it by less than a pixel in a frame. */
     float left;
     float top;
-    Sprite *sprites;            /* room for a frame's list */
+    uint8_t *light;             /* the light at each corner of the map */
+    GroundCorner *ground;       /* room for a frame's ground */
     size_t room;
 };
 
@@ -128,19 +133,20 @@ static Camera camera_now(MapScreen *screen)
 static void start_camera(MapScreen *screen)
 {
     const Map *map = &screen->map;
-    int32_t x = (int32_t)map->info.width * CAMERA_SQUARE / 2;
-    int32_t y = (int32_t)map->info.height * CAMERA_SQUARE / 2;
+    int32_t x = (int32_t)map->info.width * MAP_SQUARE / 2;
+    int32_t y = (int32_t)map->info.height * MAP_SQUARE / 2;
     for (uint32_t i = 0; i < map->unit_count; i++) {
         if (map->units[i].player == 1) {
             /* A unit's place is in 256ths of a square. */
-            x = map->units[i].x * CAMERA_SQUARE / 256;
-            y = map->units[i].y * CAMERA_SQUARE / 256;
+            x = map->units[i].x * MAP_SQUARE / 256;
+            y = map->units[i].y * MAP_SQUARE / 256;
             break;
         }
     }
     Camera camera;
     renderer_size(screen->renderer, &camera.width, &camera.height);
-    camera_look_at(&camera, x, y);
+    /* The unit stands on the ground, which is raised up the screen. */
+    camera_look_at(&camera, x, y - ground_height_at(map, x, y));
     screen->left = (float)camera.left;
     screen->top = (float)camera.top;
 }
@@ -158,6 +164,14 @@ MapScreen *map_screen_open(Renderer *renderer, const char *content,
         free(screen);
         return NULL;
     }
+    screen->light = malloc((size_t)screen->map.info.width
+        * screen->map.info.height);
+    if (screen->light == NULL) {
+        fprintf(stderr, "rom2: out of memory\n");
+        map_screen_close(screen);
+        return NULL;
+    }
+    light_ground(&screen->map, screen->light);
     if (!add_tiles(screen, content)) {
         map_screen_close(screen);
         return NULL;
@@ -170,7 +184,8 @@ MapScreen *map_screen_open(Renderer *renderer, const char *content,
 static void move_camera(MapScreen *screen, float seconds)
 {
     const bool *keys = SDL_GetKeyboardState(NULL);
-    float step = SCROLL_SPEED * seconds;
+    float step = SDL_roundf(SCROLL_SPEED * seconds);
+    step = step < 1.0f ? 1.0f : step;
     if (keys[SDL_SCANCODE_LEFT] || keys[SDL_SCANCODE_A]) {
         screen->left -= step;
     }
@@ -191,17 +206,22 @@ bool map_screen_frame(MapScreen *screen, float seconds)
     Camera camera = camera_now(screen);
     size_t most = ground_most(&camera);
     if (most > screen->room) {
-        Sprite *sprites = realloc(screen->sprites, most * sizeof *sprites);
-        if (sprites == NULL) {
+        GroundCorner *ground = realloc(screen->ground,
+            most * sizeof *ground);
+        if (ground == NULL) {
             fprintf(stderr, "rom2: out of memory\n");
             return false;
         }
-        screen->sprites = sprites;
+        screen->ground = ground;
         screen->room = most;
     }
-    size_t count = ground_sprites(&screen->map, &camera, screen->tiles,
-        screen->tiles_width, screen->tiles_height, screen->sprites);
-    if (!renderer_draw(screen->renderer, screen->sprites, count)) {
+    Frame frame;
+    memset(&frame, 0, sizeof frame);
+    frame.ground_sheet = screen->tiles;
+    frame.ground = screen->ground;
+    frame.ground_count = ground_corners(&screen->map, screen->light,
+        &camera, screen->tiles_width, screen->tiles_height, screen->ground);
+    if (!renderer_draw(screen->renderer, &frame)) {
         fprintf(stderr, "rom2: cannot draw: %s\n", SDL_GetError());
         return false;
     }
@@ -214,6 +234,7 @@ void map_screen_close(MapScreen *screen)
         return;
     }
     map_free(&screen->map);
-    free(screen->sprites);
+    free(screen->light);
+    free(screen->ground);
     free(screen);
 }

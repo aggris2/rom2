@@ -1,10 +1,9 @@
 /* Drawing. The game says what to draw as a list of plain records, and
  * this module is the only one that talks to the graphics card.
  *
- * A sheet is a picture with a palette, put on the card once. A sprite
- * is a part of a sheet at a place on the screen: see view/sprite.h. A
- * frame is drawn by handing over all its sprites at once, in the order
- * they are to be drawn: a later one covers an earlier one.
+ * A sheet is a picture with a palette, put on the card once. A frame
+ * is the ground and the sprites on it, handed over all at once: see
+ * view/frame.h.
  */
 #ifndef ROM2_GAME_RENDERER_H
 #define ROM2_GAME_RENDERER_H
@@ -16,7 +15,7 @@
 #include <SDL3/SDL.h>
 
 #include "base/png.h"
-#include "view/sprite.h"
+#include "view/frame.h"
 
 typedef struct Renderer Renderer;
 
@@ -28,7 +27,7 @@ Renderer *renderer_open(SDL_Window *window);
 void renderer_close(Renderer *renderer);
 
 /* Puts a picture with a palette on the card and gives the number to
- * name it by in a Sprite. Returns false, with SDL's error set and
+ * name it by in a frame. Returns false, with SDL's error set and
  * `*out` left alone, if the picture has no palette, there are 65,536
  * sheets already, or the card refuses it. */
 bool renderer_add_sheet(Renderer *renderer, const Png *png, uint16_t *out);
@@ -37,9 +36,10 @@ bool renderer_add_sheet(Renderer *renderer, const Png *png, uint16_t *out);
  * now. */
 void renderer_size(const Renderer *renderer, int *width, int *height);
 
-/* Draws one frame: the sprites in the order given, on black. A sprite
- * that names a sheet there is not is left out. Returns false, with
- * SDL's error set, if the card fails. */
-bool renderer_draw(Renderer *renderer, const Sprite *sprites, size_t count);
+/* Draws one frame on black: the ground, then the sprites in the order
+ * given. A sprite that names a sheet there is not is left out, and so
+ * is the ground if its sheet is not there. Returns false, with SDL's
+ * error set, if the card fails. */
+bool renderer_draw(Renderer *renderer, const Frame *frame);
 
 #endif

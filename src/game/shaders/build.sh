@@ -15,6 +15,19 @@ out_h=$source_dir/data.h
 work=$(mktemp -d)
 trap 'rm -rf "$work"' EXIT
 
+# Writes a file as a C array of 32-bit words, 6 to a line. SPIR-V is
+# words, low byte first in the file, and the card is handed them as
+# words: an array of bytes might start where a word may not.
+words() {
+    od -An -v -tx1 "$1" | tr -s ' \n' '\n\n' | grep . | awk '
+        { word = $1 word; n++ }
+        n % 4 == 0 {
+            line = line (k % 6 ? " " : "    ") "0x" word ","; word = ""; k++
+            if (k % 6 == 0) { print line; line = "" }
+        }
+        END { if (line != "") print line }'
+}
+
 # Writes a file as a C array of bytes, 12 to a line.
 bytes() {
     od -An -v -tx1 "$1" | tr -s ' \n' '\n\n' | grep . | awk '
@@ -37,8 +50,8 @@ cat > "$out_h" <<'HEADER'
 #include <stdint.h>
 
 typedef struct ShaderData {
-    const uint8_t *spirv;
-    size_t spirv_size;
+    const uint32_t *spirv;      /* words, as SPIR-V is */
+    size_t spirv_size;          /* in bytes */
     const uint8_t *msl;
     size_t msl_size;
 } ShaderData;
@@ -60,8 +73,8 @@ for source in $(ls "$source_dir"/*.vert "$source_dir"/*.frag | sort); do
         "$work/$file.spv"
     {
         echo
-        echo "static const uint8_t ${name}_spirv[] = {"
-        bytes "$work/$file.spv"
+        echo "static const uint32_t ${name}_spirv[] = {"
+        words "$work/$file.spv"
         echo "};"
         echo
         echo "static const uint8_t ${name}_msl[] = {"

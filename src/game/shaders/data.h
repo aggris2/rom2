@@ -11,12 +11,16 @@
 #include <stdint.h>
 
 typedef struct ShaderData {
-    const uint8_t *spirv;
-    size_t spirv_size;
+    const uint32_t *spirv;      /* words, as SPIR-V is */
+    size_t spirv_size;          /* in bytes */
     const uint8_t *msl;
     size_t msl_size;
 } ShaderData;
 
+/* ground.frag */
+extern const ShaderData shader_ground_frag;
+/* ground.vert */
+extern const ShaderData shader_ground_vert;
 /* sprite.frag */
 extern const ShaderData shader_sprite_frag;
 /* sprite.vert */

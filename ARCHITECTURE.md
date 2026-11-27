@@ -101,11 +101,16 @@ players and units. The map's script is not read yet.
 `.toml` files the importer wrote: which file a sprite sheet is, the size
 of a cell in it, and the point of a cell that stands on the map.
 
-`src/view` turns what there is into what is drawn. `sprite.h` is the
-record for one thing to draw, a part of a sheet at a place on the screen.
-`camera` says which part of a map is on the screen and keeps it inside
-the map. `ground` writes a sprite for each square the camera sees. None
-of it knows the graphics card, so all of it has unit tests.
+`src/view` turns what there is into what is drawn. `frame.h` is what the
+renderer is handed once a frame: the ground, and the sprites that lie on
+it. `sprite.h` is the record for one sprite, a part of a sheet at a place
+on the screen. `camera` says which part of a map is on the screen and
+keeps it inside the map. `light` works out how bright the ground is at
+each corner of a square, from its slopes and the angle of the sun.
+`ground` writes the corners of each square the camera sees, raised by the
+heights of the map and with that light: a square on a slope is not a
+rectangle, so the ground has a record of its own and is not made of
+sprites. None of it knows the graphics card, so all of it has unit tests.
 
 `src/game` is the program `rom2`, and the only code that uses SDL.
 `main.c` is the window and the loop. `map_screen` is being in a map, the
@@ -114,12 +119,14 @@ by the keys, asks the view for the frame's list and hands it to the
 renderer. Each place still to come, such as the main menu, is a file like
 it, with the same three functions: open, one frame, close.
 
-`renderer` is the one module that talks to the graphics card, through SDL's
-GPU API. It is handed the list of sprites once a frame. The order of the
-list is the order of drawing. A sheet goes to the card as it is in its file,
-a number for each pixel and the 256 colours beside it, and a shader looks
-each colour up as it draws: sprites stay 8 bits a pixel on the card, and a
-palette can be changed without touching the picture.
+`renderer` is the one module that talks to the graphics card, through
+SDL's GPU API. It is handed a frame and draws the ground first, then the
+sprites in the order of their list. A sheet goes to the card as it is in
+its file, a number for each pixel and the 256 colours beside it, and a
+shader looks each colour up as it draws: sprites stay 8 bits a pixel on
+the card, and a palette can be changed without touching the picture. The
+ground's shader also makes each pixel as bright as the light there says,
+up to three times its tile's colours.
 
 The shaders, the small programs the graphics card runs, are written in
 GLSL in `src/game/shaders`. The card does not take them as text, and each

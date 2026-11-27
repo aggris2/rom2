@@ -20,21 +20,44 @@ typedef struct Corner {
     float v;
 } Corner;
 
-/* A sprite is two triangles. */
-#define CORNERS 6
+/* A sprite is two triangles, so six corners. */
+#define SPRITE_CORNERS 6
+
+/* How long to wait, in milliseconds, when there is no picture of the
+ * window to draw into. */
+#define NOTHING_TO_DRAW_WAIT 20
+
+/* A corner of a square of ground, as ground.vert takes it. */
+typedef struct GroundVertex {
+    float x;        /* on the screen */
+    float y;
+    float u;        /* in the sheet */
+    float v;
+    float tile_u;   /* the tile's corner in the sheet */
+    float tile_v;
+    float light;    /* 1 is as the tile's colours */
+} GroundVertex;
+
+/* What is sent to the card anew each frame: a buffer on the card, the
+ * buffer its bytes travel there in, and how many bytes both hold. */
+typedef struct Batch {
+    SDL_GPUBuffer *buffer;
+    SDL_GPUTransferBuffer *transfer;
+    size_t room;
+} Batch;
 
 struct Renderer {
     SDL_Window *window;
     SDL_GPUDevice *device;
-    SDL_GPUGraphicsPipeline *pipeline;
+    SDL_GPUGraphicsPipeline *sprite_pipeline;
+    SDL_GPUGraphicsPipeline *ground_pipeline;
     SDL_GPUSampler *sampler;
     Sheet *sheets;
     size_t sheet_count;
-    /* The corners of a frame's sprites: on the card, and the buffer
-     * they travel there in. Both have room for `room` sprites. */
-    SDL_GPUBuffer *corners;
-    SDL_GPUTransferBuffer *transfer;
-    size_t room;
+    Batch sprites;      /* the corners of a frame's sprites */
+    Batch ground;       /* the corners of a frame's ground */
+    uint16_t *kept;     /* the sheet of each sprite that is drawn */
+    size_t kept_room;
 };
 
 /* Makes a texture of `width` by `height` and fills it with `pixels`,
@@ -99,35 +122,45 @@ static SDL_GPUTexture *make_texture(SDL_GPUDevice *device,
     return texture;
 }
 
-/* Makes the pipeline: the two shaders, what a corner is made of, and
- * how what is drawn is laid over what is there, by how solid each pixel
- * is. */
+/* Makes a pipeline: two shaders, what a corner is made of, and whether
+ * what is drawn is laid over what is there by how solid each pixel is.
+ * A corner is `size` bytes, and its parts are `count` groups of floats:
+ * `parts` says how many floats each group has, 1 or 2, in the order of
+ * the shader's inputs. */
 static SDL_GPUGraphicsPipeline *make_pipeline(SDL_GPUDevice *device,
-                                              SDL_Window *window)
+                                              SDL_Window *window,
+                                              const ShaderData *vertex_data,
+                                              const ShaderData *fragment_data,
+                                              Uint32 size,
+                                              const Uint32 *parts,
+                                              Uint32 count, bool blend)
 {
-    SDL_GPUShader *vertex = shader_open(device, &shader_sprite_vert,
+    SDL_GPUShader *vertex = shader_open(device, vertex_data,
         SDL_GPU_SHADERSTAGE_VERTEX, 0, 1);
-    SDL_GPUShader *fragment = shader_open(device, &shader_sprite_frag,
+    SDL_GPUShader *fragment = shader_open(device, fragment_data,
         SDL_GPU_SHADERSTAGE_FRAGMENT, 2, 0);
     SDL_GPUGraphicsPipeline *pipeline = NULL;
     if (vertex != NULL && fragment != NULL) {
         SDL_GPUVertexBufferDescription buffer;
         SDL_zero(buffer);
-        buffer.pitch = sizeof(Corner);
+        buffer.pitch = size;
         buffer.input_rate = SDL_GPU_VERTEXINPUTRATE_VERTEX;
-        SDL_GPUVertexAttribute parts[2];
-        SDL_zero(parts);
-        parts[0].location = 0;
-        parts[0].format = SDL_GPU_VERTEXELEMENTFORMAT_FLOAT2;
-        parts[0].offset = offsetof(Corner, x);
-        parts[1].location = 1;
-        parts[1].format = SDL_GPU_VERTEXELEMENTFORMAT_FLOAT2;
-        parts[1].offset = offsetof(Corner, u);
+        SDL_GPUVertexAttribute attributes[8];
+        SDL_zero(attributes);
+        Uint32 offset = 0;
+        for (Uint32 i = 0; i < count; i++) {
+            attributes[i].location = i;
+            attributes[i].format = parts[i] == 2
+                ? SDL_GPU_VERTEXELEMENTFORMAT_FLOAT2
+                : SDL_GPU_VERTEXELEMENTFORMAT_FLOAT;
+            attributes[i].offset = offset;
+            offset += parts[i] * (Uint32)sizeof(float);
+        }
 
         SDL_GPUColorTargetDescription target;
         SDL_zero(target);
         target.format = SDL_GetGPUSwapchainTextureFormat(device, window);
-        target.blend_state.enable_blend = true;
+        target.blend_state.enable_blend = blend;
         target.blend_state.src_color_blendfactor
             = SDL_GPU_BLENDFACTOR_SRC_ALPHA;
         target.blend_state.dst_color_blendfactor
@@ -144,8 +177,8 @@ static SDL_GPUGraphicsPipeline *make_pipeline(SDL_GPUDevice *device,
         info.fragment_shader = fragment;
         info.vertex_input_state.vertex_buffer_descriptions = &buffer;
         info.vertex_input_state.num_vertex_buffers = 1;
-        info.vertex_input_state.vertex_attributes = parts;
-        info.vertex_input_state.num_vertex_attributes = 2;
+        info.vertex_input_state.vertex_attributes = attributes;
+        info.vertex_input_state.num_vertex_attributes = count;
         info.primitive_type = SDL_GPU_PRIMITIVETYPE_TRIANGLELIST;
         info.target_info.color_target_descriptions = &target;
         info.target_info.num_color_targets = 1;
@@ -159,6 +192,20 @@ static SDL_GPUGraphicsPipeline *make_pipeline(SDL_GPUDevice *device,
         SDL_ReleaseGPUShader(device, fragment);
     }
     return pipeline;
+}
+
+/* Gives back what a batch holds on the card. */
+static void batch_close(Batch *batch, SDL_GPUDevice *device)
+{
+    if (batch->buffer != NULL) {
+        SDL_ReleaseGPUBuffer(device, batch->buffer);
+    }
+    if (batch->transfer != NULL) {
+        SDL_ReleaseGPUTransferBuffer(device, batch->transfer);
+    }
+    batch->buffer = NULL;
+    batch->transfer = NULL;
+    batch->room = 0;
 }
 
 Renderer *renderer_open(SDL_Window *window)
@@ -193,10 +240,21 @@ Renderer *renderer_open(SDL_Window *window)
     sampler_info.address_mode_w = SDL_GPU_SAMPLERADDRESSMODE_CLAMP_TO_EDGE;
     renderer->sampler = SDL_CreateGPUSampler(renderer->device,
         &sampler_info);
-    renderer->pipeline = make_pipeline(renderer->device, window);
+    /* A sprite's corner is a place and a point of its sheet. The
+     * ground's has the corner of its tile and its light as well, and
+     * the ground has no holes to see through. */
+    const Uint32 sprite_parts[2] = {2, 2};
+    const Uint32 ground_parts[4] = {2, 2, 2, 1};
+    renderer->sprite_pipeline = make_pipeline(renderer->device, window,
+        &shader_sprite_vert, &shader_sprite_frag, sizeof(Corner),
+        sprite_parts, 2, true);
+    renderer->ground_pipeline = make_pipeline(renderer->device, window,
+        &shader_ground_vert, &shader_ground_frag, sizeof(GroundVertex),
+        ground_parts, 4, false);
     /* A new frame is shown when the monitor is ready for one, so that
      * no more frames are drawn than can be seen. */
-    if (renderer->sampler == NULL || renderer->pipeline == NULL
+    if (renderer->sampler == NULL || renderer->sprite_pipeline == NULL
+        || renderer->ground_pipeline == NULL
         || !SDL_SetGPUSwapchainParameters(renderer->device, window,
             SDL_GPU_SWAPCHAINCOMPOSITION_SDR, SDL_GPU_PRESENTMODE_VSYNC)) {
         renderer_close(renderer);
@@ -216,14 +274,14 @@ void renderer_close(Renderer *renderer)
         SDL_ReleaseGPUTexture(device, renderer->sheets[i].palette);
     }
     free(renderer->sheets);
-    if (renderer->corners != NULL) {
-        SDL_ReleaseGPUBuffer(device, renderer->corners);
+    free(renderer->kept);
+    batch_close(&renderer->sprites, device);
+    batch_close(&renderer->ground, device);
+    if (renderer->sprite_pipeline != NULL) {
+        SDL_ReleaseGPUGraphicsPipeline(device, renderer->sprite_pipeline);
     }
-    if (renderer->transfer != NULL) {
-        SDL_ReleaseGPUTransferBuffer(device, renderer->transfer);
-    }
-    if (renderer->pipeline != NULL) {
-        SDL_ReleaseGPUGraphicsPipeline(device, renderer->pipeline);
+    if (renderer->ground_pipeline != NULL) {
+        SDL_ReleaseGPUGraphicsPipeline(device, renderer->ground_pipeline);
     }
     if (renderer->sampler != NULL) {
         SDL_ReleaseGPUSampler(device, renderer->sampler);
@@ -281,44 +339,57 @@ void renderer_size(const Renderer *renderer, int *width, int *height)
     SDL_GetWindowSizeInPixels(renderer->window, width, height);
 }
 
-/* Makes room for the corners of `sprites` sprites. */
-static bool make_room(Renderer *renderer, size_t sprites)
+/* Makes room in a batch for `size` bytes. */
+static bool batch_make_room(Batch *batch, SDL_GPUDevice *device,
+                            size_t size)
 {
-    if (sprites <= renderer->room) {
+    if (size <= batch->room) {
         return true;
     }
-    /* Twice what is asked for, so that a frame with a few sprites more
-     * than the last does not start again. */
-    size_t room = sprites * 2;
-    if (room > UINT32_MAX / (CORNERS * sizeof(Corner))) {
-        return SDL_SetError("there are too many sprites");
+    /* Twice what is asked for, so that a frame with a little more than
+     * the last does not start again. */
+    if (size > UINT32_MAX / 2) {
+        return SDL_SetError("there is too much to draw");
     }
     SDL_GPUBufferCreateInfo buffer_info;
     SDL_zero(buffer_info);
     buffer_info.usage = SDL_GPU_BUFFERUSAGE_VERTEX;
-    buffer_info.size = (Uint32)(room * CORNERS * sizeof(Corner));
+    buffer_info.size = (Uint32)(size * 2);
     SDL_GPUTransferBufferCreateInfo transfer_info;
     SDL_zero(transfer_info);
     transfer_info.usage = SDL_GPU_TRANSFERBUFFERUSAGE_UPLOAD;
     transfer_info.size = buffer_info.size;
-    SDL_GPUBuffer *corners = SDL_CreateGPUBuffer(renderer->device,
-        &buffer_info);
-    SDL_GPUTransferBuffer *transfer = corners == NULL ? NULL
-        : SDL_CreateGPUTransferBuffer(renderer->device, &transfer_info);
+    SDL_GPUBuffer *buffer = SDL_CreateGPUBuffer(device, &buffer_info);
+    SDL_GPUTransferBuffer *transfer = buffer == NULL ? NULL
+        : SDL_CreateGPUTransferBuffer(device, &transfer_info);
     if (transfer == NULL) {
-        if (corners != NULL) {
-            SDL_ReleaseGPUBuffer(renderer->device, corners);
+        if (buffer != NULL) {
+            SDL_ReleaseGPUBuffer(device, buffer);
         }
         return false;
     }
-    if (renderer->corners != NULL) {
-        SDL_ReleaseGPUBuffer(renderer->device, renderer->corners);
-        SDL_ReleaseGPUTransferBuffer(renderer->device, renderer->transfer);
-    }
-    renderer->corners = corners;
-    renderer->transfer = transfer;
-    renderer->room = room;
+    batch_close(batch, device);
+    batch->buffer = buffer;
+    batch->transfer = transfer;
+    batch->room = size * 2;
     return true;
+}
+
+/* Sends the first `size` bytes of a batch's travelling buffer to the
+ * card, as part of `commands`. */
+static void batch_send(const Batch *batch, SDL_GPUCommandBuffer *commands,
+                       size_t size)
+{
+    SDL_GPUTransferBufferLocation from;
+    SDL_GPUBufferRegion to;
+    SDL_zero(from);
+    SDL_zero(to);
+    from.transfer_buffer = batch->transfer;
+    to.buffer = batch->buffer;
+    to.size = (Uint32)size;
+    SDL_GPUCopyPass *pass = SDL_BeginGPUCopyPass(commands);
+    SDL_UploadToGPUBuffer(pass, &from, &to, true);
+    SDL_EndGPUCopyPass(pass);
 }
 
 /* Writes the six corners of a sprite. */
@@ -344,120 +415,182 @@ static void put_corners(Corner *out, const Sprite *sprite)
     out[5] = low_left;
 }
 
-/* Sends the corners of the sprites to the card, as part of `commands`.
- * Returns how many sprites were sent, those with a sheet there is, and
- * writes at `kept` which sheet each of them has. */
-static size_t send_corners(Renderer *renderer,
-                           SDL_GPUCommandBuffer *commands,
-                           const Sprite *sprites, size_t count,
-                           uint16_t *kept)
+/* Sends the sprites of a frame to the card, as part of `commands`.
+ * `*sent` gets how many were sent, those with a sheet there is, and
+ * `renderer->kept` which sheet each of them has. */
+static bool send_sprites(Renderer *renderer, SDL_GPUCommandBuffer *commands,
+                         const Frame *frame, size_t *sent)
 {
-    Corner *corners = SDL_MapGPUTransferBuffer(renderer->device,
-        renderer->transfer, true);
-    if (corners == NULL) {
-        return 0;
+    *sent = 0;
+    if (frame->sprite_count == 0) {
+        return true;
     }
-    size_t sent = 0;
-    for (size_t i = 0; i < count; i++) {
-        if (sprites[i].sheet < renderer->sheet_count) {
-            put_corners(&corners[sent * CORNERS], &sprites[i]);
-            kept[sent++] = sprites[i].sheet;
+    if (frame->sprite_count > renderer->kept_room) {
+        uint16_t *kept = realloc(renderer->kept,
+            frame->sprite_count * sizeof *kept);
+        if (kept == NULL) {
+            return SDL_OutOfMemory();
+        }
+        renderer->kept = kept;
+        renderer->kept_room = frame->sprite_count;
+    }
+    if (!batch_make_room(&renderer->sprites, renderer->device,
+            frame->sprite_count * SPRITE_CORNERS * sizeof(Corner))) {
+        return false;
+    }
+    Corner *corners = SDL_MapGPUTransferBuffer(renderer->device,
+        renderer->sprites.transfer, true);
+    if (corners == NULL) {
+        return false;
+    }
+    for (size_t i = 0; i < frame->sprite_count; i++) {
+        if (frame->sprites[i].sheet < renderer->sheet_count) {
+            put_corners(&corners[*sent * SPRITE_CORNERS], &frame->sprites[i]);
+            renderer->kept[(*sent)++] = frame->sprites[i].sheet;
         }
     }
-    SDL_UnmapGPUTransferBuffer(renderer->device, renderer->transfer);
-    if (sent > 0) {
-        SDL_GPUTransferBufferLocation from;
-        SDL_GPUBufferRegion to;
-        SDL_zero(from);
-        SDL_zero(to);
-        from.transfer_buffer = renderer->transfer;
-        to.buffer = renderer->corners;
-        to.size = (Uint32)(sent * CORNERS * sizeof(Corner));
-        SDL_GPUCopyPass *pass = SDL_BeginGPUCopyPass(commands);
-        SDL_UploadToGPUBuffer(pass, &from, &to, true);
-        SDL_EndGPUCopyPass(pass);
+    SDL_UnmapGPUTransferBuffer(renderer->device,
+        renderer->sprites.transfer);
+    if (*sent > 0) {
+        batch_send(&renderer->sprites, commands,
+            *sent * SPRITE_CORNERS * sizeof(Corner));
     }
-    return sent;
+    return true;
 }
 
-/* Draws the sprites that were sent. Those that follow each other with
- * one sheet go to the card in one call. */
-static void draw_sprites(const Renderer *renderer,
-                         SDL_GPUCommandBuffer *commands,
-                         SDL_GPURenderPass *pass, const uint16_t *kept,
-                         size_t sent, Uint32 width, Uint32 height)
+/* Sends the ground of a frame to the card, as part of `commands`.
+ * `*sent` gets how many corners were sent: none if the sheet of the
+ * ground is not there. */
+static bool send_ground(Renderer *renderer, SDL_GPUCommandBuffer *commands,
+                        const Frame *frame, size_t *sent)
+{
+    *sent = 0;
+    if (frame->ground_count == 0
+        || frame->ground_sheet >= renderer->sheet_count) {
+        return true;
+    }
+    size_t size = frame->ground_count * sizeof(GroundVertex);
+    if (!batch_make_room(&renderer->ground, renderer->device, size)) {
+        return false;
+    }
+    GroundVertex *out = SDL_MapGPUTransferBuffer(renderer->device,
+        renderer->ground.transfer, true);
+    if (out == NULL) {
+        return false;
+    }
+    for (size_t i = 0; i < frame->ground_count; i++) {
+        const GroundCorner *corner = &frame->ground[i];
+        out[i].x = corner->x;
+        out[i].y = corner->y;
+        out[i].u = corner->point_x;
+        out[i].v = corner->point_y;
+        out[i].tile_u = corner->tile_x;
+        out[i].tile_v = corner->tile_y;
+        out[i].light = (float)corner->light / (float)FRAME_LIGHT_WHOLE;
+    }
+    SDL_UnmapGPUTransferBuffer(renderer->device, renderer->ground.transfer);
+    batch_send(&renderer->ground, commands, size);
+    *sent = frame->ground_count;
+    return true;
+}
+
+/* Tells the pass which two pictures of a sheet the shader reads. */
+static void bind_sheet(const Renderer *renderer, SDL_GPURenderPass *pass,
+                       uint16_t number)
+{
+    const Sheet *sheet = &renderer->sheets[number];
+    SDL_GPUTextureSamplerBinding textures[2];
+    textures[0].texture = sheet->indices;
+    textures[0].sampler = renderer->sampler;
+    textures[1].texture = sheet->palette;
+    textures[1].sampler = renderer->sampler;
+    SDL_BindGPUFragmentSamplers(pass, 0, textures, 2);
+}
+
+/* Draws what was sent: the ground in one call, then the sprites, those
+ * that follow each other with one sheet in one call each. */
+static void draw_sent(const Renderer *renderer,
+                      SDL_GPUCommandBuffer *commands,
+                      SDL_GPURenderPass *pass, const Frame *frame,
+                      size_t ground, size_t sprites, Uint32 width,
+                      Uint32 height)
 {
     float screen[2];
     screen[0] = (float)width;
     screen[1] = (float)height;
     SDL_GPUBufferBinding buffer;
     SDL_zero(buffer);
-    buffer.buffer = renderer->corners;
-    SDL_BindGPUGraphicsPipeline(pass, renderer->pipeline);
     SDL_PushGPUVertexUniformData(commands, 0, screen, sizeof screen);
-    SDL_BindGPUVertexBuffers(pass, 0, &buffer, 1);
+    if (ground > 0) {
+        buffer.buffer = renderer->ground.buffer;
+        SDL_BindGPUGraphicsPipeline(pass, renderer->ground_pipeline);
+        SDL_BindGPUVertexBuffers(pass, 0, &buffer, 1);
+        bind_sheet(renderer, pass, frame->ground_sheet);
+        SDL_DrawGPUPrimitives(pass, (Uint32)ground, 1, 0, 0);
+    }
+    if (sprites > 0) {
+        buffer.buffer = renderer->sprites.buffer;
+        SDL_BindGPUGraphicsPipeline(pass, renderer->sprite_pipeline);
+        SDL_BindGPUVertexBuffers(pass, 0, &buffer, 1);
+    }
     size_t first = 0;
-    while (first < sent) {
+    while (first < sprites) {
         size_t end = first + 1;
-        while (end < sent && kept[end] == kept[first]) {
+        while (end < sprites
+            && renderer->kept[end] == renderer->kept[first]) {
             end++;
         }
-        const Sheet *sheet = &renderer->sheets[kept[first]];
-        SDL_GPUTextureSamplerBinding textures[2];
-        textures[0].texture = sheet->indices;
-        textures[0].sampler = renderer->sampler;
-        textures[1].texture = sheet->palette;
-        textures[1].sampler = renderer->sampler;
-        SDL_BindGPUFragmentSamplers(pass, 0, textures, 2);
-        SDL_DrawGPUPrimitives(pass, (Uint32)((end - first) * CORNERS), 1,
-            (Uint32)(first * CORNERS), 0);
+        bind_sheet(renderer, pass, renderer->kept[first]);
+        SDL_DrawGPUPrimitives(pass, (Uint32)((end - first) * SPRITE_CORNERS), 1,
+            (Uint32)(first * SPRITE_CORNERS), 0);
         first = end;
     }
 }
 
-bool renderer_draw(Renderer *renderer, const Sprite *sprites, size_t count)
+bool renderer_draw(Renderer *renderer, const Frame *frame)
 {
-    uint16_t *kept = count == 0 ? NULL : malloc(count * sizeof *kept);
-    if (count > 0 && (kept == NULL || !make_room(renderer, count))) {
-        free(kept);
-        return kept == NULL ? SDL_OutOfMemory() : false;
-    }
     SDL_GPUCommandBuffer *commands
         = SDL_AcquireGPUCommandBuffer(renderer->device);
     if (commands == NULL) {
-        free(kept);
         return false;
     }
-    size_t sent = count == 0 ? 0
-        : send_corners(renderer, commands, sprites, count, kept);
-    /* The picture the window shows next. There is none while the
-     * window is hidden or has no size, and then nothing is drawn. */
+    /* The picture the window shows next. */
     SDL_GPUTexture *screen = NULL;
     Uint32 width = 0;
     Uint32 height = 0;
     if (!SDL_WaitAndAcquireGPUSwapchainTexture(commands, renderer->window,
             &screen, &width, &height)) {
         SDL_CancelGPUCommandBuffer(commands);
-        free(kept);
         return false;
     }
-    if (screen != NULL) {
-        SDL_GPUColorTargetInfo target;
-        SDL_zero(target);
-        target.texture = screen;
-        target.clear_color.a = 1.0f;
-        target.load_op = SDL_GPU_LOADOP_CLEAR;
-        target.store_op = SDL_GPU_STOREOP_STORE;
-        SDL_GPURenderPass *pass = SDL_BeginGPURenderPass(commands, &target,
-            1, NULL);
-        if (pass != NULL) {
-            if (sent > 0) {
-                draw_sprites(renderer, commands, pass, kept, sent, width,
-                    height);
-            }
-            SDL_EndGPURenderPass(pass);
-        }
+    if (screen == NULL) {
+        /* There is none while the window is minimized or has no size.
+         * Nothing is sent or drawn then, and a short wait keeps the
+         * loop from running as fast as it can for nothing. */
+        SDL_CancelGPUCommandBuffer(commands);
+        SDL_Delay(NOTHING_TO_DRAW_WAIT);
+        return true;
     }
-    free(kept);
-    return SDL_SubmitGPUCommandBuffer(commands);
+    /* From here on the frame has to be handed in: one that has the
+     * window's picture cannot be cancelled. */
+    size_t ground = 0;
+    size_t sprites = 0;
+    bool sent = send_ground(renderer, commands, frame, &ground)
+        && send_sprites(renderer, commands, frame, &sprites);
+    SDL_GPUColorTargetInfo target;
+    SDL_zero(target);
+    target.texture = screen;
+    target.clear_color.a = 1.0f;
+    target.load_op = SDL_GPU_LOADOP_CLEAR;
+    target.store_op = SDL_GPU_STOREOP_STORE;
+    SDL_GPURenderPass *pass = SDL_BeginGPURenderPass(commands, &target, 1,
+        NULL);
+    if (pass != NULL) {
+        if (sent) {
+            draw_sent(renderer, commands, pass, frame, ground, sprites,
+                width, height);
+        }
+        SDL_EndGPURenderPass(pass);
+    }
+    return SDL_SubmitGPUCommandBuffer(commands) && sent;
 }

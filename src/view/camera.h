@@ -1,18 +1,14 @@
 /* The camera: which part of a map is on the screen.
  *
- * A map is measured in pixels here, 32 to a square, from its top left
- * corner.
+ * A map is measured in pixels here, MAP_SQUARE to a square, from its
+ * top left corner.
  */
 #ifndef ROM2_VIEW_CAMERA_H
 #define ROM2_VIEW_CAMERA_H
 
 #include <stdint.h>
 
-/* The side of a square of a map, in pixels. */
-#define CAMERA_SQUARE 32
-
-/* The squares along each edge of a map that are never shown. */
-#define CAMERA_EDGE 8
+#include "data/map.h"
 
 typedef struct Camera {
     int32_t left;       /* the pixel of the map at the screen's corner */

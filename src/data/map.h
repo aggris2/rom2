@@ -16,6 +16,17 @@
 #include <stddef.h>
 #include <stdint.h>
 
+/* The side of a square of a map, in pixels. Heights are in the same
+ * pixels. */
+#define MAP_SQUARE 32
+
+/* The most a height raises the ground, in pixels. */
+#define MAP_HIGHEST 127
+
+/* The squares along each edge of a map that are never shown and never
+ * walked on. */
+#define MAP_EDGE 8
+
 /* The most squares a map may have along one side. */
 #define MAP_MAX_SIDE 256u
 

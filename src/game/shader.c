@@ -12,7 +12,7 @@ SDL_GPUShader *shader_open(SDL_GPUDevice *device, const ShaderData *data,
     info.num_uniform_buffers = blocks;
     if ((formats & SDL_GPU_SHADERFORMAT_SPIRV) != 0) {
         info.format = SDL_GPU_SHADERFORMAT_SPIRV;
-        info.code = data->spirv;
+        info.code = (const Uint8 *)data->spirv;
         info.code_size = data->spirv_size;
         info.entrypoint = "main";
     } else if ((formats & SDL_GPU_SHADERFORMAT_MSL) != 0) {

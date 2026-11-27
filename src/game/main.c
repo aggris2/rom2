@@ -66,6 +66,29 @@ static bool handle_events(SDL_Window *window)
     return true;
 }
 
+/* How long the frame that just passed is taken to have lasted, given
+ * what the clock measured.
+ *
+ * A frame is shown when the monitor is ready for one, so in truth it
+ * lasted a whole number of the monitor's own frames. The clock says a
+ * little more or less each time, and movement worked out from that is
+ * uneven: 5 pixels, then 6, then 5. So the time is rounded to whole
+ * frames of the monitor the window is on. If the monitor's rate is not
+ * known, the clock is taken as it is. */
+static float frame_seconds(SDL_Window *window, float measured)
+{
+    const SDL_DisplayMode *mode
+        = SDL_GetCurrentDisplayMode(SDL_GetDisplayForWindow(window));
+    if (mode == NULL || mode->refresh_rate <= 0.0f) {
+        return measured > LONGEST_FRAME ? LONGEST_FRAME : measured;
+    }
+    float one = 1.0f / mode->refresh_rate;
+    float frames = SDL_roundf(measured / one);
+    float most = SDL_floorf(LONGEST_FRAME / one);
+    frames = frames < 1.0f ? 1.0f : frames > most ? most : frames;
+    return frames * one;
+}
+
 /* Runs the game in a window until the player leaves. */
 static bool run(SDL_Window *window, const char *content, const char *map)
 {
@@ -83,10 +106,9 @@ static bool run(SDL_Window *window, const char *content, const char *map)
     Uint64 before = SDL_GetTicksNS();
     while (ok && handle_events(window)) {
         Uint64 now = SDL_GetTicksNS();
-        float seconds = (float)(now - before) / 1e9f;
+        float measured = (float)(now - before) / 1e9f;
         before = now;
-        ok = map_screen_frame(screen,
-            seconds > LONGEST_FRAME ? LONGEST_FRAME : seconds);
+        ok = map_screen_frame(screen, frame_seconds(window, measured));
     }
     map_screen_close(screen);
     renderer_close(renderer);

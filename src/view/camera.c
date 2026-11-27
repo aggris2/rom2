@@ -10,8 +10,8 @@ void camera_look_at(Camera *camera, int32_t x, int32_t y)
  * the map along it. */
 static int32_t keep_inside(int32_t at, int32_t size, uint32_t squares)
 {
-    int32_t low = CAMERA_EDGE * CAMERA_SQUARE;
-    int32_t high = ((int32_t)squares - CAMERA_EDGE) * CAMERA_SQUARE - size;
+    int32_t low = MAP_EDGE * MAP_SQUARE;
+    int32_t high = ((int32_t)squares - MAP_EDGE) * MAP_SQUARE - size;
     if (high < low) {
         /* The same space on both sides: the middle of what is shown
          * in the middle of the screen. */
