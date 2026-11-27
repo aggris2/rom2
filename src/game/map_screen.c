@@ -15,6 +15,7 @@
 #include "view/light.h"
 #include "view/objects.h"
 #include "view/structures.h"
+#include "view/units.h"
 
 /* How fast the keys move the camera, in pixels a second. In a frame
  * it moves a whole number of pixels, the nearest to this speed: the
@@ -35,6 +36,7 @@ struct MapScreen {
     uint8_t *light;             /* the light at each corner of the map */
     ObjectLook objects[OBJECT_KINDS];   /* how each kind of object looks */
     StructureLook structures[STRUCTURE_KINDS];  /* and of structure */
+    UnitLook units[UNIT_TYPES];                 /* and type of unit */
     GroundSquare *ground;       /* room for a frame's ground */
     size_t ground_room;
     Sprite *sprites;            /* room for a frame's sprites, twice: */
@@ -96,27 +98,33 @@ static bool add_tiles(MapScreen *screen, const char *content)
             &screen->tiles_width, &screen->tiles_height);
 }
 
-/* Reads the sheets of the kinds of object the map has on it. A kind's
- * folder is named by its ID, three digits, and then its name.
+/* What a folder of the content holds: a folder for each kind, named
+ * by the kind's ID, three digits, and then its name, with the kind's
+ * definition in it. */
+typedef struct Kinds {
+    const char *folder;         /* in the content */
+    const char *definition;     /* the file's name */
+    /* Makes the look of kind `id` from its definition, whose top is
+     * `top` and which is at `path`. A kind it cannot use it leaves
+     * unknown, with a message. */
+    void (*add)(MapScreen *screen, int id, const char *path,
+                const TomlTable *top);
+} Kinds;
+
+/* Reads the definitions of the kinds the map has on it: those of
+ * `used`, which has an entry for each of `most` IDs.
  *
  * A kind that has no folder, or whose sheet cannot be read, is left
  * unknown and is not drawn: the original has a few objects without a
- * picture. Returns false only if the folder of objects cannot be
- * listed. */
-static bool add_objects(MapScreen *screen, const char *content)
+ * picture. Returns false only if the folder cannot be listed. */
+static bool add_kinds(MapScreen *screen, const char *content,
+                      const Kinds *kinds, const bool *used, int most)
 {
-    bool used[OBJECT_KINDS] = {false};
-    size_t squares = (size_t)screen->map.info.width
-        * screen->map.info.height;
-    for (size_t i = 0; i < squares; i++) {
-        if (screen->map.objects[i] != 0) {
-            used[screen->map.objects[i] - 1] = true;
-        }
-    }
     char folder[1024];
     char *names = NULL;
     size_t count = 0;
-    int written = snprintf(folder, sizeof folder, "%s/objects", content);
+    int written = snprintf(folder, sizeof folder, "%s/%s", content,
+        kinds->folder);
     if (written < 0 || (size_t)written >= sizeof folder
         || !file_list_folder(folder, &names, &count)) {
         fprintf(stderr, "rom2: cannot list %s\n", folder);
@@ -130,90 +138,114 @@ static bool add_objects(MapScreen *screen, const char *content)
         }
         int id = atoi(name);
         char path[1024];
-        written = snprintf(path, sizeof path, "%s/%s/object.toml", folder,
-            name);
-        if (id >= OBJECT_KINDS || !used[id] || written < 0
-            || (size_t)written >= sizeof path) {
-            continue;
-        }
+        written = snprintf(path, sizeof path, "%s/%s/%s", folder, name,
+            kinds->definition);
         TomlTable *top = NULL;
-        SpriteSheet layout;
-        ObjectLook *look = &screen->objects[id];
-        if (!sheets_read_definition(path, &top)) {
+        if (id >= most || !used[id] || written < 0
+            || (size_t)written >= sizeof path
+            || !sheets_read_definition(path, &top)) {
             continue;
         }
-        if (!sprite_sheet_read(top, &layout)) {
-            fprintf(stderr, "rom2: %s has no usable [sprite] part\n", path);
-        } else if (sheets_load_sprites(screen->renderer, path, &layout,
-                &look->sheet)) {
-            look->known = true;
-            look->cell_width = layout.cell_width;
-            look->cell_height = layout.cell_height;
-            look->anchor_x = layout.anchor_x;
-            look->anchor_y = layout.anchor_y;
-        }
+        kinds->add(screen, id, path, top);
         toml_free(top);
     }
     free(names);
     return true;
 }
 
-/* Reads the sheets of the kinds of structure the map has on it, as
- * add_objects() does for the objects. A kind is left unknown too if
- * its sheet's cell is not its picture: as wide as its base and as high
- * as its definition says. */
-static bool add_structures(MapScreen *screen, const char *content)
+/* Reads the sheet of a definition that is a sprite sheet and no more,
+ * and puts it on the card. */
+static bool add_sheet(MapScreen *screen, const char *path,
+                      const TomlTable *top, SpriteSheet *layout,
+                      uint16_t *sheet)
 {
-    bool used[STRUCTURE_KINDS] = {false};
-    for (uint32_t i = 0; i < screen->map.structure_count; i++) {
-        if (screen->map.structures[i].type < STRUCTURE_KINDS) {
-            used[screen->map.structures[i].type] = true;
-        }
-    }
-    char folder[1024];
-    char *names = NULL;
-    size_t count = 0;
-    int written = snprintf(folder, sizeof folder, "%s/structures", content);
-    if (written < 0 || (size_t)written >= sizeof folder
-        || !file_list_folder(folder, &names, &count)) {
-        fprintf(stderr, "rom2: cannot list %s\n", folder);
+    if (!sprite_sheet_read(top, layout)) {
+        fprintf(stderr, "rom2: %s has no usable [sprite] part\n", path);
         return false;
     }
-    const char *name = names;
-    for (size_t i = 0; i < count; i++, name += strlen(name) + 1) {
-        /* Three digits and an underscore. */
-        if (strspn(name, "0123456789") != 3 || name[3] != '_') {
-            continue;
-        }
-        int id = atoi(name);
-        char path[1024];
-        written = snprintf(path, sizeof path, "%s/%s/structure.toml",
-            folder, name);
-        if (id >= STRUCTURE_KINDS || !used[id] || written < 0
-            || (size_t)written >= sizeof path) {
-            continue;
-        }
-        TomlTable *top = NULL;
-        StructureKind kind;
-        StructureLook *look = &screen->structures[id];
-        if (!sheets_read_definition(path, &top)) {
-            continue;
-        }
-        if (!structure_kind_read(top, &kind)
-            || kind.sheet.cell_width != kind.width * MAP_SQUARE
-            || kind.sheet.cell_height != kind.height * MAP_SQUARE) {
-            fprintf(stderr, "rom2: %s is not a usable structure\n", path);
-        } else if (sheets_load_sprites(screen->renderer, path, &kind.sheet,
-                &look->sheet)) {
-            look->known = true;
-            look->width = kind.width;
-            look->depth = kind.depth;
-            look->height = kind.height;
-        }
-        toml_free(top);
+    return sheets_load_sprites(screen->renderer, path, layout, sheet);
+}
+
+static void add_object(MapScreen *screen, int id, const char *path,
+                       const TomlTable *top)
+{
+    SpriteSheet layout;
+    ObjectLook *look = &screen->objects[id];
+    if (add_sheet(screen, path, top, &layout, &look->sheet)) {
+        look->known = true;
+        look->cell_width = layout.cell_width;
+        look->cell_height = layout.cell_height;
+        look->anchor_x = layout.anchor_x;
+        look->anchor_y = layout.anchor_y;
     }
-    free(names);
-    return true;
+}
+
+/* A structure is left unknown too if its sheet's cell is not its
+ * picture: as wide as its base and as high as its definition says. */
+static void add_structure(MapScreen *screen, int id, const char *path,
+                          const TomlTable *top)
+{
+    StructureKind kind;
+    StructureLook *look = &screen->structures[id];
+    if (!structure_kind_read(top, &kind)
+        || kind.sheet.cell_width != kind.width * MAP_SQUARE
+        || kind.sheet.cell_height != kind.height * MAP_SQUARE) {
+        fprintf(stderr, "rom2: %s is not a usable structure\n", path);
+    } else if (sheets_load_sprites(screen->renderer, path, &kind.sheet,
+            &look->sheet)) {
+        look->known = true;
+        look->width = kind.width;
+        look->depth = kind.depth;
+        look->height = kind.height;
+    }
+}
+
+static void add_unit(MapScreen *screen, int id, const char *path,
+                     const TomlTable *top)
+{
+    SpriteSheet layout;
+    UnitLook *look = &screen->units[id];
+    if (add_sheet(screen, path, top, &layout, &look->sheet)) {
+        look->known = true;
+        look->cell_width = layout.cell_width;
+        look->cell_height = layout.cell_height;
+        look->anchor_x = layout.anchor_x;
+        look->anchor_y = layout.anchor_y;
+    }
+}
+
+/* Reads the sheets of what the map has on it: its objects, its
+ * structures and its units. */
+static bool add_looks(MapScreen *screen, const char *content)
+{
+    const Map *map = &screen->map;
+    bool objects[OBJECT_KINDS] = {false};
+    bool structures[STRUCTURE_KINDS] = {false};
+    bool units[UNIT_TYPES] = {false};
+    size_t squares = (size_t)map->info.width * map->info.height;
+    for (size_t i = 0; i < squares; i++) {
+        if (map->objects[i] != 0) {
+            objects[map->objects[i] - 1] = true;
+        }
+    }
+    for (uint32_t i = 0; i < map->structure_count; i++) {
+        if (map->structures[i].type < STRUCTURE_KINDS) {
+            structures[map->structures[i].type] = true;
+        }
+    }
+    for (uint32_t i = 0; i < map->unit_count; i++) {
+        if (map->units[i].type < UNIT_TYPES) {
+            units[map->units[i].type] = true;
+        }
+    }
+    const Kinds of_objects = {"objects", "object.toml", add_object};
+    const Kinds of_structures
+        = {"structures", "structure.toml", add_structure};
+    const Kinds of_units = {"units", "unit.toml", add_unit};
+    return add_kinds(screen, content, &of_objects, objects, OBJECT_KINDS)
+        && add_kinds(screen, content, &of_structures, structures,
+            STRUCTURE_KINDS)
+        && add_kinds(screen, content, &of_units, units, UNIT_TYPES);
 }
 
 /* The camera as it is now: where the screen has been moved to, at the
@@ -281,8 +313,7 @@ MapScreen *map_screen_open(Renderer *renderer, const char *content,
         return NULL;
     }
     light_ground(&screen->map, screen->light);
-    if (!add_tiles(screen, content) || !add_objects(screen, content)
-        || !add_structures(screen, content)) {
+    if (!add_tiles(screen, content) || !add_looks(screen, content)) {
         map_screen_close(screen);
         return NULL;
     }
@@ -326,7 +357,8 @@ bool map_screen_frame(MapScreen *screen, float seconds)
         screen->ground_room = most;
     }
     most = objects_most(&camera, screen->objects)
-        + structures_most(&screen->map, screen->structures);
+        + structures_most(&screen->map, screen->structures)
+        + units_most(&screen->map);
     if (most > screen->sprite_room) {
         Sprite *sprites = realloc(screen->sprites,
             2 * most * sizeof *sprites);
@@ -347,6 +379,8 @@ bool map_screen_frame(MapScreen *screen, float seconds)
         &camera, screen->sprites);
     frame.sprite_count += structures_sprites(&screen->map,
         screen->structures, &camera, screen->sprites + frame.sprite_count);
+    frame.sprite_count += units_sprites(&screen->map, screen->units,
+        &camera, screen->sprites + frame.sprite_count);
     sprites_sort(screen->sprites, frame.sprite_count,
         screen->sprites + screen->sprite_room);
     if (!renderer_draw(screen->renderer, &frame)) {

@@ -121,7 +121,8 @@ a record of its own and is not made of sprites. `objects` writes a sprite for
 each tree or rock the camera can see, standing on the ground at its height.
 `structures` writes each building as strips a square high, one for each row of
 its base, because something may stand behind a building's front and before its
-back. Every sprite says where it stands, and `sprite` sorts the list into the
+back. `units` writes a sprite for each unit, the standing frame of the way it
+faces. Every sprite says where it stands, and `sprite` sorts the list into the
 order it is drawn: row after row from the top, and in a row from the right.
 None of it knows the graphics card, so all of it has unit tests.
 

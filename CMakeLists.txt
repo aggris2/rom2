@@ -112,6 +112,7 @@ add_library(rom2_core STATIC
     src/view/objects.c
     src/view/sprite.c
     src/view/structures.c
+    src/view/units.c
 )
 target_include_directories(rom2_core PUBLIC src)
 target_link_libraries(rom2_core PRIVATE ${ROM2_ZLIB})
@@ -209,6 +210,7 @@ add_executable(rom2_tests
     tests/view/test_objects.c
     tests/view/test_sprite.c
     tests/view/test_structures.c
+    tests/view/test_units.c
     tests/import/test_bmp.c
     tests/import/test_databin.c
     tests/import/test_item.c
