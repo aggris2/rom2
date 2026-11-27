@@ -167,6 +167,10 @@ if(ROM2_BUILD_GAME)
     )
     target_link_libraries(rom2 PRIVATE SDL3::SDL3)
     rom2_set_warnings(rom2)
+    # Only a build with the sanitizers has this file.
+    if(ROM2_SANITIZE AND NOT MSVC)
+        target_sources(rom2 PRIVATE src/game/sanitize.c)
+    endif()
 endif()
 
 # Tests: one program, rom2_tests, built from every test file.

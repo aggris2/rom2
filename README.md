@@ -80,6 +80,16 @@ A step can be run alone, and most can write one thing alone, by its ID:
 
 The `content` folder is yours and is not part of this repository.
 
+## Running
+
+```bash
+./build/rom2
+```
+
+So far the game opens an empty window. It covers the whole screen;
+Alt+Enter switches to a plain window and back, and `--window` starts in
+one. Escape closes it.
+
 ## Licence
 
 GPL-3.0. See [LICENSE](LICENSE).
