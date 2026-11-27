@@ -31,59 +31,24 @@ size_t ground_most(const Camera *camera)
         : (size_t)(camera->width / MAP_SQUARE) + 2;
     size_t down = camera->height <= 0 ? 0
         : (size_t)(camera->height / MAP_SQUARE) + 2 + ROWS_BELOW;
-    return across * down * FRAME_SQUARE_CORNERS;
+    return across * down;
 }
 
 int32_t ground_height_at(const Map *map, int32_t x, int32_t y)
 {
     int32_t square_x = square_of(x);
     int32_t square_y = square_of(y);
-    int32_t across = x - square_x * MAP_SQUARE;
-    int32_t down = y - square_y * MAP_SQUARE;
-    int32_t top_left = map->heights[corner_index(map, square_x, square_y)];
-    int32_t top_right
-        = map->heights[corner_index(map, square_x + 1, square_y)];
-    int32_t low_left
-        = map->heights[corner_index(map, square_x, square_y + 1)];
-    int32_t low_right
-        = map->heights[corner_index(map, square_x + 1, square_y + 1)];
-    /* A square is drawn as two flat triangles, cut from its top right
-     * corner to its low left: see view/frame.h. The height is that
-     * of the triangle the point is in, so that what stands there
-     * stands on the ground as it is drawn. */
-    if (across + down <= MAP_SQUARE) {
-        return (top_left * MAP_SQUARE + (top_right - top_left) * across
-            + (low_left - top_left) * down) / MAP_SQUARE;
+    int32_t sum = 0;
+    for (int32_t i = 0; i < FRAME_SQUARE_CORNERS; i++) {
+        sum += map->heights[corner_index(map, square_x + (i & 1),
+            square_y + (i >> 1))];
     }
-    return (low_right * MAP_SQUARE
-        + (low_left - low_right) * (MAP_SQUARE - across)
-        + (top_right - low_right) * (MAP_SQUARE - down)) / MAP_SQUARE;
+    return sum / FRAME_SQUARE_CORNERS;
 }
 
-/* The corner (`x`, `y`) of the map, for a square whose tile is at
- * (`tile_x`, `tile_y`) of the sheet: where it is on the screen and how
- * bright. Which point of the tile is there is for the caller to say. */
-static GroundCorner corner_of(const Map *map, const uint8_t *light,
-                              const Camera *camera, int32_t x, int32_t y,
-                              uint32_t tile_x, uint32_t tile_y)
-{
-    size_t at = corner_index(map, x, y);
-    GroundCorner corner;
-    corner.x = (int16_t)(x * MAP_SQUARE - camera->left);
-    corner.y = (int16_t)(y * MAP_SQUARE - (int32_t)map->heights[at]
-        - camera->top);
-    corner.point_x = 0;
-    corner.point_y = 0;
-    corner.tile_x = (uint16_t)tile_x;
-    corner.tile_y = (uint16_t)tile_y;
-    corner.light = light[at];
-    corner.unused = 0;
-    return corner;
-}
-
-size_t ground_corners(const Map *map, const uint8_t *light,
+size_t ground_squares(const Map *map, const uint8_t *light,
                       const Camera *camera, uint32_t sheet_width,
-                      uint32_t sheet_height, GroundCorner *out)
+                      uint32_t sheet_height, GroundSquare *out)
 {
     if (camera->width <= 0 || camera->height <= 0) {
         return 0;
@@ -113,17 +78,18 @@ size_t ground_corners(const Map *map, const uint8_t *light,
                 || tile_y + MAP_SQUARE > sheet_height) {
                 continue;
             }
+            GroundSquare *square = &out[count++];
+            square->x = (int16_t)(x * MAP_SQUARE - camera->left);
+            square->unused = 0;
+            square->tile_x = (uint16_t)tile_x;
+            square->tile_y = (uint16_t)tile_y;
             /* Top left, top right, low left, low right. */
             for (int32_t i = 0; i < FRAME_SQUARE_CORNERS; i++) {
-                int32_t right = i & 1;
                 int32_t low = i >> 1;
-                GroundCorner *corner = &out[count++];
-                *corner = corner_of(map, light, camera, x + right, y + low,
-                    tile_x, tile_y);
-                corner->point_x
-                    = (uint16_t)(tile_x + (uint32_t)right * MAP_SQUARE);
-                corner->point_y
-                    = (uint16_t)(tile_y + (uint32_t)low * MAP_SQUARE);
+                size_t at = corner_index(map, x + (i & 1), y + low);
+                square->y[i] = (int16_t)((y + low) * MAP_SQUARE
+                    - (int32_t)map->heights[at] - camera->top);
+                square->light[i] = light[at];
             }
         }
     }

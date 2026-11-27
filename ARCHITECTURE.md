@@ -108,15 +108,15 @@ separate pictures, each of which can be looked at.
 `src/view` turns what there is into what is drawn. `frame.h` is what the
 renderer is handed once a frame: the ground, and the sprites that lie on it.
 `sprite.h` is the record for one sprite, a part of a sheet at a place on the
-screen. `camera` says which part of a map is on the screen and keeps it
-inside the map. `light` works out how bright the ground is at each corner of
-a square, from its slopes and the angle of the sun. `ground` writes the
-corners of each square the camera sees, raised by the heights of the map and
-with that light: a square on a slope is not a rectangle, so the ground has a
-record of its own and is not made of sprites. `objects` writes a sprite for
-each tree or rock the camera can see, standing on the ground at its height,
-in the order they are drawn: row after row from the top, and in a row from
-the right. None of it knows the graphics card, so all of it has unit tests.
+screen. `camera` says which part of a map is on the screen and keeps it inside
+the map. `light` works out how bright the ground is at each corner of a
+square, from its slopes and the angle of the sun. `ground` writes a record for
+each square the camera sees, its four corners raised by the heights of the map
+and with that light: a square on a slope is not a rectangle, so the ground has
+a record of its own and is not made of sprites. `objects` writes a sprite for
+each tree or rock the camera can see, standing on the ground at its height, in
+the order they are drawn: row after row from the top, and in a row from the
+right. None of it knows the graphics card, so all of it has unit tests.
 
 `src/game` is the program `rom2`, and the only code that uses SDL. `main.c`
 is the window and the loop. `map_screen` is being in a map, the one place of
@@ -134,7 +134,9 @@ it is, and the 256 colours. A shader looks each colour up as it draws, makes
 it as bright as the ground's light or the sprite says, up to three times the
 sheet's own colours, and lays it over what is there by how solid it is. So
 sprites stay 8 bits a pixel on the card, and a palette can be changed
-without touching the picture.
+without touching the picture. A square of ground on a slope is drawn by the
+rule of the original game, in columns one pixel wide and in whole numbers:
+`ground.frag` has the rule.
 
 The shaders, the small programs the graphics card runs, are written in
 GLSL in `src/game/shaders`. The card does not take them as text, and each

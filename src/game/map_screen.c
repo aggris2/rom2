@@ -32,7 +32,7 @@ struct MapScreen {
     float top;
     uint8_t *light;             /* the light at each corner of the map */
     ObjectLook objects[OBJECT_KINDS];   /* how each kind of object looks */
-    GroundCorner *ground;       /* room for a frame's ground */
+    GroundSquare *ground;       /* room for a frame's ground */
     size_t ground_room;
     Sprite *sprites;            /* room for a frame's sprites */
     size_t sprite_room;
@@ -247,7 +247,7 @@ bool map_screen_frame(MapScreen *screen, float seconds)
     Camera camera = camera_now(screen);
     size_t most = ground_most(&camera);
     if (most > screen->ground_room) {
-        GroundCorner *ground = realloc(screen->ground,
+        GroundSquare *ground = realloc(screen->ground,
             most * sizeof *ground);
         if (ground == NULL) {
             fprintf(stderr, "rom2: out of memory\n");
@@ -269,7 +269,7 @@ bool map_screen_frame(MapScreen *screen, float seconds)
     Frame frame;
     frame.ground_sheet = screen->tiles;
     frame.ground = screen->ground;
-    frame.ground_count = ground_corners(&screen->map, screen->light,
+    frame.ground_count = ground_squares(&screen->map, screen->light,
         &camera, screen->tiles_width, screen->tiles_height, screen->ground);
     frame.sprites = screen->sprites;
     frame.sprite_count = objects_sprites(&screen->map, screen->objects,

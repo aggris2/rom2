@@ -3,7 +3,9 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include "data/map.h"
 #include "game/shader.h"
+#include "view/light.h"
 
 /* A sheet on the card: for each pixel which colour it is and how solid,
  * and the 256 colours the first of those stands for. */
@@ -22,26 +24,35 @@ typedef struct Corner {
     float light;    /* 1 is as the sheet's colours */
 } Corner;
 
-/* A sprite has four corners, like a square of ground, and is drawn by
- * the same list of triangles. */
+/* A sprite has four corners: top left, top right, low left, low
+ * right. */
 #define SPRITE_CORNERS 4
 
 /* How long to wait, in milliseconds, when there is no picture of the
  * window to draw into. */
 #define NOTHING_TO_DRAW_WAIT 20
 
-/* A square of ground, or a sprite, is two triangles: six entries in the
- * list that says which of its four corners make each. */
-#define SQUARE_INDICES 6
+/* A sprite is two triangles: six entries in the list that says which
+ * of its four corners make each. */
+#define SPRITE_INDICES 6
 
 /* What the vertex shaders are told: as `Screen` in the two .vert
  * files. */
 typedef struct ScreenBlock {
     float width;
     float height;
-    float light_whole;
-    float unused;
+    Sint32 square;
+    Sint32 unused;
 } ScreenBlock;
+
+/* What the ground's fragment shader is told: as `Ground` in
+ * ground.frag. */
+typedef struct GroundBlock {
+    Sint32 square;
+    Sint32 light_whole;
+    Sint32 light_most;
+    Sint32 unused;
+} GroundBlock;
 
 /* What is sent to the card anew each frame: a buffer on the card, the
  * buffer its bytes travel there in, and how many bytes both hold. */
@@ -60,12 +71,12 @@ struct Renderer {
     Sheet *sheets;
     size_t sheet_count;
     Batch sprites;      /* the corners of a frame's sprites */
-    Batch ground;       /* the corners of a frame's ground */
-    /* Which corners make the triangles of a square of ground or of a
-     * sprite: the same for every one, so it is made once, for `squares`
-     * of them, and made longer when a frame has more. */
+    Batch ground;       /* the squares of a frame's ground */
+    /* Which corners make the triangles of a sprite: the same for every
+     * one, so it is made once, for `indexed` of them, and made longer
+     * when a frame has more. */
     SDL_GPUBuffer *indices;
-    size_t squares;
+    size_t indexed;
     uint16_t *kept;     /* the sheet of each sprite that is drawn */
     size_t kept_room;
 };
@@ -132,10 +143,12 @@ static SDL_GPUTexture *make_texture(SDL_GPUDevice *device,
     return texture;
 }
 
-/* Makes a pipeline: two shaders, what a corner is made of, and whether
+/* Makes a pipeline: two shaders, what a record is made of, and whether
  * what is drawn is laid over what is there by how solid each pixel is.
- * A corner is `size` bytes and has `count` parts, which `parts` lists
- * in the order of the shader's inputs. */
+ * A record is `size` bytes and has `count` parts, which `parts` lists
+ * in the order of the shader's inputs. It is one corner of a triangle,
+ * or with `whole` a whole square, whose four corners the vertex shader
+ * makes. The fragment shader is told `blocks` blocks of numbers. */
 static SDL_GPUGraphicsPipeline *make_pipeline(SDL_GPUDevice *device,
                                               SDL_Window *window,
                                               const ShaderData *vertex_data,
@@ -143,18 +156,20 @@ static SDL_GPUGraphicsPipeline *make_pipeline(SDL_GPUDevice *device,
                                               Uint32 size,
                                               const SDL_GPUVertexAttribute
                                                   *parts,
-                                              Uint32 count, bool blend)
+                                              Uint32 count, bool whole,
+                                              Uint32 blocks, bool blend)
 {
     SDL_GPUShader *vertex = shader_open(device, vertex_data,
         SDL_GPU_SHADERSTAGE_VERTEX, 0, 1);
     SDL_GPUShader *fragment = shader_open(device, fragment_data,
-        SDL_GPU_SHADERSTAGE_FRAGMENT, 3, 0);
+        SDL_GPU_SHADERSTAGE_FRAGMENT, 3, blocks);
     SDL_GPUGraphicsPipeline *pipeline = NULL;
     if (vertex != NULL && fragment != NULL) {
         SDL_GPUVertexBufferDescription buffer;
         SDL_zero(buffer);
         buffer.pitch = size;
-        buffer.input_rate = SDL_GPU_VERTEXINPUTRATE_VERTEX;
+        buffer.input_rate = whole ? SDL_GPU_VERTEXINPUTRATE_INSTANCE
+            : SDL_GPU_VERTEXINPUTRATE_VERTEX;
 
         SDL_GPUColorTargetDescription target;
         SDL_zero(target);
@@ -178,7 +193,8 @@ static SDL_GPUGraphicsPipeline *make_pipeline(SDL_GPUDevice *device,
         info.vertex_input_state.num_vertex_buffers = 1;
         info.vertex_input_state.vertex_attributes = parts;
         info.vertex_input_state.num_vertex_attributes = count;
-        info.primitive_type = SDL_GPU_PRIMITIVETYPE_TRIANGLELIST;
+        info.primitive_type = whole ? SDL_GPU_PRIMITIVETYPE_TRIANGLESTRIP
+            : SDL_GPU_PRIMITIVETYPE_TRIANGLELIST;
         info.target_info.color_target_descriptions = &target;
         info.target_info.num_color_targets = 1;
         pipeline = SDL_CreateGPUGraphicsPipeline(device, &info);
@@ -241,29 +257,29 @@ Renderer *renderer_open(SDL_Window *window)
         &sampler_info);
     /* A sprite's corner is a place, a point of its sheet and its light,
      * as floats.
-     * The ground's corners are handed over as the view wrote them: see
-     * GroundCorner. The ground has no holes to see through. */
+     * The ground's squares are handed over as the view wrote them: see
+     * GroundSquare. The ground has no holes to see through. */
     const SDL_GPUVertexAttribute sprite_parts[3] = {
         {0, 0, SDL_GPU_VERTEXELEMENTFORMAT_FLOAT2, offsetof(Corner, x)},
         {1, 0, SDL_GPU_VERTEXELEMENTFORMAT_FLOAT2, offsetof(Corner, u)},
         {2, 0, SDL_GPU_VERTEXELEMENTFORMAT_FLOAT, offsetof(Corner, light)}
     };
     const SDL_GPUVertexAttribute ground_parts[4] = {
-        {0, 0, SDL_GPU_VERTEXELEMENTFORMAT_SHORT2,
-            offsetof(GroundCorner, x)},
-        {1, 0, SDL_GPU_VERTEXELEMENTFORMAT_USHORT2,
-            offsetof(GroundCorner, point_x)},
+        {0, 0, SDL_GPU_VERTEXELEMENTFORMAT_SHORT4,
+            offsetof(GroundSquare, y)},
+        {1, 0, SDL_GPU_VERTEXELEMENTFORMAT_SHORT2,
+            offsetof(GroundSquare, x)},
         {2, 0, SDL_GPU_VERTEXELEMENTFORMAT_USHORT2,
-            offsetof(GroundCorner, tile_x)},
-        {3, 0, SDL_GPU_VERTEXELEMENTFORMAT_USHORT2,
-            offsetof(GroundCorner, light)}
+            offsetof(GroundSquare, tile_x)},
+        {3, 0, SDL_GPU_VERTEXELEMENTFORMAT_UBYTE4,
+            offsetof(GroundSquare, light)}
     };
     renderer->sprite_pipeline = make_pipeline(renderer->device, window,
         &shader_sprite_vert, &shader_sprite_frag, sizeof(Corner),
-        sprite_parts, 3, true);
+        sprite_parts, 3, false, 0, true);
     renderer->ground_pipeline = make_pipeline(renderer->device, window,
-        &shader_ground_vert, &shader_ground_frag, sizeof(GroundCorner),
-        ground_parts, 4, false);
+        &shader_ground_vert, &shader_ground_frag, sizeof(GroundSquare),
+        ground_parts, 4, true, 1, false);
     /* A new frame is shown when the monitor is ready for one, so that
      * no more frames are drawn than can be seen. */
     if (renderer->sampler == NULL || renderer->sprite_pipeline == NULL
@@ -430,7 +446,7 @@ static void batch_send(const Batch *batch, SDL_GPUCommandBuffer *commands,
 }
 
 /* Writes the four corners of a sprite: top left, top right, low left,
- * low right, as a square of ground has them. */
+ * low right. */
 static void put_corners(Corner *out, const Sprite *sprite)
 {
     float left = sprite->x;
@@ -496,20 +512,20 @@ static bool send_sprites(Renderer *renderer, SDL_GPUCommandBuffer *commands,
     return true;
 }
 
-/* Makes the list of triangles long enough for `squares` squares of
- * ground: for each, its corners 0, 1, 2 and then 1, 3, 2. */
-static bool make_indices(Renderer *renderer, size_t squares)
+/* Makes the list of triangles long enough for `sprites` sprites: for
+ * each, its corners 0, 1, 2 and then 1, 3, 2. */
+static bool make_indices(Renderer *renderer, size_t sprites)
 {
-    if (squares <= renderer->squares) {
+    if (sprites <= renderer->indexed) {
         return true;
     }
-    /* Twice what is asked for, so that a slightly larger window does
+    /* Twice what is asked for, so that a frame with a few more does
      * not start again. */
-    squares *= 2;
-    if (squares > UINT32_MAX / (SQUARE_INDICES * sizeof(Uint32))) {
+    sprites *= 2;
+    if (sprites > UINT32_MAX / (SPRITE_INDICES * sizeof(Uint32))) {
         return SDL_SetError("there is too much to draw");
     }
-    Uint32 size = (Uint32)(squares * SQUARE_INDICES * sizeof(Uint32));
+    Uint32 size = (Uint32)(sprites * SPRITE_INDICES * sizeof(Uint32));
     SDL_GPUBufferCreateInfo buffer_info;
     SDL_zero(buffer_info);
     buffer_info.usage = SDL_GPU_BUFFERUSAGE_INDEX;
@@ -528,10 +544,10 @@ static bool make_indices(Renderer *renderer, size_t squares)
         : SDL_AcquireGPUCommandBuffer(device);
     bool ok = false;
     if (indices != NULL) {
-        const Uint32 order[SQUARE_INDICES] = {0, 1, 2, 1, 3, 2};
-        for (size_t i = 0; i < squares * SQUARE_INDICES; i++) {
-            indices[i] = (Uint32)(i / SQUARE_INDICES * FRAME_SQUARE_CORNERS)
-                + order[i % SQUARE_INDICES];
+        const Uint32 order[SPRITE_INDICES] = {0, 1, 2, 1, 3, 2};
+        for (size_t i = 0; i < sprites * SPRITE_INDICES; i++) {
+            indices[i] = (Uint32)(i / SPRITE_INDICES * SPRITE_CORNERS)
+                + order[i % SPRITE_INDICES];
         }
         SDL_UnmapGPUTransferBuffer(device, transfer);
     }
@@ -561,22 +577,22 @@ static bool make_indices(Renderer *renderer, size_t squares)
         SDL_ReleaseGPUBuffer(device, renderer->indices);
     }
     renderer->indices = buffer;
-    renderer->squares = squares;
+    renderer->indexed = sprites;
     return true;
 }
 
 /* Sends the ground of a frame to the card, as part of `commands`: the
- * corners as the view wrote them. `*sent` gets how many squares were
+ * squares as the view wrote them. `*sent` gets how many squares were
  * sent: none if the sheet of the ground is not there. */
 static bool send_ground(Renderer *renderer, SDL_GPUCommandBuffer *commands,
                         const Frame *frame, size_t *sent)
 {
     *sent = 0;
-    size_t squares = frame->ground_count / FRAME_SQUARE_CORNERS;
+    size_t squares = frame->ground_count;
     if (squares == 0 || frame->ground_sheet >= renderer->sheet_count) {
         return true;
     }
-    size_t size = squares * FRAME_SQUARE_CORNERS * sizeof(GroundCorner);
+    size_t size = squares * sizeof(GroundSquare);
     if (!batch_make_room(&renderer->ground, renderer->device, size)) {
         return false;
     }
@@ -619,8 +635,8 @@ static void draw_sent(const Renderer *renderer,
     ScreenBlock screen;
     screen.width = (float)width;
     screen.height = (float)height;
-    screen.light_whole = (float)FRAME_LIGHT_WHOLE;
-    screen.unused = 0.0f;
+    screen.square = MAP_SQUARE;
+    screen.unused = 0;
     SDL_GPUBufferBinding buffer;
     SDL_zero(buffer);
     SDL_PushGPUVertexUniformData(commands, 0, &screen, sizeof screen);
@@ -628,14 +644,19 @@ static void draw_sent(const Renderer *renderer,
     SDL_zero(indices);
     indices.buffer = renderer->indices;
     if (ground > 0) {
+        GroundBlock block;
+        block.square = MAP_SQUARE;
+        block.light_whole = FRAME_LIGHT_WHOLE;
+        block.light_most = LIGHT_MAX;
+        block.unused = 0;
+        SDL_PushGPUFragmentUniformData(commands, 0, &block, sizeof block);
         buffer.buffer = renderer->ground.buffer;
         SDL_BindGPUGraphicsPipeline(pass, renderer->ground_pipeline);
         SDL_BindGPUVertexBuffers(pass, 0, &buffer, 1);
-        SDL_BindGPUIndexBuffer(pass, &indices,
-            SDL_GPU_INDEXELEMENTSIZE_32BIT);
         bind_sheet(renderer, pass, frame->ground_sheet);
-        SDL_DrawGPUIndexedPrimitives(pass,
-            (Uint32)(ground * SQUARE_INDICES), 1, 0, 0, 0);
+        /* Each square is four corners that its shader makes. */
+        SDL_DrawGPUPrimitives(pass, FRAME_SQUARE_CORNERS, (Uint32)ground,
+            0, 0);
     }
     if (sprites > 0) {
         buffer.buffer = renderer->sprites.buffer;
@@ -655,7 +676,7 @@ static void draw_sent(const Renderer *renderer,
          * this run. */
         bind_sheet(renderer, pass, renderer->kept[first]);
         SDL_DrawGPUIndexedPrimitives(pass,
-            (Uint32)((end - first) * SQUARE_INDICES), 1, 0,
+            (Uint32)((end - first) * SPRITE_INDICES), 1, 0,
             (Sint32)(first * SPRITE_CORNERS), 0);
         first = end;
     }
@@ -663,11 +684,8 @@ static void draw_sent(const Renderer *renderer,
 
 bool renderer_draw(Renderer *renderer, const Frame *frame)
 {
-    /* The list of triangles is sent on its own, before the frame: long
-     * enough for the ground, and for the sprites. */
-    size_t squares = frame->ground_count / FRAME_SQUARE_CORNERS;
-    if (!make_indices(renderer, squares > frame->sprite_count
-            ? squares : frame->sprite_count)) {
+    /* The list of triangles is sent on its own, before the frame. */
+    if (!make_indices(renderer, frame->sprite_count)) {
         return false;
     }
     SDL_GPUCommandBuffer *commands
