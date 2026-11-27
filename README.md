@@ -50,6 +50,7 @@ thing into a folder of `content`:
 | `items`, `characters` | the items with their pictures, and the characters they are drawn on |
 | `terrain` | the ground tiles |
 | `interface` | the pictures and sprites of the interface, the menus, the shops and the cursors |
+| `fonts` | a folder for each font, with its glyphs in one picture |
 | `campaign` | a folder for each mission, with its map and its text |
 | `maps` | the maps for several players, which lie loose in the game folder |
 | `sounds`, `videos` | the original's files, as they are |

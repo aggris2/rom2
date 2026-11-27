@@ -54,6 +54,9 @@ int import_interface(const ResArchive *graphics,
     const ResArchive *main_archive, const ResArchive *movies,
     const char *content_folder);
 
+/* content/fonts: a folder for each font. */
+int import_fonts(const ResArchive *graphics, const char *content_folder);
+
 /* content/campaign: a folder for each mission, with its map as it is and
  * its text as UTF-8. Either archive may be NULL, and the step then
  * fails; so it is with the texts and the videos. */

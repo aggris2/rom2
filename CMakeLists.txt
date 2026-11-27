@@ -79,6 +79,7 @@ rom2_set_warnings(rom2_core)
 add_library(rom2_import STATIC
     tools/import/bmp.c
     tools/import/databin.c
+    tools/import/font_sheet.c
     tools/import/frames.c
     tools/import/icon_strip.c
     tools/import/item_toml.c
@@ -98,6 +99,7 @@ add_library(rom2_import STATIC
     tools/import/res.c
     tools/import/sheet.c
     tools/import/spell_toml.c
+    tools/import/sprite16.c
     tools/import/sprite16a.c
     tools/import/sprite256.c
     tools/import/structure_sheet.c
@@ -127,6 +129,7 @@ rom2_set_warnings(res_list)
 add_executable(import_program
     tools/rom2_import/main.c
     tools/rom2_import/copies.c
+    tools/rom2_import/fonts.c
     tools/rom2_import/interface.c
     tools/rom2_import/items.c
     tools/rom2_import/objects.c
@@ -152,6 +155,7 @@ add_executable(rom2_tests
     tests/base/test_reader.c
     tests/import/test_bmp.c
     tests/import/test_databin.c
+    tests/import/test_font_sheet.c
     tests/import/test_icon_strip.c
     tests/import/test_item_toml.c
     tests/import/test_items.c
@@ -170,6 +174,7 @@ add_executable(rom2_tests
     tests/import/test_res.c
     tests/import/test_sheet.c
     tests/import/test_spell_toml.c
+    tests/import/test_sprite16.c
     tests/import/test_sprite16a.c
     tests/import/test_sprite256.c
     tests/import/test_structure_sheet.c

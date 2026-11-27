@@ -7,7 +7,8 @@
  * one kind of thing into a folder of the content folder:
  *
  *     units, heroes, objects, structures, projectiles, spells, items,
- *     terrain, interface, campaign, maps, sounds, texts, videos, rules
+ *     terrain, interface, fonts, campaign, maps, sounds, texts, videos,
+ *     rules
  *
  * Then it says how many of the original's files were read and how many
  * were not, and lists the files not read in not_imported.txt in the
@@ -45,8 +46,8 @@ typedef struct Archives {
 
 static const char *const STEP_NAMES[] = {
     "units", "heroes", "objects", "structures", "projectiles", "spells",
-    "items", "terrain", "interface", "campaign", "maps", "sounds", "texts",
-    "videos", "rules"
+    "items", "terrain", "interface", "fonts", "campaign", "maps", "sounds",
+    "texts", "videos", "rules"
 };
 #define STEP_COUNT (sizeof STEP_NAMES / sizeof STEP_NAMES[0])
 
@@ -107,14 +108,15 @@ static int step_run(const Archives *a, size_t step,
     case 7: return import_terrain(graphics, content);
     case 8: return import_interface(graphics, archive_of(a, MAIN),
         archive_of(a, MOVIES), content);
-    case 9: return import_campaign(archive_of(a, SCENARIO),
+    case 9: return import_fonts(graphics, content);
+    case 10: return import_campaign(archive_of(a, SCENARIO),
         archive_of(a, MAIN), content);
-    case 10: return import_maps(game_folder, content);
-    case 11: return import_sounds(archive_of(a, SFX), archive_of(a, MUSIC),
+    case 11: return import_maps(game_folder, content);
+    case 12: return import_sounds(archive_of(a, SFX), archive_of(a, MUSIC),
         archive_of(a, SPEECH), content);
-    case 12: return import_texts(archive_of(a, MAIN), content);
-    case 13: return import_videos(archive_of(a, VIDEO), content);
-    case 14: return import_rules(world, archive_of(a, SCENARIO), content);
+    case 13: return import_texts(archive_of(a, MAIN), content);
+    case 14: return import_videos(archive_of(a, VIDEO), content);
+    case 15: return import_rules(world, archive_of(a, SCENARIO), content);
     default: return -1;
     }
 }
