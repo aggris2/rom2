@@ -1,5 +1,7 @@
 #include "mechanics/clock.h"
 
+#include <math.h>
+
 #include "utest.h"
 
 UTEST(clock, the_speeds_are_the_originals)
@@ -89,7 +91,8 @@ UTEST(clock, time_that_is_none_or_less_passes_no_tick)
     clock_start(&clock);
     EXPECT_EQ(0u, clock_advance(&clock, 0.0));
     EXPECT_EQ(0u, clock_advance(&clock, -3.0));
-    EXPECT_EQ(0u, clock_advance(&clock, 0.0 / 0.0));
+    /* Nor does a time that is not a number. */
+    EXPECT_EQ(0u, clock_advance(&clock, (double)NAN));
     EXPECT_EQ(0u, (unsigned)clock.tick);
     EXPECT_EQ(1u, clock_advance(&clock, 1.0 / 16.0));
 }
