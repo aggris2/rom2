@@ -19,6 +19,7 @@ src/
   base/      small building blocks with no dependencies, and ROM2's own
              two file formats, PNG and TOML
   map/       reading a map
+  game/      the game: so far a window
 tools/
   import/    the importer: readers for the original game's file formats,
              a module for each kind of thing, and main.c, the program
@@ -59,6 +60,8 @@ ROM2 takes as it is, so the game reads it and not the importer. It gives
 the map's size, ground, heights, objects, structures, players and units.
 The map's script is not read yet.
 
+`src/game` is the program `rom2`, and the only code that uses SDL. So far
+it opens an empty window.
 
 `tools/import` reads the original game's files: so far the `.res` archives,
 the `.reg` registries, the `.256`, `.16a` and `.16` sprites, the `.pal`
@@ -123,9 +126,10 @@ it.
 `rom2_core` is a static library built from `src/base` and `src/map`. It depends
 on the C standard library and on zlib.
 
-zlib is the one outside library so far. The build downloads its source at
-an exact version, checked by its hash, and builds it with ROM2, so every
-build uses the same zlib. Nothing of zlib is kept in this repository.
+zlib and SDL are the outside libraries so far. The build downloads the
+source of each at an exact version, checked by its hash, and builds it
+with ROM2, so every build uses the same zlib and the same SDL. Nothing of
+either is kept in this repository. Only the game uses SDL.
 
 `rom2_formats` is a static library built from the modules of
 `tools/import`, without the program and its steps. It depends on

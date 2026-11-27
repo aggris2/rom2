@@ -18,6 +18,15 @@ jobs:
         os: [ubuntu-latest, windows-latest, macos-latest]
     steps:
       - uses: actions/checkout@v4
+      - name: Install what SDL needs to build
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libx11-dev libxext-dev libxrandr-dev \
+            libxcursor-dev libxfixes-dev libxi-dev libxss-dev \
+            libxkbcommon-dev libwayland-dev libegl1-mesa-dev \
+            libgl1-mesa-dev libdrm-dev libgbm-dev libasound2-dev \
+            libpulse-dev libudev-dev libdbus-1-dev
       - name: Configure
         run: cmake -B build -DCMAKE_BUILD_TYPE=Debug
       - name: Build
@@ -30,6 +39,14 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - name: Install what SDL needs to build
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libx11-dev libxext-dev libxrandr-dev \
+            libxcursor-dev libxfixes-dev libxi-dev libxss-dev \
+            libxkbcommon-dev libwayland-dev libegl1-mesa-dev \
+            libgl1-mesa-dev libdrm-dev libgbm-dev libasound2-dev \
+            libpulse-dev libudev-dev libdbus-1-dev
       - name: Configure
         run: cmake -B build -DCMAKE_BUILD_TYPE=Debug -DROM2_SANITIZE=ON
       - name: Build

@@ -14,10 +14,17 @@ holder of the Rage of Mages or Allods trademarks.
 
 You need a C11 compiler and CMake 3.20 or newer.
 
-ROM2 uses the zlib library. The first `cmake` command downloads zlib's
-source, at a fixed version, and builds it with ROM2, so that step needs an
-internet connection once. To use the zlib installed on your system instead,
-add `-DROM2_SYSTEM_ZLIB=ON` to that command.
+ROM2 uses two libraries: zlib, and SDL 3 for the window. The first `cmake`
+command downloads the source of both, at fixed versions, and builds them
+with ROM2, so that step needs an internet connection once. To use the ones
+installed on your system instead, add `-DROM2_SYSTEM_ZLIB=ON` or
+`-DROM2_SYSTEM_SDL=ON` to that command.
+
+On Linux, SDL needs the development packages of X11 or Wayland to build.
+Its own list is at
+[wiki.libsdl.org](https://wiki.libsdl.org/SDL3/README-linux#build-dependencies).
+To build the importer and the tests alone, with no SDL, add
+`-DROM2_BUILD_GAME=OFF`.
 
 ```bash
 cmake -B build

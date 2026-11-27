@@ -5,6 +5,10 @@ set(CMAKE_C_STANDARD 11)
 set(CMAKE_C_STANDARD_REQUIRED ON)
 set(CMAKE_C_EXTENSIONS OFF)
 
+# Writes build/compile_commands.json, which tells an editor where every
+# header is, the downloaded libraries' too.
+set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
+
 option(ROM2_SANITIZE "Build with AddressSanitizer and UndefinedBehaviorSanitizer" OFF)
 
 # Warnings are errors in our own code.
@@ -61,6 +65,34 @@ else()
     set_target_properties(zlibstatic PROPERTIES
         INTERFACE_SYSTEM_INCLUDE_DIRECTORIES "${ROM2_ZLIB_INCLUDES}")
     set(ROM2_ZLIB ZLIB::ZLIBSTATIC)
+endif()
+
+# SDL opens the window and reads the keys and the mouse. Like zlib, its
+# source is downloaded at an exact version checked by its hash and built
+# along with ROM2, unless ROM2_SYSTEM_SDL asks for the system's own. Only
+# the game uses it: ROM2_BUILD_GAME=OFF builds the importer and the tests
+# alone, with no SDL at all.
+option(ROM2_BUILD_GAME "Build the game, which needs SDL" ON)
+option(ROM2_SYSTEM_SDL "Use the SDL3 installed on the system" OFF)
+if(ROM2_BUILD_GAME)
+    if(ROM2_SYSTEM_SDL)
+        find_package(SDL3 REQUIRED CONFIG)
+    else()
+        set(SDL_SHARED OFF CACHE BOOL "" FORCE)
+        set(SDL_STATIC ON CACHE BOOL "" FORCE)
+        set(SDL_TEST_LIBRARY OFF CACHE BOOL "" FORCE)
+        set(SDL_EXAMPLES OFF CACHE BOOL "" FORCE)
+        set(SDL_INSTALL OFF CACHE BOOL "" FORCE)
+        # Faking key presses for other programs, which needs a package
+        # many systems do not have.
+        set(SDL_X11_XTEST OFF CACHE BOOL "" FORCE)
+        FetchContent_Declare(SDL3
+            URL https://github.com/libsdl-org/SDL/releases/download/release-3.4.20/SDL3-3.4.20.tar.gz
+            URL_HASH SHA256=f3bb06f55bed9557227a700af2ea62e49497ebdf58037732a731a5fb3ef8581f
+            EXCLUDE_FROM_ALL
+        )
+        FetchContent_MakeAvailable(SDL3)
+    endif()
 endif()
 
 # rom2_core: code with no dependency on a window, a network or the clock.
@@ -127,6 +159,15 @@ add_executable(import_program
 set_target_properties(import_program PROPERTIES OUTPUT_NAME import)
 target_link_libraries(import_program PRIVATE rom2_formats)
 rom2_set_warnings(import_program)
+
+# rom2: the game.
+if(ROM2_BUILD_GAME)
+    add_executable(rom2
+        src/game/main.c
+    )
+    target_link_libraries(rom2 PRIVATE SDL3::SDL3)
+    rom2_set_warnings(rom2)
+endif()
 
 # Tests: one program, rom2_tests, built from every test file.
 enable_testing()
