@@ -75,7 +75,14 @@ UTEST(sprite_sheet, refuses_a_definition_that_lacks_a_part)
     EXPECT_TRUE(refuses("sprite = 1\n"));
     EXPECT_TRUE(refuses("[sprite]\ncell = [8, 8]\nanchor = [0, 0]\n"));
     EXPECT_TRUE(refuses("[sprite]\nsheet = \"s.png\"\nanchor = [0, 0]\n"));
-    EXPECT_TRUE(refuses("[sprite]\nsheet = \"s.png\"\ncell = [8, 8]\n"));
+}
+
+UTEST(sprite_sheet, a_sheet_without_an_anchor_has_it_at_its_corner)
+{
+    SpriteSheet def;
+    ASSERT_TRUE(reads("[sprite]\nsheet = \"s.png\"\ncell = [8, 8]\n", &def));
+    EXPECT_EQ(0, def.anchor_x);
+    EXPECT_EQ(0, def.anchor_y);
 }
 
 UTEST(sprite_sheet, refuses_a_part_of_the_wrong_kind_or_length)

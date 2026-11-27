@@ -122,6 +122,7 @@ size_t objects_sprites(const Map *map, const ObjectLook *looks,
             sprite->x = (int16_t)left;
             sprite->y = (int16_t)top;
             sprite->light = LIGHT_STANDING;
+            sprite->order = sprite_order(x, y);
         }
     }
     return count;

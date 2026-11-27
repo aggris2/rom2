@@ -4,7 +4,9 @@
  *
  * A sheet is a grid of cells of one size, a frame in each. The anchor
  * is the point of a cell that stands on the thing's place on the map:
- * for a unit, between its feet.
+ * for a unit, between its feet. A structure is placed by its squares
+ * and its sheet has no anchor, which is then the cell's top left
+ * corner.
  */
 #ifndef ROM2_DATA_SPRITE_SHEET_H
 #define ROM2_DATA_SPRITE_SHEET_H
@@ -40,10 +42,10 @@ typedef struct SpriteSheet {
  * top.
  *
  * Returns false, and leaves `*out` alone, if there is no such table,
- * it lacks the sheet, the cell or the anchor, the name of the sheet or
- * of its edges is empty, too long or not a plain file name, a cell has
- * no size or one over 4096, or the anchor is further than 4096 from
- * the cell's corner. A sheet need not have edges. */
+ * it lacks the sheet or the cell, the name of the sheet or of its
+ * edges is empty, too long or not a plain file name, a cell has no
+ * size or one over 4096, or the anchor is further than 4096 from the
+ * cell's corner. A sheet need not have edges, nor an anchor. */
 bool sprite_sheet_read(const TomlTable *top, SpriteSheet *out);
 
 /* Joins the figure of a sheet and its soft edges into the two numbers

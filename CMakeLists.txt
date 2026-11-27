@@ -105,10 +105,13 @@ add_library(rom2_core STATIC
     src/base/toml.c
     src/data/map.c
     src/data/sprite_sheet.c
+    src/data/structure_kind.c
     src/view/camera.c
     src/view/ground.c
     src/view/light.c
     src/view/objects.c
+    src/view/sprite.c
+    src/view/structures.c
 )
 target_include_directories(rom2_core PUBLIC src)
 target_link_libraries(rom2_core PRIVATE ${ROM2_ZLIB})
@@ -199,10 +202,13 @@ add_executable(rom2_tests
     tests/base/test_reader.c
     tests/base/test_toml.c
     tests/data/test_sprite_sheet.c
+    tests/data/test_structure_kind.c
     tests/view/test_camera.c
     tests/view/test_ground.c
     tests/view/test_light.c
     tests/view/test_objects.c
+    tests/view/test_sprite.c
+    tests/view/test_structures.c
     tests/import/test_bmp.c
     tests/import/test_databin.c
     tests/import/test_item.c

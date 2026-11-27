@@ -3,10 +3,16 @@
  * A frame is a list of these, in the order they are to be drawn: a
  * later one covers an earlier one. The list is what the view hands to
  * the renderer, and all the two share.
+ *
+ * What stands on the map is drawn row after row from the top, and in a
+ * row from the right, so that what is nearer the bottom of the screen
+ * covers what is behind it. Each sprite says where it stands in that
+ * order, and sprites_sort() puts a list in it.
  */
 #ifndef ROM2_VIEW_SPRITE_H
 #define ROM2_VIEW_SPRITE_H
 
+#include <stddef.h>
 #include <stdint.h>
 
 /* Places and sizes are in pixels. */
@@ -19,6 +25,16 @@ typedef struct Sprite {
     int16_t x;              /* where its top left corner goes */
     int16_t y;
     uint16_t light;         /* how bright: see FRAME_LIGHT_WHOLE */
+    uint32_t order;         /* its turn: see sprite_order() */
 } Sprite;
+
+/* The turn of what stands on the square (`column`, `row`) of a map:
+ * less for what is drawn sooner. */
+uint32_t sprite_order(int32_t column, int32_t row);
+
+/* Puts sprites in the order of their turns. Those with the same turn
+ * stay as they were to each other. `spare` has room for `count`
+ * sprites, and what it holds afterwards means nothing. */
+void sprites_sort(Sprite *sprites, size_t count, Sprite *spare);
 
 #endif

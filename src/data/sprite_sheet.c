@@ -45,7 +45,8 @@ bool sprite_sheet_read(const TomlTable *top, SpriteSheet *out)
             && (!toml_get_text(sprite, "edges", &edges)
                 || !is_plain_file_name(edges)))
         || !read_pair(sprite, "cell", 1, &cell_width, &cell_height)
-        || !read_pair(sprite, "anchor", -MOST, &anchor_x, &anchor_y)) {
+        || (toml_has(sprite, "anchor")
+            && !read_pair(sprite, "anchor", -MOST, &anchor_x, &anchor_y))) {
         return false;
     }
     memset(out, 0, sizeof *out);

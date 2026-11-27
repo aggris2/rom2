@@ -6,6 +6,7 @@
 #include <stdbool.h>
 #include <stdint.h>
 
+#include "base/toml.h"
 #include "data/sprite_sheet.h"
 #include "game/renderer.h"
 
@@ -17,12 +18,17 @@ bool sheets_load_picture(Renderer *renderer, const char *path,
                          uint16_t *sheet, uint32_t *width,
                          uint32_t *height);
 
-/* Reads the sprite sheet a definition names: the definition, the
- * picture of the figure beside it and, if it has one, the picture of
- * its soft edges. Joins the two pictures and puts the sheet on the
- * card. `*layout` gets how the sheet is cut and `*sheet` its number.
- * Returns false, with a message printed, if it cannot. */
+/* Reads a definition file. `*top` gets the table of its top, for the
+ * caller to free with toml_free(). Returns false, with a message
+ * printed, if it cannot. */
+bool sheets_read_definition(const char *path, TomlTable **top);
+
+/* Reads the sprite sheet of the definition at `definition`, given how
+ * the definition says it is cut: the picture of the figure beside the
+ * definition and, if it has one, the picture of its soft edges. Joins
+ * the two pictures and puts the sheet on the card. `*sheet` gets its
+ * number. Returns false, with a message printed, if it cannot. */
 bool sheets_load_sprites(Renderer *renderer, const char *definition,
-                         SpriteSheet *layout, uint16_t *sheet);
+                         const SpriteSheet *layout, uint16_t *sheet);
 
 #endif

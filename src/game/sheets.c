@@ -54,29 +54,20 @@ bool sheets_load_picture(Renderer *renderer, const char *path,
     return ok;
 }
 
-/* Reads the [sprite] part of a definition file. */
-static bool read_layout(const char *definition, SpriteSheet *layout)
+bool sheets_read_definition(const char *path, TomlTable **top)
 {
     uint8_t *data = NULL;
     size_t size = 0;
-    if (!file_read_all(definition, &data, &size)) {
-        fprintf(stderr, "rom2: cannot read %s\n", definition);
+    if (!file_read_all(path, &data, &size)) {
+        fprintf(stderr, "rom2: cannot read %s\n", path);
         return false;
     }
-    TomlTable *top = NULL;
     size_t line = 0;
-    bool ok = toml_read(data, size, &top, &line);
+    bool ok = toml_read(data, size, top, &line);
     free(data);
     if (!ok) {
-        fprintf(stderr, "rom2: %s: line %zu is not understood\n",
-            definition, line);
-        return false;
-    }
-    ok = sprite_sheet_read(top, layout);
-    toml_free(top);
-    if (!ok) {
-        fprintf(stderr, "rom2: %s has no usable [sprite] part\n",
-            definition);
+        fprintf(stderr, "rom2: %s: line %zu is not understood\n", path,
+            line);
     }
     return ok;
 }
@@ -96,19 +87,17 @@ static bool path_beside(const char *definition, const char *file,
 }
 
 bool sheets_load_sprites(Renderer *renderer, const char *definition,
-                         SpriteSheet *layout, uint16_t *sheet)
+                         const SpriteSheet *layout, uint16_t *sheet)
 {
-    SpriteSheet read;
     char path[1024];
     Png figure;
     Png edges;
-    if (!read_layout(definition, &read)
-        || !path_beside(definition, read.file, path, sizeof path)
+    if (!path_beside(definition, layout->file, path, sizeof path)
         || !read_png(path, &figure)) {
         return false;
     }
-    bool has_edges = read.edges[0] != '\0';
-    if (has_edges && (!path_beside(definition, read.edges, path,
+    bool has_edges = layout->edges[0] != '\0';
+    if (has_edges && (!path_beside(definition, layout->edges, path,
                 sizeof path) || !read_png(path, &edges))) {
         png_free(&figure);
         return false;
@@ -134,9 +123,6 @@ bool sheets_load_sprites(Renderer *renderer, const char *definition,
     png_free(&figure);
     if (has_edges) {
         png_free(&edges);
-    }
-    if (ok) {
-        *layout = read;
     }
     return ok;
 }

@@ -105,6 +105,10 @@ it is drawn, two numbers for each pixel: which colour of the palette, and
 how solid, with the soft edge half see-through. In the content the two stay
 separate pictures, each of which can be looked at.
 
+`src/data/structure_kind` reads what the game needs of a building's
+definition: the squares it stands on, how high its picture is, and its
+sprite sheet.
+
 `src/view` turns what there is into what is drawn. `frame.h` is what the
 renderer is handed once a frame: the ground, and the sprites that lie on it.
 `sprite.h` is the record for one sprite, a part of a sheet at a place on the
@@ -114,9 +118,12 @@ square, from its slopes and the angle of the sun. `ground` writes a record for
 each square the camera sees, its four corners raised by the heights of the map
 and with that light: a square on a slope is not a rectangle, so the ground has
 a record of its own and is not made of sprites. `objects` writes a sprite for
-each tree or rock the camera can see, standing on the ground at its height, in
-the order they are drawn: row after row from the top, and in a row from the
-right. None of it knows the graphics card, so all of it has unit tests.
+each tree or rock the camera can see, standing on the ground at its height.
+`structures` writes each building as strips a square high, one for each row of
+its base, because something may stand behind a building's front and before its
+back. Every sprite says where it stands, and `sprite` sorts the list into the
+order it is drawn: row after row from the top, and in a row from the right.
+None of it knows the graphics card, so all of it has unit tests.
 
 `src/game` is the program `rom2`, and the only code that uses SDL. `main.c`
 is the window and the loop. `map_screen` is being in a map, the one place of
