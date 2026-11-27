@@ -21,6 +21,8 @@ layout(set = 3, binding = 0) uniform Ground {
     int light_whole;    /* the level at which a tile is as its own
                            colours */
     int light_most;     /* the highest level there is */
+    int grid;           /* how strongly the grid is drawn, in 255ths:
+                           0 for no grid */
 } ground;
 
 layout(location = 0) flat in ivec4 corners;  /* y: see ground.vert */
@@ -84,6 +86,18 @@ void main()
     int dark_here = dark_top + DARK_ONE / 2
         + (dark_low - dark_top) / tall * row;
     int level = ground.light_most - dark_here / DARK_ONE;
-    pixel = vec4(vec3(min(colour * level / ground.light_whole, 255))
-        / 255.0, 1.0);
+    ivec3 lit = min(colour * level / ground.light_whole, 255);
+
+    /* The grid: the square's left column, and its top edge. Where the
+     * edge steps by more than a pixel from a column to the one beside
+     * it, the line is as many pixels tall, so that it has no gaps. */
+    if (ground.grid > 0) {
+        int beside = max(
+            edge(corners.x, corners.y, column + 1, true),
+            edge(corners.x, corners.y, column - 1, true)) - top;
+        if (column == 0 || row < max(beside, 1)) {
+            lit += (255 - lit) * ground.grid / 255;
+        }
+    }
+    pixel = vec4(vec3(lit) / 255.0, 1.0);
 }

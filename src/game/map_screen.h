@@ -1,13 +1,15 @@
 /* Being in a map: the one place of the game there is so far.
  *
  * It shows the ground of a map, with its hills and the light on them,
- * and the trees and rocks that stand on it. The arrow keys or W, A, S
- * and D move the camera over it.
+ * and what stands on it. The arrow keys or W, A, S and D move the
+ * camera over it, and G shows and hides a grid of its squares.
  */
 #ifndef ROM2_GAME_MAP_SCREEN_H
 #define ROM2_GAME_MAP_SCREEN_H
 
 #include <stdbool.h>
+
+#include <SDL3/SDL.h>
 
 #include "game/renderer.h"
 
@@ -23,6 +25,9 @@ MapScreen *map_screen_open(Renderer *renderer, const char *content,
 /* One frame: moves the camera by what the keys ask for in `seconds`,
  * and draws. Returns false, with a message printed, if drawing fails. */
 bool map_screen_frame(MapScreen *screen, float seconds);
+
+/* A key was pressed down. */
+void map_screen_key(MapScreen *screen, SDL_Keycode key);
 
 /* Gives everything back. NULL is allowed. */
 void map_screen_close(MapScreen *screen);

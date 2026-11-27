@@ -6,6 +6,7 @@
 #ifndef ROM2_VIEW_FRAME_H
 #define ROM2_VIEW_FRAME_H
 
+#include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
 
@@ -38,7 +39,15 @@ typedef struct GroundSquare {
                                                is: see FRAME_LIGHT_WHOLE */
 } GroundSquare;
 
+/* How strongly the lines of the grid are drawn over the ground, in
+ * 255ths: at 255 they would be white. */
+#define FRAME_GRID_STRENGTH 40
+
 typedef struct Frame {
+    /* Whether the grid is drawn: a line along the top and the left
+     * edge of every square of ground, bent as the ground is. It is for
+     * looking at how a map lies, and no part of the game. */
+    bool ground_grid;
     uint16_t ground_sheet;          /* the sheet of ground tiles */
     const GroundSquare *ground;
     size_t ground_count;

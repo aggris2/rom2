@@ -34,6 +34,7 @@ struct MapScreen {
      * move it by less than a pixel in a frame. */
     float left;
     float top;
+    bool grid;                  /* whether the grid is shown */
     uint8_t *light;             /* the light at each corner of the map */
     ObjectLook objects[OBJECT_KINDS];   /* how each kind of object looks */
     StructureLook structures[STRUCTURE_KINDS];  /* and of structure */
@@ -385,6 +386,7 @@ bool map_screen_frame(MapScreen *screen, float seconds)
         screen->sprite_room = most;
     }
     Frame frame;
+    frame.ground_grid = screen->grid;
     frame.ground_sheet = screen->tiles;
     frame.ground = screen->ground;
     frame.ground_count = ground_squares(&screen->map, screen->light,
@@ -403,6 +405,13 @@ bool map_screen_frame(MapScreen *screen, float seconds)
         return false;
     }
     return true;
+}
+
+void map_screen_key(MapScreen *screen, SDL_Keycode key)
+{
+    if (key == SDLK_G) {
+        screen->grid = !screen->grid;
+    }
 }
 
 void map_screen_close(MapScreen *screen)

@@ -43,9 +43,10 @@ static void toggle_fullscreen(SDL_Window *window)
     }
 }
 
-/* Takes what happened since the last frame. Returns false when the
- * player wants to leave. */
-static bool handle_events(SDL_Window *window)
+/* Takes what happened since the last frame. A key that is not the
+ * window's goes to the map. Returns false when the player wants to
+ * leave. */
+static bool handle_events(SDL_Window *window, MapScreen *screen)
 {
     SDL_Event event;
     while (SDL_PollEvent(&event)) {
@@ -61,6 +62,8 @@ static bool handle_events(SDL_Window *window)
         if (event.key.key == SDLK_RETURN
             && (event.key.mod & SDL_KMOD_ALT) != 0) {
             toggle_fullscreen(window);
+        } else {
+            map_screen_key(screen, event.key.key);
         }
     }
     return true;
@@ -104,7 +107,7 @@ static bool run(SDL_Window *window, const char *content, const char *map)
      * before that holds whatever was on the screen behind it. */
     bool ok = screen != NULL && SDL_ShowWindow(window);
     Uint64 before = SDL_GetTicksNS();
-    while (ok && handle_events(window)) {
+    while (ok && handle_events(window, screen)) {
         Uint64 now = SDL_GetTicksNS();
         float measured = (float)(now - before) / 1e9f;
         before = now;

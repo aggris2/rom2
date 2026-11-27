@@ -53,7 +53,7 @@ typedef struct GroundBlock {
     Sint32 square;
     Sint32 light_whole;
     Sint32 light_most;
-    Sint32 unused;
+    Sint32 grid;
 } GroundBlock;
 
 /* What is sent to the card anew each frame: a buffer on the card, the
@@ -666,7 +666,7 @@ static void draw_sent(const Renderer *renderer,
         block.square = MAP_SQUARE;
         block.light_whole = FRAME_LIGHT_WHOLE;
         block.light_most = LIGHT_MAX;
-        block.unused = 0;
+        block.grid = frame->ground_grid ? FRAME_GRID_STRENGTH : 0;
         SDL_PushGPUFragmentUniformData(commands, 0, &block, sizeof block);
         buffer.buffer = renderer->ground.buffer;
         SDL_BindGPUGraphicsPipeline(pass, renderer->ground_pipeline);
