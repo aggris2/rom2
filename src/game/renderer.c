@@ -12,7 +12,8 @@
 typedef struct Sheet {
     SDL_GPUTexture *indices;
     SDL_GPUTexture *solid;
-    SDL_GPUTexture *palette;
+    SDL_GPUTexture *palettes;   /* a palette in each row */
+    uint32_t palette_count;
 } Sheet;
 
 /* A corner of a sprite, as sprite.vert takes it. */
@@ -22,6 +23,7 @@ typedef struct Corner {
     float u;        /* in the sheet */
     float v;
     float light;    /* 1 is as the sheet's colours */
+    float palette;  /* which row of the sheet's palettes */
 } Corner;
 
 /* A sprite has four corners: top left, top right, low left, low
@@ -256,13 +258,13 @@ Renderer *renderer_open(SDL_Window *window)
     renderer->sampler = SDL_CreateGPUSampler(renderer->device,
         &sampler_info);
     /* A sprite's corner is a place, a point of its sheet and its light,
-     * as floats.
+     * with the palette it is drawn in, as floats.
      * The ground's squares are handed over as the view wrote them: see
      * GroundSquare. The ground has no holes to see through. */
     const SDL_GPUVertexAttribute sprite_parts[3] = {
         {0, 0, SDL_GPU_VERTEXELEMENTFORMAT_FLOAT2, offsetof(Corner, x)},
         {1, 0, SDL_GPU_VERTEXELEMENTFORMAT_FLOAT2, offsetof(Corner, u)},
-        {2, 0, SDL_GPU_VERTEXELEMENTFORMAT_FLOAT, offsetof(Corner, light)}
+        {2, 0, SDL_GPU_VERTEXELEMENTFORMAT_FLOAT2, offsetof(Corner, light)}
     };
     const SDL_GPUVertexAttribute ground_parts[4] = {
         {0, 0, SDL_GPU_VERTEXELEMENTFORMAT_SHORT4,
@@ -301,7 +303,7 @@ void renderer_close(Renderer *renderer)
     for (size_t i = 0; i < renderer->sheet_count; i++) {
         SDL_ReleaseGPUTexture(device, renderer->sheets[i].indices);
         SDL_ReleaseGPUTexture(device, renderer->sheets[i].solid);
-        SDL_ReleaseGPUTexture(device, renderer->sheets[i].palette);
+        SDL_ReleaseGPUTexture(device, renderer->sheets[i].palettes);
     }
     free(renderer->sheets);
     free(renderer->kept);
@@ -326,10 +328,14 @@ void renderer_close(Renderer *renderer)
 
 bool renderer_add_sheet(Renderer *renderer, uint32_t width, uint32_t height,
                         const uint8_t *colours, const uint8_t *solid,
-                        const Rgb *palette, uint16_t *out)
+                        const Rgb *palettes, uint32_t palette_count,
+                        uint16_t *out)
 {
     if (width == 0 || height == 0) {
         return SDL_SetError("the sheet has no size");
+    }
+    if (palette_count == 0 || palette_count > RENDERER_MAX_PALETTES) {
+        return SDL_SetError("the sheet has no palette, or too many");
     }
     if (renderer->sheet_count > UINT16_MAX) {
         return SDL_SetError("there are too many sheets");
@@ -351,13 +357,19 @@ bool renderer_add_sheet(Renderer *renderer, uint32_t width, uint32_t height,
         memset(all_solid, 255, (size_t)width * height);
         solid = all_solid;
     }
-    /* The palette as the card takes it: red, green, blue, and a fourth
-     * number that is not used. */
-    uint8_t rgba[256 * 4];
-    for (int i = 0; i < 256; i++) {
-        rgba[i * 4] = palette[i].r;
-        rgba[i * 4 + 1] = palette[i].g;
-        rgba[i * 4 + 2] = palette[i].b;
+    /* The palettes as the card takes them, a picture with a palette in
+     * each row: red, green, blue, and a fourth number that is not
+     * used. */
+    size_t colour_count = (size_t)palette_count * 256;
+    uint8_t *rgba = malloc(colour_count * 4);
+    if (rgba == NULL) {
+        free(all_solid);
+        return SDL_OutOfMemory();
+    }
+    for (size_t i = 0; i < colour_count; i++) {
+        rgba[i * 4] = palettes[i].r;
+        rgba[i * 4 + 1] = palettes[i].g;
+        rgba[i * 4 + 2] = palettes[i].b;
         rgba[i * 4 + 3] = 255;
     }
     SDL_GPUDevice *device = renderer->device;
@@ -367,11 +379,13 @@ bool renderer_add_sheet(Renderer *renderer, uint32_t width, uint32_t height,
     sheet.solid = sheet.indices == NULL ? NULL
         : make_texture(device, SDL_GPU_TEXTUREFORMAT_R8_UNORM, width,
             height, solid, 1);
-    sheet.palette = sheet.solid == NULL ? NULL
+    sheet.palettes = sheet.solid == NULL ? NULL
         : make_texture(device, SDL_GPU_TEXTUREFORMAT_R8G8B8A8_UNORM, 256,
-            1, rgba, 4);
+            palette_count, rgba, 4);
+    sheet.palette_count = palette_count;
+    free(rgba);
     free(all_solid);
-    if (sheet.palette == NULL) {
+    if (sheet.palettes == NULL) {
         if (sheet.indices != NULL) {
             SDL_ReleaseGPUTexture(device, sheet.indices);
         }
@@ -446,8 +460,9 @@ static void batch_send(const Batch *batch, SDL_GPUCommandBuffer *commands,
 }
 
 /* Writes the four corners of a sprite: top left, top right, low left,
- * low right. */
-static void put_corners(Corner *out, const Sprite *sprite)
+ * low right. Its sheet has `palette_count` palettes. */
+static void put_corners(Corner *out, const Sprite *sprite,
+                        uint32_t palette_count)
 {
     float left = sprite->x;
     float top = sprite->y;
@@ -458,10 +473,12 @@ static void put_corners(Corner *out, const Sprite *sprite)
     float u_end = u + (float)sprite->width;
     float v_end = v + (float)sprite->height;
     float light = (float)sprite->light / (float)FRAME_LIGHT_WHOLE;
-    Corner top_left = {left, top, u, v, light};
-    Corner top_right = {right, top, u_end, v, light};
-    Corner low_left = {left, bottom, u, v_end, light};
-    Corner low_right = {right, bottom, u_end, v_end, light};
+    float palette = sprite->palette < palette_count
+        ? (float)sprite->palette : 0.0f;
+    Corner top_left = {left, top, u, v, light, palette};
+    Corner top_right = {right, top, u_end, v, light, palette};
+    Corner low_left = {left, bottom, u, v_end, light, palette};
+    Corner low_right = {right, bottom, u_end, v_end, light, palette};
     out[0] = top_left;
     out[1] = top_right;
     out[2] = low_left;
@@ -499,7 +516,8 @@ static bool send_sprites(Renderer *renderer, SDL_GPUCommandBuffer *commands,
     for (size_t i = 0; i < frame->sprite_count; i++) {
         if (frame->sprites[i].sheet < renderer->sheet_count) {
             put_corners(&corners[*sent * SPRITE_CORNERS],
-                &frame->sprites[i]);
+                &frame->sprites[i],
+                renderer->sheets[frame->sprites[i].sheet].palette_count);
             renderer->kept[(*sent)++] = frame->sprites[i].sheet;
         }
     }
@@ -618,7 +636,7 @@ static void bind_sheet(const Renderer *renderer, SDL_GPURenderPass *pass,
     textures[0].sampler = renderer->sampler;
     textures[1].texture = sheet->solid;
     textures[1].sampler = renderer->sampler;
-    textures[2].texture = sheet->palette;
+    textures[2].texture = sheet->palettes;
     textures[2].sampler = renderer->sampler;
     SDL_BindGPUFragmentSamplers(pass, 0, textures, 3);
 }

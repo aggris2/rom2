@@ -77,6 +77,20 @@ UTEST(sprite_sheet, refuses_a_definition_that_lacks_a_part)
     EXPECT_TRUE(refuses("[sprite]\nsheet = \"s.png\"\nanchor = [0, 0]\n"));
 }
 
+UTEST(sprite_sheet, reads_the_picture_of_its_palettes_if_it_has_one)
+{
+    SpriteSheet def;
+    ASSERT_TRUE(reads("[sprite]\nsheet = \"s.png\"\ncell = [8, 8]\n"
+        "palettes = \"palettes.png\"\n", &def));
+    EXPECT_STREQ("palettes.png", def.palettes);
+    ASSERT_TRUE(reads("[sprite]\nsheet = \"s.png\"\ncell = [8, 8]\n", &def));
+    EXPECT_STREQ("", def.palettes);
+    EXPECT_TRUE(refuses("[sprite]\nsheet = \"s.png\"\ncell = [8, 8]\n"
+        "palettes = \"../p.png\"\n"));
+    EXPECT_TRUE(refuses("[sprite]\nsheet = \"s.png\"\ncell = [8, 8]\n"
+        "palettes = 3\n"));
+}
+
 UTEST(sprite_sheet, a_sheet_without_an_anchor_has_it_at_its_corner)
 {
     SpriteSheet def;

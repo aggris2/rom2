@@ -61,6 +61,7 @@ size_t structures_sprites(const Map *map, const StructureLook *looks,
             sprite->x = (int16_t)x;
             sprite->y = (int16_t)y;
             sprite->light = LIGHT_STANDING;
+            sprite->palette = 0;
             /* After what stands to the right of it in the row, and
              * before what stands to the left. */
             sprite->order = sprite_order(

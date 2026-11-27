@@ -25,6 +25,7 @@ typedef struct Sprite {
     int16_t x;              /* where its top left corner goes */
     int16_t y;
     uint16_t light;         /* how bright: see FRAME_LIGHT_WHOLE */
+    uint16_t palette;       /* which of its sheet's palettes, from 0 */
     uint32_t order;         /* its turn: see sprite_order() */
 } Sprite;
 

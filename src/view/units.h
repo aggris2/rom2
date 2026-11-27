@@ -29,6 +29,9 @@ typedef struct UnitLook {
     uint16_t cell_height;
     int16_t anchor_x;       /* the point of a cell that stands on the map */
     int16_t anchor_y;
+    /* Its sheet has a palette for each colour a player can have: a
+     * human's cloth shows whose it is. */
+    bool by_player;
 } UnitLook;
 
 /* The most sprites units_sprites() writes for a map: room for this
@@ -42,6 +45,10 @@ size_t units_most(const Map *map);
  * the ground there, shows the standing frame of the way it faces, and
  * is as bright as LIGHT_STANDING. One that faces a way there is not is
  * not drawn.
+ *
+ * A unit whose sheet goes by the player is drawn in the palette that
+ * its player's colour numbers, and any other in its sheet's first. So
+ * is one whose player the map does not have.
  *
  * The sprites are not in the order they are to be drawn, but each has
  * its turn: see sprites_sort(). */

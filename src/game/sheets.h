@@ -25,9 +25,10 @@ bool sheets_read_definition(const char *path, TomlTable **top);
 
 /* Reads the sprite sheet of the definition at `definition`, given how
  * the definition says it is cut: the picture of the figure beside the
- * definition and, if it has one, the picture of its soft edges. Joins
- * the two pictures and puts the sheet on the card. `*sheet` gets its
- * number. Returns false, with a message printed, if it cannot. */
+ * definition and, if it has them, the pictures of its soft edges and
+ * of its palettes. Joins the first two and puts the sheet on the card.
+ * `*sheet` gets its number. Returns false, with a message printed, if
+ * it cannot. */
 bool sheets_load_sprites(Renderer *renderer, const char *definition,
                          const SpriteSheet *layout, uint16_t *sheet);
 

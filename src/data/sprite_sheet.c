@@ -35,6 +35,7 @@ bool sprite_sheet_read(const TomlTable *top, SpriteSheet *out)
     const TomlTable *sprite = toml_get_table(top, "sprite");
     const char *sheet = NULL;
     const char *edges = NULL;
+    const char *palettes = NULL;
     int32_t cell_width = 0;
     int32_t cell_height = 0;
     int32_t anchor_x = 0;
@@ -44,6 +45,9 @@ bool sprite_sheet_read(const TomlTable *top, SpriteSheet *out)
         || (toml_has(sprite, "edges")
             && (!toml_get_text(sprite, "edges", &edges)
                 || !is_plain_file_name(edges)))
+        || (toml_has(sprite, "palettes")
+            && (!toml_get_text(sprite, "palettes", &palettes)
+                || !is_plain_file_name(palettes)))
         || !read_pair(sprite, "cell", 1, &cell_width, &cell_height)
         || (toml_has(sprite, "anchor")
             && !read_pair(sprite, "anchor", -MOST, &anchor_x, &anchor_y))) {
@@ -53,6 +57,9 @@ bool sprite_sheet_read(const TomlTable *top, SpriteSheet *out)
     memcpy(out->file, sheet, strlen(sheet));
     if (edges != NULL) {
         memcpy(out->edges, edges, strlen(edges));
+    }
+    if (palettes != NULL) {
+        memcpy(out->palettes, palettes, strlen(palettes));
     }
     out->cell_width = (uint16_t)cell_width;
     out->cell_height = (uint16_t)cell_height;

@@ -12,6 +12,7 @@ typedef struct MakeUnits {
     Map map;
     uint8_t heights[100];
     MapUnit units[4];
+    MapPlayer players[3];
     UnitLook looks[UNIT_TYPES];
     Sprite sprites[4];
 } MakeUnits;
@@ -23,6 +24,11 @@ static void make_units(MakeUnits *m)
     m->map.info.height = 10;
     m->map.heights = m->heights;
     m->map.units = m->units;
+    /* Three players, with the colours 0, 7 and 2. */
+    m->map.players = m->players;
+    m->map.player_count = 3;
+    m->players[1].colour = 7;
+    m->players[2].colour = 2;
     m->looks[3].known = true;
     m->looks[3].sheet = 30;
     m->looks[3].cell_width = 64;
@@ -123,6 +129,49 @@ UTEST(units, a_unit_is_raised_by_the_ground_it_stands_on)
     m.heights[6 * 10 + 5] = 40;
     ASSERT_EQ(1u, sprites_for(&m, 0, 0, 320, 320));
     EXPECT_EQ(176 - 40 - 40, m.sprites[0].y);
+}
+
+UTEST(units, a_unit_whose_sheet_goes_by_the_player_has_its_players_colour)
+{
+    MakeUnits m;
+    make_units(&m);
+    m.looks[3].by_player = true;
+    /* Players are counted from 1. */
+    put(&m, 1, 1, 3)->player = 2;
+    put(&m, 2, 2, 3)->player = 3;
+    put(&m, 3, 3, 3)->player = 1;
+    ASSERT_EQ(3u, sprites_for(&m, 0, 0, 320, 320));
+    EXPECT_EQ(7u, m.sprites[0].palette);
+    EXPECT_EQ(2u, m.sprites[1].palette);
+    EXPECT_EQ(0u, m.sprites[2].palette);
+}
+
+UTEST(units, a_unit_whose_sheet_does_not_go_by_the_player_has_the_first)
+{
+    MakeUnits m;
+    make_units(&m);
+    put(&m, 1, 1, 3)->player = 2;
+    ASSERT_EQ(1u, sprites_for(&m, 0, 0, 320, 320));
+    EXPECT_EQ(0u, m.sprites[0].palette);
+}
+
+UTEST(units, a_unit_of_a_player_the_map_does_not_have_has_the_first_palette)
+{
+    MakeUnits m;
+    make_units(&m);
+    m.looks[3].by_player = true;
+    put(&m, 1, 1, 3)->player = 0;
+    put(&m, 2, 2, 3)->player = 4;
+    put(&m, 3, 3, 3)->player = -1;
+    ASSERT_EQ(3u, sprites_for(&m, 0, 0, 320, 320));
+    EXPECT_EQ(0u, m.sprites[0].palette);
+    EXPECT_EQ(0u, m.sprites[1].palette);
+    EXPECT_EQ(0u, m.sprites[2].palette);
+    /* Nor does a colour that is no number of a palette pick one. */
+    m.players[1].colour = -3;
+    m.units[0].player = 2;
+    ASSERT_EQ(3u, sprites_for(&m, 0, 0, 320, 320));
+    EXPECT_EQ(0u, m.sprites[0].palette);
 }
 
 UTEST(units, a_type_that_is_not_known_is_not_drawn)

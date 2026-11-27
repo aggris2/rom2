@@ -40,7 +40,7 @@ bool sheets_load_picture(Renderer *renderer, const char *path,
         fprintf(stderr, "rom2: %s has no palette\n", path);
     } else {
         ok = renderer_add_sheet(renderer, png.width, png.height,
-            png.pixels, NULL, png.palette, sheet);
+            png.pixels, NULL, png.palette, 1, sheet);
         if (!ok) {
             fprintf(stderr, "rom2: cannot use %s: %s\n", path,
                 SDL_GetError());
@@ -86,6 +86,46 @@ static bool path_beside(const char *definition, const char *file,
     return true;
 }
 
+/* Puts a sheet on the card with the palettes its definition names, or
+ * with the one of its own picture if it names none. */
+static bool add_sheet(Renderer *renderer, const char *definition,
+                      const SpriteSheet *layout, const Png *figure,
+                      const uint8_t *colours, const uint8_t *solid,
+                      uint16_t *sheet)
+{
+    char path[1024];
+    Png rows;
+    const Rgb *palettes = figure->palette;
+    uint32_t count = 1;
+    bool has_rows = layout->palettes[0] != '\0';
+    if (has_rows) {
+        if (!path_beside(definition, layout->palettes, path, sizeof path)
+            || !read_png(path, &rows)) {
+            return false;
+        }
+        /* Three bytes for a pixel, as an Rgb is. */
+        _Static_assert(sizeof(Rgb) == 3, "an Rgb is three bytes");
+        if (rows.kind != PNG_RGB || rows.width != 256) {
+            fprintf(stderr, "rom2: %s is not a picture of palettes\n",
+                path);
+            png_free(&rows);
+            return false;
+        }
+        palettes = (const Rgb *)rows.pixels;
+        count = rows.height;
+    }
+    bool ok = renderer_add_sheet(renderer, figure->width, figure->height,
+        colours, solid, palettes, count, sheet);
+    if (!ok) {
+        fprintf(stderr, "rom2: cannot use the sheet of %s: %s\n",
+            definition, SDL_GetError());
+    }
+    if (has_rows) {
+        png_free(&rows);
+    }
+    return ok;
+}
+
 bool sheets_load_sprites(Renderer *renderer, const char *definition,
                          const SpriteSheet *layout, uint16_t *sheet)
 {
@@ -113,11 +153,9 @@ bool sheets_load_sprites(Renderer *renderer, const char *definition,
         fprintf(stderr, "rom2: the pictures of %s do not go together\n",
             definition);
         ok = false;
-    } else if (!renderer_add_sheet(renderer, figure.width, figure.height,
-            colours, solid, figure.palette, sheet)) {
-        fprintf(stderr, "rom2: cannot use the sheet of %s: %s\n",
-            definition, SDL_GetError());
-        ok = false;
+    } else {
+        ok = add_sheet(renderer, definition, layout, &figure, colours,
+            solid, sheet);
     }
     free(colours);
     png_free(&figure);

@@ -6,6 +6,18 @@
 /* A unit's place is in these parts of a square. */
 #define PLACE_PARTS 256
 
+/* Which of its sheet's palettes a unit is drawn in. */
+static uint16_t palette_of(const Map *map, const MapUnit *unit,
+                           const UnitLook *look)
+{
+    if (!look->by_player || unit->player < 1
+        || (uint32_t)unit->player > map->player_count) {
+        return 0;
+    }
+    int32_t colour = map->players[unit->player - 1].colour;
+    return colour < 0 || colour > UINT16_MAX ? 0 : (uint16_t)colour;
+}
+
 size_t units_most(const Map *map)
 {
     return map->unit_count;
@@ -42,6 +54,7 @@ size_t units_sprites(const Map *map, const UnitLook *looks,
         sprite->x = (int16_t)left;
         sprite->y = (int16_t)top;
         sprite->light = LIGHT_STANDING;
+        sprite->palette = palette_of(map, unit, look);
         sprite->order = sprite_order(unit->x / PLACE_PARTS,
             unit->y / PLACE_PARTS);
     }

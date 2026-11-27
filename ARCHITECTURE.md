@@ -122,9 +122,10 @@ each tree or rock the camera can see, standing on the ground at its height.
 `structures` writes each building as strips a square high, one for each row of
 its base, because something may stand behind a building's front and before its
 back. `units` writes a sprite for each unit, the standing frame of the way it
-faces. Every sprite says where it stands, and `sprite` sorts the list into the
-order it is drawn: row after row from the top, and in a row from the right.
-None of it knows the graphics card, so all of it has unit tests.
+faces, in its player's colour. Every sprite says where it stands, and `sprite`
+sorts the list into the order it is drawn: row after row from the top, and in
+a row from the right. None of it knows the graphics card, so all of it has
+unit tests.
 
 `src/game` is the program `rom2`, and the only code that uses SDL. `main.c`
 is the window and the loop. `map_screen` is being in a map, the one place of
@@ -135,16 +136,17 @@ card. Each place still to come, such as the main menu, is a file like
 `map_screen`, with the same three functions: open, one frame, close.
 
 `renderer` is the one module that talks to the graphics card, through SDL's
-GPU API. It is handed a frame and draws the ground first, then the sprites
-in the order of their list. A sheet is on the card as three small things:
-for each pixel which colour of the palette it is, for each pixel how solid
-it is, and the 256 colours. A shader looks each colour up as it draws, makes
-it as bright as the ground's light or the sprite says, up to three times the
-sheet's own colours, and lays it over what is there by how solid it is. So
-sprites stay 8 bits a pixel on the card, and a palette can be changed
-without touching the picture. A square of ground on a slope is drawn by the
-rule of the original game, in columns one pixel wide and in whole numbers:
-`ground.frag` has the rule.
+GPU API. It is handed a frame and draws the ground first, then the sprites in
+the order of their list. A sheet is on the card as three small things: for
+each pixel which colour of the palette it is, for each pixel how solid it is,
+and the 256 colours. A shader looks each colour up as it draws, makes it as
+bright as the ground's light or the sprite says, up to three times the sheet's
+own colours, and lays it over what is there by how solid it is. So sprites
+stay 8 bits a pixel on the card. A sheet may have several palettes, and a
+sprite says which it is drawn in: one sheet of a swordsman serves every
+player's colour. A square of ground on a slope is drawn by the rule of the
+original game, in columns one pixel wide and in whole numbers: `ground.frag`
+has the rule.
 
 The shaders, the small programs the graphics card runs, are written in
 GLSL in `src/game/shaders`. The card does not take them as text, and each

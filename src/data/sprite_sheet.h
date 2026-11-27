@@ -32,6 +32,10 @@ typedef struct SpriteSheet {
     /* The picture of the soft edges, of the same size, or empty if the
      * sheet has none. */
     char edges[SPRITE_SHEET_NAME_SIZE];
+    /* The picture of its palettes, 256 pixels wide with a palette in
+     * each row, or empty if the sheet has only the one of its own
+     * picture. */
+    char palettes[SPRITE_SHEET_NAME_SIZE];
     uint16_t cell_width;
     uint16_t cell_height;
     int16_t anchor_x;                   /* from the cell's top left corner */
@@ -42,10 +46,11 @@ typedef struct SpriteSheet {
  * top.
  *
  * Returns false, and leaves `*out` alone, if there is no such table,
- * it lacks the sheet or the cell, the name of the sheet or of its
- * edges is empty, too long or not a plain file name, a cell has no
- * size or one over 4096, or the anchor is further than 4096 from the
- * cell's corner. A sheet need not have edges, nor an anchor. */
+ * it lacks the sheet or the cell, the name of the sheet, of its edges
+ * or of its palettes is empty, too long or not a plain file name, a
+ * cell has no size or one over 4096, or the anchor is further than
+ * 4096 from the cell's corner. A sheet need not have edges, palettes
+ * or an anchor. */
 bool sprite_sheet_read(const TomlTable *top, SpriteSheet *out);
 
 /* Joins the figure of a sheet and its soft edges into the two numbers

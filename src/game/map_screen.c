@@ -211,6 +211,10 @@ static void add_unit(MapScreen *screen, int id, const char *path,
         look->cell_height = layout.cell_height;
         look->anchor_x = layout.anchor_x;
         look->anchor_y = layout.anchor_y;
+        /* The definition says what a unit's palettes go by. */
+        const char *by = NULL;
+        look->by_player = toml_get_text(toml_get_table(top, "sprite"),
+            "palette_by", &by) && strcmp(by, "player") == 0;
     }
 }
 
