@@ -73,7 +73,7 @@ size_t objects_most(const Camera *camera, const ObjectLook *looks)
 }
 
 size_t objects_sprites(const Map *map, const ObjectLook *looks,
-                       const Camera *camera, Sprite *out)
+                       uint64_t tick, const Camera *camera, Sprite *out)
 {
     if (camera->width <= 0 || camera->height <= 0) {
         return 0;
@@ -115,7 +115,9 @@ size_t objects_sprites(const Map *map, const ObjectLook *looks,
             }
             Sprite *sprite = &out[count++];
             sprite->sheet = look->sheet;
-            sprite->source_x = 0;
+            uint32_t frame = sprite_round_frame(&look->round,
+                tick + (uint64_t)x + (uint64_t)x * (uint64_t)y);
+            sprite->source_x = (uint16_t)(frame * look->cell_width);
             sprite->source_y = 0;
             sprite->width = look->cell_width;
             sprite->height = look->cell_height;

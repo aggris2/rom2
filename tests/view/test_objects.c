@@ -13,6 +13,7 @@ typedef struct MakeObjects {
     uint8_t objects[100];
     uint8_t heights[100];
     ObjectLook looks[OBJECT_KINDS];
+    uint64_t tick;
     Sprite sprites[400];
 } MakeObjects;
 
@@ -49,7 +50,8 @@ static size_t sprites_for(MakeObjects *m, int32_t left, int32_t top,
                           int32_t width, int32_t height)
 {
     Camera camera = {left, top, width, height};
-    size_t count = objects_sprites(&m->map, m->looks, &camera, m->sprites);
+    size_t count = objects_sprites(&m->map, m->looks, m->tick, &camera,
+        m->sprites);
     return count <= objects_most(&camera, m->looks)
         && count <= sizeof m->sprites / sizeof m->sprites[0] ? count : 9999;
 }
@@ -106,6 +108,60 @@ UTEST(objects, come_row_after_row_from_the_top_and_from_the_right)
         EXPECT_EQ(x[i] * 32 + 16 - 16 - 64, m.sprites[i].x);
         EXPECT_EQ(y[i] * 32 + 16 - 16 - 64, m.sprites[i].y);
     }
+}
+
+/* Gives kind 5, the tree, a round of three frames: frame 0 for two
+ * ticks, then 1 and 2 for one each. */
+static void make_it_sway(MakeObjects *m)
+{
+    m->looks[5].round.length = 4;
+    m->looks[5].round.frame[0] = 0;
+    m->looks[5].round.frame[1] = 0;
+    m->looks[5].round.frame[2] = 1;
+    m->looks[5].round.frame[3] = 2;
+}
+
+UTEST(objects, an_object_that_moves_shows_the_frame_of_the_tick)
+{
+    MakeObjects m;
+    make_objects(&m);
+    make_it_sway(&m);
+    /* On the square (0, 3) an object is no tick ahead. */
+    put(&m, 0, 3, 5);
+    const uint16_t frames[8] = {0, 0, 1, 2, 0, 0, 1, 2};
+    for (uint64_t tick = 0; tick < 8; tick++) {
+        m.tick = tick;
+        ASSERT_EQ(1u, sprites_for(&m, 0, 0, 320, 320));
+        EXPECT_EQ(frames[tick] * 64, m.sprites[0].source_x);
+        EXPECT_EQ(0u, m.sprites[0].source_y);
+    }
+}
+
+UTEST(objects, each_object_is_ahead_by_its_square)
+{
+    MakeObjects m;
+    make_objects(&m);
+    make_it_sway(&m);
+    /* The object on (x, y) is x + x * y ticks ahead: 2 on (1, 1) and
+     * 3 on (1, 2), and on (4, 5) 24, which is none in a round of 4. */
+    put(&m, 4, 5, 5);
+    put(&m, 1, 2, 5);
+    put(&m, 1, 1, 5);
+    ASSERT_EQ(3u, sprites_for(&m, 0, 0, 320, 320));
+    /* Row after row from the top. */
+    EXPECT_EQ(1u * 64, m.sprites[0].source_x);
+    EXPECT_EQ(2u * 64, m.sprites[1].source_x);
+    EXPECT_EQ(0u * 64, m.sprites[2].source_x);
+}
+
+UTEST(objects, an_object_that_does_not_move_shows_its_first_frame)
+{
+    MakeObjects m;
+    make_objects(&m);
+    put(&m, 3, 3, 3);
+    m.tick = 777;
+    ASSERT_EQ(1u, sprites_for(&m, 0, 0, 320, 320));
+    EXPECT_EQ(0u, m.sprites[0].source_x);
 }
 
 UTEST(objects, a_kind_that_is_not_known_is_not_drawn)

@@ -27,6 +27,21 @@
 #define SPRITE_SHEET_SOLID 255
 #define SPRITE_SHEET_EDGE 128
 
+/* The most ticks one round of a sheet's animation may last. */
+#define SPRITE_SHEET_MAX_ROUND 128
+
+/* The animation of a sheet, which goes round and round: the frame it
+ * shows in each tick of one round. A sheet that does not move has a
+ * round of no length, and shows its first frame. */
+typedef struct SpriteRound {
+    uint16_t length;                            /* in ticks */
+    uint8_t frame[SPRITE_SHEET_MAX_ROUND];
+} SpriteRound;
+
+/* The frame a round shows at a turn: the number of ticks that have
+ * passed, from whenever. */
+uint32_t sprite_round_frame(const SpriteRound *round, uint64_t turn);
+
 typedef struct SpriteSheet {
     char file[SPRITE_SHEET_NAME_SIZE];  /* beside the definition */
     /* The picture of the soft edges, of the same size, or empty if the
@@ -40,6 +55,8 @@ typedef struct SpriteSheet {
     uint16_t cell_height;
     int16_t anchor_x;                   /* from the cell's top left corner */
     int16_t anchor_y;
+    uint16_t columns;                   /* frames in a row of the sheet */
+    SpriteRound round;
 } SpriteSheet;
 
 /* Reads the [sprite] table of a definition, given the table of its
@@ -50,7 +67,15 @@ typedef struct SpriteSheet {
  * or of its palettes is empty, too long or not a plain file name, a
  * cell has no size or one over 4096, or the anchor is further than
  * 4096 from the cell's corner. A sheet need not have edges, palettes
- * or an anchor. */
+ * or an anchor, and one that does not say how many columns it has has
+ * one.
+ *
+ * A sheet that moves says so with two lists of one length, `frames`
+ * and `ticks`: which frame to show, and for how many ticks. The sheet
+ * is refused too if it has one list and not the other, they differ in
+ * length or are empty, a frame is not one of its columns or not below
+ * 256, a frame is shown for less than a tick, or a round lasts more
+ * than SPRITE_SHEET_MAX_ROUND ticks. */
 bool sprite_sheet_read(const TomlTable *top, SpriteSheet *out);
 
 /* Joins the figure of a sheet and its soft edges into the two numbers

@@ -41,8 +41,8 @@ static size_t squares_for(MakeGround *m, int32_t left, int32_t top,
                           int32_t width, int32_t height)
 {
     Camera camera = {left, top, width, height};
-    size_t count = ground_squares(&m->map, m->light, &camera, SHEET_WIDTH,
-        SHEET_HEIGHT, m->squares);
+    size_t count = ground_squares(&m->map, m->light, 0, &camera,
+        SHEET_WIDTH, SHEET_HEIGHT, m->squares);
     return count <= ground_most(&camera)
         && count <= sizeof m->squares / sizeof m->squares[0]
         ? count : 9999;
@@ -223,6 +223,61 @@ UTEST(ground, the_bits_above_the_tile_are_not_part_of_it)
     ASSERT_EQ(1u, squares_for(&m, 32, 4 * 32, 32, 32));
     EXPECT_EQ(2u * 32, m.squares[0].tile_x);
     EXPECT_EQ(4u * 32, m.squares[0].tile_y);
+}
+
+/* The picture the square (x, y) shows at a tick, on a sheet as wide
+ * as the real one, when the map names picture `named` for it. */
+static unsigned picture_shown(int x, int y, unsigned named, uint64_t tick)
+{
+    MakeGround m;
+    make_ground(&m);
+    m.ground[y * 6 + x] = (uint16_t)(named << 4);
+    Camera camera = {x * 32, y * 32, 32, 1};
+    size_t count = ground_squares(&m.map, m.light, tick, &camera, 52 * 32,
+        SHEET_HEIGHT, m.squares);
+    return count == 0 ? 9999 : m.squares[0].tile_x / 32u;
+}
+
+UTEST(ground, water_shows_the_next_of_its_four_frames_every_few_ticks)
+{
+    /* Picture 33 is the second picture of the first family of water,
+     * and stays the second picture of each family in turn. The square
+     * (0, 0) is no frame ahead. */
+    const unsigned shown[5] = {33, 37, 41, 45, 33};
+    for (unsigned step = 0; step < 5; step++) {
+        uint64_t tick = step * GROUND_WATER_TICKS;
+        EXPECT_EQ(shown[step], picture_shown(0, 0, 33, tick));
+        EXPECT_EQ(shown[step], picture_shown(0, 0, 33, tick + 3));
+    }
+}
+
+UTEST(ground, the_family_a_map_names_is_where_the_water_starts)
+{
+    EXPECT_EQ(32u, picture_shown(0, 0, 32, 0));
+    EXPECT_EQ(36u, picture_shown(0, 0, 36, 0));
+    EXPECT_EQ(47u, picture_shown(0, 0, 47, 0));
+    /* The last family goes round to the first. */
+    EXPECT_EQ(35u, picture_shown(0, 0, 47, GROUND_WATER_TICKS));
+}
+
+UTEST(ground, each_square_of_water_is_ahead_by_its_place)
+{
+    /* The square (x, y) is (x + 1) * y frames ahead: 2 on (1, 1), 6 on
+     * (2, 2), which is 2 in a round of 4, and none in the top row. */
+    EXPECT_EQ(32u, picture_shown(3, 0, 32, 0));
+    EXPECT_EQ(40u, picture_shown(1, 1, 32, 0));
+    EXPECT_EQ(40u, picture_shown(2, 2, 32, 0));
+    EXPECT_EQ(36u, picture_shown(0, 1, 32, 0));
+    EXPECT_EQ(44u, picture_shown(0, 3, 32, 0));
+}
+
+UTEST(ground, ground_that_is_not_water_does_not_move)
+{
+    for (uint64_t tick = 0; tick < 40; tick += 7) {
+        EXPECT_EQ(31u, picture_shown(1, 1, 31, tick));
+        EXPECT_EQ(48u, picture_shown(1, 1, 48, tick));
+        EXPECT_EQ(0u, picture_shown(1, 1, 0, tick));
+    }
 }
 
 UTEST(ground, a_camera_with_no_size_sees_nothing)

@@ -182,6 +182,7 @@ static void add_object(MapScreen *screen, int id, const char *path,
         look->cell_height = layout.cell_height;
         look->anchor_x = layout.anchor_x;
         look->anchor_y = layout.anchor_y;
+        look->round = layout.round;
     }
 }
 
@@ -202,6 +203,7 @@ static void add_structure(MapScreen *screen, int id, const char *path,
         look->width = kind.width;
         look->depth = kind.depth;
         look->height = kind.height;
+        look->round = kind.sheet.round;
     }
 }
 
@@ -362,9 +364,10 @@ static void move_camera(MapScreen *screen, float seconds)
 
 bool map_screen_frame(MapScreen *screen, float seconds)
 {
-    /* The ticks that pass with this frame. Nothing happens in one yet:
-     * the clock counts them. The camera is the player's and not the
-     * game's, and moves while the game is paused too. */
+    /* The ticks that pass with this frame. Nothing happens in one yet
+     * but that trees and windmills move by their count. The camera is
+     * the player's and not the game's, and moves while the game is
+     * paused too. */
     clock_advance(&screen->clock, seconds);
     move_camera(screen, seconds);
     Camera camera = camera_now(screen);
@@ -397,12 +400,14 @@ bool map_screen_frame(MapScreen *screen, float seconds)
     frame.ground_sheet = screen->tiles;
     frame.ground = screen->ground;
     frame.ground_count = ground_squares(&screen->map, screen->light,
-        &camera, screen->tiles_width, screen->tiles_height, screen->ground);
+        screen->clock.tick, &camera, screen->tiles_width, screen->tiles_height, screen->ground);
     frame.sprites = screen->sprites;
+    uint64_t tick = screen->clock.tick;
     frame.sprite_count = objects_sprites(&screen->map, screen->objects,
-        &camera, screen->sprites);
+        tick, &camera, screen->sprites);
     frame.sprite_count += structures_sprites(&screen->map,
-        screen->structures, &camera, screen->sprites + frame.sprite_count);
+        screen->structures, tick, &camera,
+        screen->sprites + frame.sprite_count);
     frame.sprite_count += units_sprites(&screen->map, screen->units,
         screen->faces, &camera, screen->sprites + frame.sprite_count);
     sprites_sort(screen->sprites, frame.sprite_count,

@@ -1,5 +1,12 @@
 #include "view/ground.h"
 
+/* The pictures of the sheet come in families of four, and the families
+ * of water are these four, one after the other: see
+ * docs/formats/terrain.md. */
+#define FAMILY_PICTURES 4u
+#define WATER_FIRST_FAMILY 8u
+#define WATER_FAMILIES 4u
+
 /* The rows below the screen that the highest ground can reach up
  * from. */
 #define ROWS_BELOW ((MAP_HIGHEST + MAP_SQUARE - 1) / MAP_SQUARE)
@@ -66,7 +73,23 @@ int32_t ground_square_height(const Map *map, int32_t column, int32_t row)
     return sum / FRAME_SQUARE_CORNERS;
 }
 
-size_t ground_squares(const Map *map, const uint8_t *light,
+/* The picture a square shows at a tick: the one the map names, or for
+ * water the same picture of the family of water whose turn it is. */
+static uint32_t picture_at(uint32_t picture, int32_t x, int32_t y,
+                           uint64_t tick)
+{
+    uint32_t family = picture / FAMILY_PICTURES;
+    if (family < WATER_FIRST_FAMILY
+        || family >= WATER_FIRST_FAMILY + WATER_FAMILIES) {
+        return picture;
+    }
+    uint64_t turn = family + (uint64_t)(x + 1) * (uint64_t)y
+        + tick / GROUND_WATER_TICKS;
+    family = WATER_FIRST_FAMILY + (uint32_t)(turn % WATER_FAMILIES);
+    return family * FAMILY_PICTURES + picture % FAMILY_PICTURES;
+}
+
+size_t ground_squares(const Map *map, const uint8_t *light, uint64_t tick,
                       const Camera *camera, uint32_t sheet_width,
                       uint32_t sheet_height, GroundSquare *out)
 {
@@ -92,7 +115,8 @@ size_t ground_squares(const Map *map, const uint8_t *light,
              * docs/formats/terrain.md. */
             uint16_t tile = map->ground[(size_t)y * map->info.width
                 + (size_t)x];
-            uint32_t tile_x = ((tile >> 4) & 0xffu) * MAP_SQUARE;
+            uint32_t tile_x = picture_at((tile >> 4) & 0xffu, x, y, tick)
+                * MAP_SQUARE;
             uint32_t tile_y = (tile & 0xfu) * MAP_SQUARE;
             if (tile_x + MAP_SQUARE > sheet_width
                 || tile_y + MAP_SQUARE > sheet_height) {

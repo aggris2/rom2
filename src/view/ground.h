@@ -15,8 +15,12 @@
  * many is enough. */
 size_t ground_most(const Camera *camera);
 
+/* How many ticks a square of water shows one frame of its waves. */
+#define GROUND_WATER_TICKS 4
+
 /* Writes each square of the map that the camera can see, row after row
- * from the top, and returns how many it wrote.
+ * from the top, and returns how many it wrote. `tick` is how many
+ * ticks of the game have passed.
  *
  * `light` is the level of light at the top left corner of each square,
  * as light_ground() gives it. The sheet of tiles is `sheet_width` by
@@ -24,11 +28,18 @@ size_t ground_most(const Camera *camera);
  * of that sheet: one that names a tile the sheet does not have is left
  * out.
  *
+ * Water moves. The sheet has four sets of pictures of water, one after
+ * the other, that are the four frames of its waves, and a square of
+ * water shows the next of them every GROUND_WATER_TICKS ticks. Which
+ * set a map names for a square says where in the round the square
+ * starts, and so does its place: the square (x, y) is (x + 1) * y
+ * frames ahead, as the original's drawing code has it.
+ *
  * A corner on the right or the bottom edge of the map has no height
  * and no light of its own, and takes those of the corner beside it.
  * Ground is raised up the screen, so rows below the screen that may
  * reach up into it are written too. */
-size_t ground_squares(const Map *map, const uint8_t *light,
+size_t ground_squares(const Map *map, const uint8_t *light, uint64_t tick,
                       const Camera *camera, uint32_t sheet_width,
                       uint32_t sheet_height, GroundSquare *out);
 

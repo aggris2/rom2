@@ -25,7 +25,8 @@ size_t structures_most(const Map *map, const StructureLook *looks)
 }
 
 size_t structures_sprites(const Map *map, const StructureLook *looks,
-                          const Camera *camera, Sprite *out)
+                          uint64_t tick, const Camera *camera,
+                          Sprite *out)
 {
     size_t count = 0;
     for (uint32_t i = 0; i < map->structure_count; i++) {
@@ -54,7 +55,8 @@ size_t structures_sprites(const Map *map, const StructureLook *looks,
             }
             Sprite *sprite = &out[count++];
             sprite->sheet = look->sheet;
-            sprite->source_x = 0;
+            sprite->source_x = (uint16_t)(
+                sprite_round_frame(&look->round, tick) * (uint32_t)width);
             sprite->source_y = (uint16_t)(above + row * MAP_SQUARE - over);
             sprite->width = (uint16_t)width;
             sprite->height = (uint16_t)height;

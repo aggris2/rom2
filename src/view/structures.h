@@ -21,8 +21,8 @@
 #include "view/sprite.h"
 
 /* How one kind of structure looks: its sheet on the card, and its
- * size in squares, as StructureKind has it. The sheet's first frame,
- * at its top left corner, is `width` by `height` squares. A kind whose
+ * size in squares, as StructureKind has it. Each frame of the sheet is
+ * `width` by `height` squares. A kind whose
  * picture could not be loaded is not `known`, and is not drawn. */
 typedef struct StructureLook {
     bool known;
@@ -30,6 +30,7 @@ typedef struct StructureLook {
     uint16_t width;
     uint16_t depth;
     uint16_t height;
+    SpriteRound round;      /* how it moves: its frames are in one row */
 } StructureLook;
 
 /* The most sprites structures_sprites() writes for a map, given the
@@ -38,10 +39,12 @@ size_t structures_most(const Map *map, const StructureLook *looks);
 
 /* Writes the sprites of each structure the camera can see and returns
  * how many it wrote. `looks` has STRUCTURE_KINDS entries, one for each
- * ID.
+ * ID. `tick` is how many ticks of the game have passed.
  *
  * A structure stands with the bottom of its picture on the front of
- * its base, shows its first frame, and is as bright as LIGHT_STANDING.
+ * its base, and is as bright as LIGHT_STANDING. One that moves, such
+ * as a windmill, shows the frame of its round for the tick: all of a
+ * kind move as one.
  * All of it is raised by one height, that of the ground under the
  * middle of its base, however the ground lies under the rest. A
  * bridge of variable size is not drawn.
@@ -49,6 +52,7 @@ size_t structures_most(const Map *map, const StructureLook *looks);
  * The sprites are not in the order they are to be drawn, but each has
  * its turn: see sprites_sort(). */
 size_t structures_sprites(const Map *map, const StructureLook *looks,
-                          const Camera *camera, Sprite *out);
+                          uint64_t tick, const Camera *camera,
+                          Sprite *out);
 
 #endif

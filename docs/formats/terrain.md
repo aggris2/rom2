@@ -114,6 +114,23 @@ earlier work on it, and were then checked on the 58 maps:
 - Drawn over mission 10, the water lies on its river and the mountain
   on its rock, with a way through to the tower.
 
+## Water moves
+
+The four families of water, 8 to 11, hold the same tiles four times
+over: they are the four frames of the waves. The game does not show
+the family a map names. Every 4 ticks it shows the next, and the
+square (x, y) shows family
+
+```
+8 + (family + (x + 1) * y + ticks / 4) mod 4
+```
+
+so the family of the map says where in the round a square starts, and
+its place does too. This is how the game's drawing code reads. With
+animations switched off the game shows family 8 on every square of
+water, whichever the map names: that was measured, on 21 squares of
+the map Fury.
+
 ## What ROM2 writes
 
 The importer writes, in `content/terrain`:

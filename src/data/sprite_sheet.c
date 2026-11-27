@@ -30,6 +30,45 @@ static bool is_plain_file_name(const char *name)
         && strcmp(name, ".") != 0 && strcmp(name, "..") != 0;
 }
 
+uint32_t sprite_round_frame(const SpriteRound *round, uint64_t turn)
+{
+    return round->length == 0 ? 0 : round->frame[turn % round->length];
+}
+
+/* Reads the `frames` and `ticks` of a sheet with `columns` columns
+ * into the frame of each tick of a round. A sheet with neither has a
+ * round of no length. */
+static bool read_round(const TomlTable *sprite, int32_t columns,
+                       SpriteRound *round)
+{
+    const int32_t *frames = NULL;
+    const int32_t *ticks = NULL;
+    size_t frame_count = 0;
+    size_t tick_count = 0;
+    memset(round, 0, sizeof *round);
+    if (!toml_has(sprite, "frames") && !toml_has(sprite, "ticks")) {
+        return true;
+    }
+    if (!toml_get_int_list(sprite, "frames", &frames, &frame_count)
+        || !toml_get_int_list(sprite, "ticks", &ticks, &tick_count)
+        || frame_count != tick_count || frame_count == 0) {
+        return false;
+    }
+    size_t length = 0;
+    for (size_t i = 0; i < frame_count; i++) {
+        if (frames[i] < 0 || frames[i] >= columns || frames[i] > UINT8_MAX
+            || ticks[i] < 1
+            || ticks[i] > SPRITE_SHEET_MAX_ROUND - (int32_t)length) {
+            return false;
+        }
+        for (int32_t tick = 0; tick < ticks[i]; tick++) {
+            round->frame[length++] = (uint8_t)frames[i];
+        }
+    }
+    round->length = (uint16_t)length;
+    return true;
+}
+
 bool sprite_sheet_read(const TomlTable *top, SpriteSheet *out)
 {
     const TomlTable *sprite = toml_get_table(top, "sprite");
@@ -40,6 +79,8 @@ bool sprite_sheet_read(const TomlTable *top, SpriteSheet *out)
     int32_t cell_height = 0;
     int32_t anchor_x = 0;
     int32_t anchor_y = 0;
+    int32_t columns = 1;
+    SpriteRound round;
     if (sprite == NULL || !toml_get_text(sprite, "sheet", &sheet)
         || !is_plain_file_name(sheet)
         || (toml_has(sprite, "edges")
@@ -50,7 +91,11 @@ bool sprite_sheet_read(const TomlTable *top, SpriteSheet *out)
                 || !is_plain_file_name(palettes)))
         || !read_pair(sprite, "cell", 1, &cell_width, &cell_height)
         || (toml_has(sprite, "anchor")
-            && !read_pair(sprite, "anchor", -MOST, &anchor_x, &anchor_y))) {
+            && !read_pair(sprite, "anchor", -MOST, &anchor_x, &anchor_y))
+        || (toml_has(sprite, "columns")
+            && (!toml_get_int(sprite, "columns", &columns) || columns < 1
+                || columns > MOST))
+        || !read_round(sprite, columns, &round)) {
         return false;
     }
     memset(out, 0, sizeof *out);
@@ -65,6 +110,8 @@ bool sprite_sheet_read(const TomlTable *top, SpriteSheet *out)
     out->cell_height = (uint16_t)cell_height;
     out->anchor_x = (int16_t)anchor_x;
     out->anchor_y = (int16_t)anchor_y;
+    out->columns = (uint16_t)columns;
+    out->round = round;
     return true;
 }
 

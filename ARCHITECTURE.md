@@ -114,10 +114,12 @@ sprite sheet.
 its ID and which colouring it has.
 
 `src/mechanics/clock` turns time that has passed into ticks, the steps the
-game happens in: 16 in a second at the speed a game starts on, and from 8
-to 32 at the others, as in the original. It is told how much time has
-passed and does not look at a clock itself, so a test runs it as the game
-does. Nothing happens in a tick yet.
+game happens in: 16 in a second at the speed a game starts on, and from 8 to
+32 at the others, as in the original. It is told how much time has passed
+and does not look at a clock itself, so a test runs it as the game does.
+Nothing happens in a tick yet, but the view goes by their count: a tree or a
+windmill shows the frame of its animation for the tick, which its sprite
+sheet lists.
 
 `src/view` turns what there is into what is drawn. `frame.h` is what the
 renderer is handed once a frame: the ground, and the sprites that lie on it.

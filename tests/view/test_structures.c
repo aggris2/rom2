@@ -13,6 +13,7 @@ typedef struct MakeStructures {
     uint8_t heights[100];
     MapStructure structures[4];
     StructureLook looks[STRUCTURE_KINDS];
+    uint64_t tick;
     Sprite sprites[16];
 } MakeStructures;
 
@@ -52,7 +53,7 @@ static size_t sprites_for(MakeStructures *m, int32_t left, int32_t top,
                           int32_t width, int32_t height)
 {
     Camera camera = {left, top, width, height};
-    size_t count = structures_sprites(&m->map, m->looks, &camera,
+    size_t count = structures_sprites(&m->map, m->looks, m->tick, &camera,
         m->sprites);
     return count <= structures_most(&m->map, m->looks) ? count : 9999;
 }
@@ -156,6 +157,35 @@ UTEST(structures, the_middle_of_an_odd_base_lies_between_corners)
     ASSERT_EQ(3u, sprites_for(&m, 0, 0, 320, 320));
     EXPECT_EQ(5 * 32 - 32 - 34, m.sprites[1].y);
     EXPECT_EQ(6 * 32 - 34, m.sprites[2].y);
+}
+
+UTEST(structures, a_structure_that_moves_shows_the_frame_of_the_tick)
+{
+    MakeStructures m;
+    make_structures(&m);
+    /* The tower turns its light: frame 1 for two ticks, then 0. */
+    m.looks[12].round.length = 3;
+    m.looks[12].round.frame[0] = 1;
+    m.looks[12].round.frame[1] = 1;
+    m.looks[12].round.frame[2] = 0;
+    put(&m, 4, 5, 12);
+    put(&m, 1, 1, 12);
+    const uint16_t frames[6] = {1, 1, 0, 1, 1, 0};
+    for (uint64_t tick = 0; tick < 6; tick++) {
+        m.tick = tick;
+        ASSERT_EQ(4u, sprites_for(&m, 0, 0, 320, 320));
+        /* Every strip of it, and every tower alike: a frame is as
+         * wide as the base, 64 pixels. */
+        for (int i = 0; i < 4; i++) {
+            EXPECT_EQ(frames[tick] * 64, m.sprites[i].source_x);
+        }
+        EXPECT_EQ(0u, m.sprites[0].source_y);
+        EXPECT_EQ(64u, m.sprites[1].source_y);
+    }
+    /* The well does not move. */
+    put(&m, 8, 8, 8);
+    ASSERT_EQ(5u, sprites_for(&m, 0, 0, 320, 320));
+    EXPECT_EQ(0u, m.sprites[4].source_x);
 }
 
 UTEST(structures, a_strip_off_the_screen_is_left_out)

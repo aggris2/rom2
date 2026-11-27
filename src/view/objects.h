@@ -9,6 +9,7 @@
 #include <stdint.h>
 
 #include "data/map.h"
+#include "data/sprite_sheet.h"
 #include "view/camera.h"
 #include "view/frame.h"
 #include "view/light.h"
@@ -27,6 +28,7 @@ typedef struct ObjectLook {
     uint16_t cell_height;
     int16_t anchor_x;       /* the point of a cell that stands on the map */
     int16_t anchor_y;
+    SpriteRound round;      /* how it moves: its frames are in one row */
 } ObjectLook;
 
 /* The most sprites objects_sprites() writes for a camera, given the
@@ -35,10 +37,16 @@ size_t objects_most(const Camera *camera, const ObjectLook *looks);
 
 /* Writes a sprite for each object the camera can see and returns how
  * many it wrote. `looks` has OBJECT_KINDS entries, one for each ID.
+ * `tick` is how many ticks of the game have passed.
  *
  * An object stands with its anchor on the middle of its square, raised
- * by the height of its square, shows its first frame, and is as
- * bright as LIGHT_STANDING.
+ * by the height of its square, and is as bright as LIGHT_STANDING.
+ *
+ * An object that moves, such as a tree in the wind, shows the frame of
+ * its round for the tick. Each is at another point of its round, by
+ * the square it stands on, so that a wood does not sway as one tree:
+ * the object on the square (x, y) is x + x * y ticks ahead, as in the
+ * original.
  *
  * The sprites come in the order they are to be drawn: row after row
  * from the top, and in a row from the right, so that what is nearer
@@ -46,6 +54,6 @@ size_t objects_most(const Camera *camera, const ObjectLook *looks);
  * the screen are looked at too, as far as the largest object reaches:
  * a tree that stands below the screen may show its top in it. */
 size_t objects_sprites(const Map *map, const ObjectLook *looks,
-                       const Camera *camera, Sprite *out);
+                       uint64_t tick, const Camera *camera, Sprite *out);
 
 #endif

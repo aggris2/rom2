@@ -49,8 +49,13 @@ exactly the size of the box: 350 of 405. Because a file is shared, its
 other frames may be larger than this object's box.
 
 `AnimationFrame` and `AnimationTime` are two lists of the same length:
-which of the object's frames to show, counted from 0, and for how long.
-45 objects have them, with parents followed.
+which of the object's frames to show, counted from 0, and for how many
+ticks of the game. 45 objects have them, with parents followed.
+
+The objects of a map do not move in step. The game counts the ticks
+that have passed, and the object on the square (x, y) shows the frame
+that is `x + x * y` ticks further on in its round. This is how the
+game's drawing code reads, and was not measured in the game.
 
 Every sprite file has its `b` file with the soft edges.
 
@@ -73,15 +78,15 @@ ties a tree to its burning object is not stated in the registry.
 - **18 dead trees state 7 frames and have 1.** Their `Phases` is 7, as
   the living tree's, and their file has one frame. They have no
   animation lists. ROM2 gives them the one frame.
-- **The original was seen to ignore `Index`.** On the map Fury, with
-  animations switched off in its settings, the original game shows the
-  first frame of the sprite file for every object looked at that states
-  an `Index` above 0: Fence 2 to 7 on 44 squares look like Fence 1, Dark
-  fence 2 and 3 like Dark fence 1, and CEHO 3 like CEHO 1. The maps
-  place the fences so that their own frames make a fence that runs
-  straight, so this is taken to be a mistake of the original, perhaps
-  only of how it draws with animations off: with them on it was not
-  looked at. ROM2 draws each object with its own frame.
+- **With animations switched off, the original shows every object as
+  the first frame of its file.** On the map Fury it was seen so: Fence
+  2 to 7 on 44 squares look like Fence 1, Dark fence 2 and 3 like Dark
+  fence 1, and CEHO 3 like CEHO 1, though each states an `Index` of
+  its own. The game works out an object's frame as its `Index` plus
+  the frame of its animation, and with animations off sets the whole
+  of it to 0, the `Index` with it. That is taken to be a mistake of
+  that setting: which fence a fence is has nothing to do with whether
+  trees sway. ROM2 always draws an object from its own first frame.
 
 ## What ROM2 writes for an object
 

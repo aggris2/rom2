@@ -91,6 +91,67 @@ UTEST(sprite_sheet, reads_the_picture_of_its_palettes_if_it_has_one)
         "palettes = 3\n"));
 }
 
+#define MOVING "[sprite]\nsheet = \"s.png\"\ncell = [8, 8]\ncolumns = 3\n"
+
+UTEST(sprite_sheet, a_sheet_that_does_not_move_has_a_round_of_no_length)
+{
+    SpriteSheet def;
+    ASSERT_TRUE(reads("[sprite]\nsheet = \"s.png\"\ncell = [8, 8]\n", &def));
+    EXPECT_EQ(1u, def.columns);
+    EXPECT_EQ(0u, def.round.length);
+    EXPECT_EQ(0u, sprite_round_frame(&def.round, 0));
+    EXPECT_EQ(0u, sprite_round_frame(&def.round, 12345));
+    ASSERT_TRUE(reads(MOVING, &def));
+    EXPECT_EQ(3u, def.columns);
+    EXPECT_EQ(0u, def.round.length);
+}
+
+UTEST(sprite_sheet, a_round_has_the_frame_of_each_of_its_ticks)
+{
+    SpriteSheet def;
+    ASSERT_TRUE(reads(MOVING "frames = [2, 0, 1]\nticks = [1, 3, 2]\n",
+        &def));
+    ASSERT_EQ(6u, def.round.length);
+    const uint32_t frames[6] = {2, 0, 0, 0, 1, 1};
+    for (uint64_t turn = 0; turn < 6; turn++) {
+        EXPECT_EQ(frames[turn], sprite_round_frame(&def.round, turn));
+        /* And round again. */
+        EXPECT_EQ(frames[turn], sprite_round_frame(&def.round, turn + 6));
+        EXPECT_EQ(frames[turn],
+            sprite_round_frame(&def.round, turn + 6000000000u));
+    }
+}
+
+UTEST(sprite_sheet, a_round_may_last_the_most_ticks_and_no_more)
+{
+    SpriteSheet def;
+    ASSERT_TRUE(reads(MOVING "frames = [0, 1]\nticks = [100, 28]\n", &def));
+    EXPECT_EQ(128u, def.round.length);
+    EXPECT_EQ(0u, sprite_round_frame(&def.round, 99));
+    EXPECT_EQ(1u, sprite_round_frame(&def.round, 127));
+    EXPECT_TRUE(refuses(MOVING "frames = [0, 1]\nticks = [100, 29]\n"));
+    EXPECT_TRUE(refuses(MOVING "frames = [0]\nticks = [129]\n"));
+}
+
+UTEST(sprite_sheet, refuses_lists_of_frames_that_do_not_go_together)
+{
+    EXPECT_TRUE(refuses(MOVING "frames = [0, 1]\n"));
+    EXPECT_TRUE(refuses(MOVING "ticks = [2, 2]\n"));
+    EXPECT_TRUE(refuses(MOVING "frames = [0, 1]\nticks = [2]\n"));
+    EXPECT_TRUE(refuses(MOVING "frames = []\nticks = []\n"));
+    EXPECT_TRUE(refuses(MOVING "frames = \"0\"\nticks = [2]\n"));
+    /* A frame the sheet does not have, and a time that is none. */
+    EXPECT_TRUE(refuses(MOVING "frames = [3]\nticks = [2]\n"));
+    EXPECT_TRUE(refuses(MOVING "frames = [-1]\nticks = [2]\n"));
+    EXPECT_TRUE(refuses(MOVING "frames = [0]\nticks = [0]\n"));
+    EXPECT_TRUE(refuses(MOVING "frames = [0]\nticks = [-4]\n"));
+    /* Without columns a sheet has one, so only frame 0. */
+    EXPECT_TRUE(refuses("[sprite]\nsheet = \"s.png\"\ncell = [8, 8]\n"
+        "frames = [1]\nticks = [2]\n"));
+    EXPECT_TRUE(refuses("[sprite]\nsheet = \"s.png\"\ncell = [8, 8]\n"
+        "columns = 0\n"));
+}
+
 UTEST(sprite_sheet, a_sheet_without_an_anchor_has_it_at_its_corner)
 {
     SpriteSheet def;
