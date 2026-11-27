@@ -2,7 +2,8 @@
  *
  * It shows the ground of a map, with its hills and the light on them,
  * and what stands on it. The arrow keys or W, A, S and D move the
- * camera over it, and G shows and hides a grid of its squares.
+ * camera over it, G shows and hides a grid of its squares, and P
+ * pauses the game and lets it go on.
  */
 #ifndef ROM2_GAME_MAP_SCREEN_H
 #define ROM2_GAME_MAP_SCREEN_H
@@ -22,8 +23,9 @@ typedef struct MapScreen MapScreen;
 MapScreen *map_screen_open(Renderer *renderer, const char *content,
                            const char *name);
 
-/* One frame: moves the camera by what the keys ask for in `seconds`,
- * and draws. Returns false, with a message printed, if drawing fails. */
+/* One frame: lets `seconds` of the game pass, moves the camera by what
+ * the keys ask for in that time, and draws. Returns false, with a
+ * message printed, if drawing fails. */
 bool map_screen_frame(MapScreen *screen, float seconds);
 
 /* A key was pressed down. */

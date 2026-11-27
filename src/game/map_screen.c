@@ -11,6 +11,7 @@
 #include "data/structure_kind.h"
 #include "data/unit_kind.h"
 #include "game/sheets.h"
+#include "mechanics/clock.h"
 #include "view/camera.h"
 #include "view/ground.h"
 #include "view/light.h"
@@ -35,6 +36,7 @@ struct MapScreen {
     float left;
     float top;
     bool grid;                  /* whether the grid is shown */
+    Clock clock;                /* the ticks of the game */
     uint8_t *light;             /* the light at each corner of the map */
     ObjectLook objects[OBJECT_KINDS];   /* how each kind of object looks */
     StructureLook structures[STRUCTURE_KINDS];  /* and of structure */
@@ -334,6 +336,7 @@ MapScreen *map_screen_open(Renderer *renderer, const char *content,
         return NULL;
     }
     start_camera(screen);
+    clock_start(&screen->clock);
     return screen;
 }
 
@@ -359,6 +362,10 @@ static void move_camera(MapScreen *screen, float seconds)
 
 bool map_screen_frame(MapScreen *screen, float seconds)
 {
+    /* The ticks that pass with this frame. Nothing happens in one yet:
+     * the clock counts them. The camera is the player's and not the
+     * game's, and moves while the game is paused too. */
+    clock_advance(&screen->clock, seconds);
     move_camera(screen, seconds);
     Camera camera = camera_now(screen);
     size_t most = ground_most(&camera);
@@ -411,6 +418,8 @@ void map_screen_key(MapScreen *screen, SDL_Keycode key)
 {
     if (key == SDLK_G) {
         screen->grid = !screen->grid;
+    } else if (key == SDLK_P) {
+        screen->clock.paused = !screen->clock.paused;
     }
 }
 

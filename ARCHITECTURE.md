@@ -29,9 +29,9 @@ is one, is a second program on top of layers 1 to 3.
 A frame goes down the same order: input, then the ticks, then the view
 writes the list of what to draw, then the renderer draws it.
 
-`src/mechanics` is not started. The table below says where what is still
-to come will go, so that the place is decided before the code is
-written.
+`src/mechanics` has only its clock so far. The table below says where
+what is still to come will go, so that the place is decided before the
+code is written.
 
 | Thing | Place |
 |---|---|
@@ -67,6 +67,7 @@ tests/
   expect.h   small checks many tests share
   base/      tests for src/base
   data/      tests for src/data
+  mechanics/ tests for src/mechanics
   view/      tests for src/view
   import/    tests for tools/import
 ```
@@ -111,6 +112,12 @@ sprite sheet.
 
 `src/data/unit_kind` reads a kind of unit from a unit's definition: so far
 its ID and which colouring it has.
+
+`src/mechanics/clock` turns time that has passed into ticks, the steps the
+game happens in: 16 in a second at the speed a game starts on, and from 8
+to 32 at the others, as in the original. It is told how much time has
+passed and does not look at a clock itself, so a test runs it as the game
+does. Nothing happens in a tick yet.
 
 `src/view` turns what there is into what is drawn. `frame.h` is what the
 renderer is handed once a frame: the ground, and the sprites that lie on it.
