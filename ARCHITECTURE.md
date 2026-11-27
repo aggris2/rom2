@@ -19,6 +19,7 @@ src/
   base/      small building blocks with no dependencies, and ROM2's own
              two file formats, PNG and TOML
   map/       reading a map
+  defs/      reading the definitions of the content
   game/      the game: so far a window
 tools/
   import/    the importer: readers for the original game's file formats,
@@ -61,15 +62,21 @@ ROM2 takes as it is, so the game reads it and not the importer. It gives
 the map's size, ground, heights, objects, structures, players and units.
 The map's script is not read yet.
 
-`src/game` is the program `rom2`, and the only code that uses SDL. It
-draws through SDL's GPU API. So far it opens a window and shows one
-picture of the content in it.
+`src/defs` reads the definitions the importer wrote, the `.toml` files of
+the content, into plain structs. So far it reads how a sheet is cut into
+frames.
 
-`picture` puts a picture with a palette on the graphics card as it is in
-its file, a number for each pixel and the 256 colours beside it, and a
-shader looks each colour up as it draws. Sprites stay 8 bits a pixel on
-the card this way, and a palette can be changed without touching the
-picture.
+`src/game` is the program `rom2`, and the only code that uses SDL. So far
+it shows one unit or object, a frame at a time.
+
+`renderer` is the one module that talks to the graphics card, through
+SDL's GPU API. The rest of the game says what to draw as a list of plain
+records, each a part of a sheet at a place on the screen, and hands the
+list over once a frame. The order of the list is the order of drawing. A
+sheet goes to the card as it is in its file, a number for each pixel and
+the 256 colours beside it, and a shader looks each colour up as it draws:
+sprites stay 8 bits a pixel on the card, and a palette can be changed
+without touching the picture.
 
 The shaders, the small programs the graphics card runs, are written in
 GLSL in `src/game/shaders`. The card does not take them as text, and each
@@ -139,8 +146,8 @@ it.
 
 ## Libraries
 
-`rom2_core` is a static library built from `src/base` and `src/map`. It depends
-on the C standard library and on zlib.
+`rom2_core` is a static library built from `src/base`, `src/map` and
+`src/defs`. It depends on the C standard library and on zlib.
 
 zlib and SDL are the outside libraries so far. The build downloads the
 source of each at an exact version, checked by its hash, and builds it

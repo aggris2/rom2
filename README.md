@@ -83,13 +83,15 @@ The `content` folder is yours and is not part of this repository.
 ## Running
 
 ```bash
-./build/rom2 content/terrain/tiles.png
+./build/rom2 content/units/001_unarmed_fighter/unit.toml
 ```
 
-So far the game shows one picture of the content: any PNG with a palette,
-such as the ground tiles or a unit's `sprites.png`. The window covers the
-whole screen; Alt+Enter switches to a plain window and back, and
-`--window` starts in one. Escape closes it.
+So far the game shows one unit or object of the content, a frame at a
+time, with the point it stands on in the middle of the screen. The left
+and right arrow keys go through its frames, and a number after the file
+says which to start at. The window covers the whole screen; Alt+Enter
+switches to a plain window and back, and `--window` starts in one. Escape
+closes it.
 
 ## Licence
 

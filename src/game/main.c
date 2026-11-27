@@ -1,6 +1,7 @@
-/* rom2: the game. So far it opens a window and shows one picture of the
- * content in it: a sprite sheet or the ground tiles, any PNG with a
- * palette.
+/* rom2: the game. So far it shows one thing of the content, a frame at
+ * a time: a unit, an object or a structure, named by its definition
+ * file. The left and right arrow keys go through its frames, and a
+ * number after the file says which to start at.
  *
  * The window covers the whole screen at the screen's own size, without
  * changing the mode of the monitor, and the mouse stays inside it.
@@ -16,14 +17,93 @@
 
 #include "base/file.h"
 #include "base/png.h"
-#include "game/picture.h"
-#include "game/shader.h"
+#include "base/toml.h"
+#include "defs/sprite_def.h"
+#include "game/renderer.h"
 
 /* The size of the plain window, which Alt+Enter and `--window` give.
  * On the whole screen the size is the monitor's, and these are not
  * used. */
 #define WINDOW_WIDTH 1024
 #define WINDOW_HEIGHT 768
+
+/* The thing that is shown: how its sheet is cut, and the sheet. */
+typedef struct Thing {
+    SpriteDef def;
+    Png sheet;
+} Thing;
+
+/* Reads a definition and the sheet it names, which lies beside it.
+ * Returns false, with a message printed, if it cannot. */
+static bool thing_read(const char *path, Thing *thing)
+{
+    uint8_t *data = NULL;
+    size_t size = 0;
+    if (!file_read_all(path, &data, &size)) {
+        fprintf(stderr, "rom2: cannot read %s\n", path);
+        return false;
+    }
+    TomlTable *top = NULL;
+    size_t line = 0;
+    bool ok = toml_read(data, size, &top, &line);
+    free(data);
+    if (!ok) {
+        fprintf(stderr, "rom2: %s: line %zu is not understood\n", path,
+            line);
+        return false;
+    }
+    ok = sprite_def_read(top, &thing->def);
+    toml_free(top);
+    if (!ok) {
+        fprintf(stderr, "rom2: %s has no usable [sprite] part\n", path);
+        return false;
+    }
+
+    /* The sheet's path: the definition's, with its file name changed. */
+    const char *slash = strrchr(path, '/');
+    size_t folder = slash == NULL ? 0 : (size_t)(slash - path) + 1;
+    char sheet_path[1024];
+    int length = snprintf(sheet_path, sizeof sheet_path, "%.*s%s",
+        (int)folder, path, thing->def.sheet);
+    if (length < 0 || (size_t)length >= sizeof sheet_path) {
+        fprintf(stderr, "rom2: the path of %s is too long\n", path);
+        return false;
+    }
+    if (!file_read_all(sheet_path, &data, &size)) {
+        fprintf(stderr, "rom2: cannot read %s\n", sheet_path);
+        return false;
+    }
+    ok = png_read(data, size, &thing->sheet);
+    free(data);
+    if (!ok) {
+        fprintf(stderr, "rom2: %s is not a PNG picture\n", sheet_path);
+    }
+    return ok;
+}
+
+/* How many whole cells the sheet has. */
+static uint32_t thing_frames(const Thing *thing)
+{
+    return (thing->sheet.width / thing->def.cell_width)
+        * (thing->sheet.height / thing->def.cell_height);
+}
+
+/* The record that draws one frame with its anchor at a point of the
+ * screen. */
+static Sprite thing_sprite(const Thing *thing, uint16_t sheet,
+                           uint32_t frame, int x, int y)
+{
+    uint32_t columns = thing->sheet.width / thing->def.cell_width;
+    Sprite sprite;
+    sprite.sheet = sheet;
+    sprite.source_x = (uint16_t)(frame % columns * thing->def.cell_width);
+    sprite.source_y = (uint16_t)(frame / columns * thing->def.cell_height);
+    sprite.width = thing->def.cell_width;
+    sprite.height = thing->def.cell_height;
+    sprite.x = (int16_t)(x - thing->def.anchor_x);
+    sprite.y = (int16_t)(y - thing->def.anchor_y);
+    return sprite;
+}
 
 /* Switches between the whole screen and a plain window. On the whole
  * screen the mouse is kept inside the game, so that it cannot slip onto
@@ -40,15 +120,27 @@ static void toggle_fullscreen(SDL_Window *window)
     }
 }
 
-/* Returns false when the player wants to leave. */
-static bool handle_events(SDL_Window *window)
+/* Takes what the player did since the last frame. `*step` gets how
+ * many frames to go on, or back if it is below 0. Returns false when
+ * the player wants to leave. */
+static bool handle_events(SDL_Window *window, int *step)
 {
     SDL_Event event;
+    *step = 0;
     while (SDL_PollEvent(&event)) {
         if (event.type == SDL_EVENT_QUIT) {
             return false;
         }
-        if (event.type != SDL_EVENT_KEY_DOWN || event.key.repeat) {
+        if (event.type != SDL_EVENT_KEY_DOWN) {
+            continue;
+        }
+        /* A key held down goes on stepping through the frames. */
+        if (event.key.key == SDLK_RIGHT) {
+            *step += 1;
+        } else if (event.key.key == SDLK_LEFT) {
+            *step -= 1;
+        }
+        if (event.key.repeat) {
             continue;
         }
         if (event.key.key == SDLK_ESCAPE) {
@@ -62,82 +154,40 @@ static bool handle_events(SDL_Window *window)
     return true;
 }
 
-/* Opens the graphics card for the window, for the forms of shader the
- * game has. SDL picks the way of drawing: Vulkan on Linux and Windows,
- * Metal on macOS.
- *
- * A new frame is shown when the monitor is ready for one, so that no
- * more frames are drawn than can be seen. Returns NULL on failure. */
-static SDL_GPUDevice *open_device(SDL_Window *window)
+/* Shows the thing in a window, from the frame `frame` on, until the
+ * player leaves. */
+static bool show(SDL_Window *window, const Thing *thing, uint32_t frame)
 {
-    SDL_GPUDevice *device = SDL_CreateGPUDevice(SHADER_FORMATS, false,
-        NULL);
-    if (device == NULL) {
-        return NULL;
-    }
-    if (!SDL_ClaimWindowForGPUDevice(device, window)) {
-        SDL_DestroyGPUDevice(device);
-        return NULL;
-    }
-    if (!SDL_SetGPUSwapchainParameters(device, window,
-            SDL_GPU_SWAPCHAINCOMPOSITION_SDR, SDL_GPU_PRESENTMODE_VSYNC)) {
-        SDL_ReleaseWindowFromGPUDevice(device, window);
-        SDL_DestroyGPUDevice(device);
-        return NULL;
-    }
-    return device;
-}
-
-/* Draws one frame: so far a picture on a black screen. */
-static bool draw_frame(SDL_GPUDevice *device, SDL_Window *window,
-                       const Picture *picture)
-{
-    SDL_GPUCommandBuffer *commands = SDL_AcquireGPUCommandBuffer(device);
-    if (commands == NULL) {
+    Renderer *renderer = renderer_open(window);
+    uint16_t sheet = 0;
+    if (renderer == NULL
+        || !renderer_add_sheet(renderer, &thing->sheet, &sheet)) {
+        fprintf(stderr, "rom2: cannot use the graphics card: %s\n",
+            SDL_GetError());
+        renderer_close(renderer);
         return false;
     }
-    /* The picture the window shows next. There is none while the
-     * window is hidden or has no size, and then nothing is drawn. */
-    SDL_GPUTexture *screen = NULL;
-    Uint32 width = 0;
-    Uint32 height = 0;
-    if (!SDL_WaitAndAcquireGPUSwapchainTexture(commands, window, &screen,
-            &width, &height)) {
-        SDL_CancelGPUCommandBuffer(commands);
-        return false;
-    }
-    if (screen != NULL) {
-        SDL_GPUColorTargetInfo target;
-        SDL_zero(target);
-        target.texture = screen;
-        target.clear_color.a = 1.0f;
-        target.load_op = SDL_GPU_LOADOP_CLEAR;
-        target.store_op = SDL_GPU_STOREOP_STORE;
-        SDL_GPURenderPass *pass = SDL_BeginGPURenderPass(commands, &target,
-            1, NULL);
-        if (pass != NULL) {
-            picture_draw(picture, commands, pass, width, height);
-            SDL_EndGPURenderPass(pass);
+    /* The window was hidden until there is something to show in it.
+     * Opening the graphics card takes a moment, and a window shown
+     * before that holds whatever was on the screen behind it. */
+    bool ok = SDL_ShowWindow(window);
+    uint32_t frames = thing_frames(thing);
+    int step = 0;
+    while (ok && handle_events(window, &step)) {
+        /* Round and round: after the last frame comes the first. */
+        int64_t next = ((int64_t)frame + step) % (int64_t)frames;
+        frame = (uint32_t)(next < 0 ? next + frames : next);
+        int width = 0;
+        int height = 0;
+        renderer_size(renderer, &width, &height);
+        Sprite sprite = thing_sprite(thing, sheet, frame, width / 2,
+            height / 2);
+        ok = renderer_draw(renderer, &sprite, 1);
+        if (!ok) {
+            fprintf(stderr, "rom2: cannot draw: %s\n", SDL_GetError());
         }
     }
-    return SDL_SubmitGPUCommandBuffer(commands);
-}
-
-/* Reads a PNG file. Returns false, with a message printed, if it
- * cannot. */
-static bool read_picture(const char *path, Png *png)
-{
-    uint8_t *data = NULL;
-    size_t size = 0;
-    if (!file_read_all(path, &data, &size)) {
-        fprintf(stderr, "rom2: cannot read %s\n", path);
-        return false;
-    }
-    bool ok = png_read(data, size, png);
-    free(data);
-    if (!ok) {
-        fprintf(stderr, "rom2: %s is not a PNG picture\n", path);
-    }
+    renderer_close(renderer);
     return ok;
 }
 
@@ -148,73 +198,55 @@ int main(int argc, char **argv)
      * monitor. */
     SDL_WindowFlags whole_screen = SDL_WINDOW_FULLSCREEN
         | SDL_WINDOW_MOUSE_GRABBED;
-    SDL_WindowFlags flags = SDL_WINDOW_RESIZABLE
+    SDL_WindowFlags flags = SDL_WINDOW_RESIZABLE | SDL_WINDOW_HIDDEN
         | SDL_WINDOW_HIGH_PIXEL_DENSITY | whole_screen;
     const char *path = NULL;
+    const char *first = NULL;
     for (int i = 1; i < argc; i++) {
         if (strcmp(argv[i], "--window") == 0) {
             flags &= ~whole_screen;
         } else if (path == NULL) {
             path = argv[i];
+        } else if (first == NULL) {
+            first = argv[i];
         } else {
             path = NULL;
             break;
         }
     }
-    if (path == NULL) {
-        fprintf(stderr, "usage: rom2 <picture.png> [--window]\n");
+    /* The frame to start at is digits and nothing else. */
+    char *end = NULL;
+    unsigned long frame = first == NULL ? 0 : strtoul(first, &end, 10);
+    if (path == NULL || (first != NULL
+            && (*first < '0' || *first > '9' || *end != '\0'))) {
+        fprintf(stderr,
+            "usage: rom2 <definition.toml> [frame] [--window]\n");
         return 2;
     }
-    Png png;
-    if (!read_picture(path, &png)) {
+    Thing thing;
+    if (!thing_read(path, &thing)) {
         return 1;
     }
-    if (!SDL_Init(SDL_INIT_VIDEO)) {
-        fprintf(stderr, "rom2: cannot start: %s\n", SDL_GetError());
-        png_free(&png);
+    if (frame >= thing_frames(&thing)) {
+        fprintf(stderr, "rom2: %s has %u frames, counted from 0\n", path,
+            (unsigned)thing_frames(&thing));
+        png_free(&thing.sheet);
         return 1;
     }
-    /* The window stays hidden until there is something to show in it.
-     * Opening the graphics card takes a moment, and a window shown
-     * before that holds whatever was on the screen behind it. */
-    SDL_Window *window = SDL_CreateWindow("ROM2", WINDOW_WIDTH,
-        WINDOW_HEIGHT, flags | SDL_WINDOW_HIDDEN);
-    if (window == NULL) {
-        fprintf(stderr, "rom2: cannot open a window: %s\n", SDL_GetError());
-        SDL_Quit();
-        png_free(&png);
-        return 1;
-    }
-    SDL_GPUDevice *device = open_device(window);
-    if (device == NULL) {
-        fprintf(stderr, "rom2: cannot use the graphics card: %s\n",
-            SDL_GetError());
-        SDL_DestroyWindow(window);
-        SDL_Quit();
-        png_free(&png);
-        return 1;
-    }
-    /* Once the picture is on the card, the copy in memory is not
-     * needed. */
-    Picture picture;
-    memset(&picture, 0, sizeof picture);
-    bool ok = picture_open(&picture, device, window, &png);
-    png_free(&png);
+    bool ok = SDL_Init(SDL_INIT_VIDEO);
     if (!ok) {
-        fprintf(stderr, "rom2: cannot show %s: %s\n", path, SDL_GetError());
+        fprintf(stderr, "rom2: cannot start: %s\n", SDL_GetError());
     }
-
-    ok = ok && SDL_ShowWindow(window);
-    while (ok && handle_events(window)) {
-        ok = draw_frame(device, window, &picture);
-        if (!ok) {
-            fprintf(stderr, "rom2: cannot draw: %s\n", SDL_GetError());
-        }
+    SDL_Window *window = !ok ? NULL
+        : SDL_CreateWindow("ROM2", WINDOW_WIDTH, WINDOW_HEIGHT, flags);
+    if (ok && window == NULL) {
+        fprintf(stderr, "rom2: cannot open a window: %s\n", SDL_GetError());
     }
-    picture_close(&picture, device);
-    SDL_ReleaseWindowFromGPUDevice(device, window);
-    SDL_DestroyGPUDevice(device);
-    SDL_DestroyWindow(window);
+    ok = window != NULL && show(window, &thing, (uint32_t)frame);
+    if (window != NULL) {
+        SDL_DestroyWindow(window);
+    }
     SDL_Quit();
+    png_free(&thing.sheet);
     return ok ? 0 : 1;
 }

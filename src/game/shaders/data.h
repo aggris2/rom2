@@ -17,9 +17,9 @@ typedef struct ShaderData {
     size_t msl_size;
 } ShaderData;
 
-/* picture.frag */
-extern const ShaderData shader_picture_frag;
-/* picture.vert */
-extern const ShaderData shader_picture_vert;
+/* sprite.frag */
+extern const ShaderData shader_sprite_frag;
+/* sprite.vert */
+extern const ShaderData shader_sprite_vert;
 
 #endif

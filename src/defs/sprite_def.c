@@ -1,0 +1,54 @@
+#include "defs/sprite_def.h"
+
+#include <string.h>
+
+#define MOST 4096
+
+/* Reads a key that holds two whole numbers, each from `low` to MOST. */
+static bool read_pair(const TomlTable *table, const char *key, int32_t low,
+                      int32_t *first, int32_t *second)
+{
+    const int32_t *values = NULL;
+    size_t count = 0;
+    if (!toml_get_int_list(table, key, &values, &count) || count != 2
+        || values[0] < low || values[0] > MOST
+        || values[1] < low || values[1] > MOST) {
+        return false;
+    }
+    *first = values[0];
+    *second = values[1];
+    return true;
+}
+
+/* A name that stays in the folder it is given in: no way up or down
+ * from it. */
+static bool is_plain_file_name(const char *name)
+{
+    size_t length = strlen(name);
+    return length > 0 && length < SPRITE_DEF_NAME_SIZE
+        && strchr(name, '/') == NULL && strchr(name, '\\') == NULL
+        && strcmp(name, ".") != 0 && strcmp(name, "..") != 0;
+}
+
+bool sprite_def_read(const TomlTable *top, SpriteDef *out)
+{
+    const TomlTable *sprite = toml_get_table(top, "sprite");
+    const char *sheet = NULL;
+    int32_t cell_width = 0;
+    int32_t cell_height = 0;
+    int32_t anchor_x = 0;
+    int32_t anchor_y = 0;
+    if (sprite == NULL || !toml_get_text(sprite, "sheet", &sheet)
+        || !is_plain_file_name(sheet)
+        || !read_pair(sprite, "cell", 1, &cell_width, &cell_height)
+        || !read_pair(sprite, "anchor", -MOST, &anchor_x, &anchor_y)) {
+        return false;
+    }
+    memset(out, 0, sizeof *out);
+    memcpy(out->sheet, sheet, strlen(sheet));
+    out->cell_width = (uint16_t)cell_width;
+    out->cell_height = (uint16_t)cell_height;
+    out->anchor_x = (int16_t)anchor_x;
+    out->anchor_y = (int16_t)anchor_y;
+    return true;
+}

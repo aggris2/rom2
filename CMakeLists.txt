@@ -103,6 +103,7 @@ add_library(rom2_core STATIC
     src/base/png.c
     src/base/reader.c
     src/base/toml.c
+    src/defs/sprite_def.c
     src/map/alm.c
 )
 target_include_directories(rom2_core PUBLIC src)
@@ -164,7 +165,7 @@ rom2_set_warnings(import_program)
 if(ROM2_BUILD_GAME)
     add_executable(rom2
         src/game/main.c
-        src/game/picture.c
+        src/game/renderer.c
         src/game/shader.c
         src/game/shaders/data.c
     )
@@ -187,6 +188,7 @@ add_executable(rom2_tests
     tests/base/test_png.c
     tests/base/test_reader.c
     tests/base/test_toml.c
+    tests/defs/test_sprite_def.c
     tests/import/test_bmp.c
     tests/import/test_databin.c
     tests/import/test_item.c
