@@ -53,7 +53,7 @@ offset.
 | 0 | text | offset in the values area | length in bytes, closing zero included |
 | 1 | section | index of its first entry | number of entries |
 | 2 | integer | the value itself, signed | 0 |
-| 4 | float | the value itself, IEEE 32-bit | not always 0 (see below) |
+| 4 | float | the lower half of the value | its upper half: the value is an IEEE number of 64 bits |
 | 6 | integer list | offset in the values area | length in bytes, always a multiple of 4 |
 
 No other type occurs. Types 3 and 5 are never used.
@@ -67,12 +67,32 @@ Measured:
 - The tree is always exactly two levels: root sections, and values inside
   them. No section contains a section.
 - Every entry is reached exactly once from the root.
-- Floats occur only in the video registries. In 9 of their float entries
-  `b` is not 0; its meaning is unknown.
+- Floats occur only in the video registries: 22 of them, `startfade` and
+  `endfade`. Read as 64 bits over `a` and `b`, 11 are 0.0 and 11 are 1.0,
+  and a fade always runs from one to the other.
 
 ## Not known
 
-- The meaning of `flags`, of the first field of an entry, and of `b` in a
-  float entry.
+- The meaning of `flags` and of the first field of an entry.
 
 The registry of units is described in [units.md](units.md).
+
+## The other registries
+
+| Registry | What it holds | What ROM2 writes |
+|---|---|---|
+| `units/material.reg` in `graphics.res` | for each of the 16 materials, the folder of the hero's sprites that armour of it shows: `heroes` or `heroes_l` | `heroes/heroes.toml` |
+| `sfx.reg` in `sfx.res` | 200 sounds as `Sfx100` = `units\sword`: the number the game knows a sound by, and its file without `.wav` | `sounds/effects/sounds.toml` |
+| `<name>.reg` beside each of the 8 videos in `video.res` | where the video is put, and its fades by frame | `videos/<folder>/<name>.toml` |
+| `data/ai.reg`, `data/map.reg` in `world.res` | two numbers for the computer's play; the cost of each kind of ground and numbers for finding a path | `rules/ai.toml`, `rules/map.toml` |
+| `npc.reg` in `scenario.res` | four lists of faces for the game of several players | `rules/npc.toml` |
+
+Eight of the 200 sounds name a file the archive does not have: the
+three of `monsters\daemon`, and `attack` of `succubus`, `skeleton`,
+`zombie`, `mage_skel` and `necrom`.
+
+A name in a registry is at most 15 letters, and the original's own
+names are cut to that: `DynamicScanAhea`, `MinimalGuardRan`. The video
+registries and the three of the rules are written under those names as
+they are, since ROM2 has no use for them yet that would give them
+better ones.

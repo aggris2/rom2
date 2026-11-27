@@ -1,14 +1,19 @@
-/* The campaign, maps, sounds, texts and videos steps of rom2_import:
- * the files of the original game that ROM2 takes as they are, or nearly.
+/* The campaign, maps, sounds, texts, videos and rules steps of
+ * rom2_import: the files of the original game that ROM2 takes as they
+ * are, or nearly.
  *
  *     campaign  scenario.res  N.alm             to  campaign/missions/N/
  *               main.res      text/missionN.txt
  *     maps      the game folder  *.alm       to  maps/
  *     sounds    sfx.res       *.wav          to  sounds/effects/
+ *               sfx.res       sfx.reg        to  sounds/effects/sounds.toml
  *               music.res     *.wav          to  sounds/music/
  *               speech.res    *.wav          to  sounds/speech/
  *     texts     main.res      text/ *.txt    to  texts/
- *     videos    video.res     *.smk          to  videos/
+ *     videos    video.res     *.smk, *.reg   to  videos/
+ *     rules     world.res     data/ai.reg    to  rules/ai.toml
+ *               world.res     data/map.reg   to  rules/map.toml
+ *               scenario.res  npc.reg        to  rules/npc.toml
  *
  * A mission is a map and a text with one number. Each gets a folder
  * named after the number, written with three digits, with map.alm and
@@ -22,6 +27,12 @@
  * original has them in the Windows code page 1251, with a carriage
  * return before each line feed. The texts of the missions are left out
  * of texts/, since the campaign has them.
+ *
+ * A registry becomes a TOML file with the same sections and values
+ * under the original's names: one beside each video, which says how it
+ * fades, and the three of the rules. The registry of the sounds is
+ * written as a list instead: the number the game knows each sound by,
+ * and its file.
  */
 #include "rom2_import/steps.h"
 
@@ -31,7 +42,10 @@
 
 #include "base/buffer.h"
 #include "base/file.h"
+#include "import/reg.h"
+#include "import/reg_toml.h"
 #include "import/text.h"
+#include "import/toml.h"
 #include "rom2_import/tree.h"
 
 /* Writes a text of the original as UTF-8. */
@@ -39,6 +53,21 @@ static bool text_write(const uint8_t *data, size_t size, const char *path)
 {
     ByteBuffer text = {0};
     bool ok = text_cp1251_to_utf8(data, size, &text)
+        && file_write_all(path, text.data, text.size);
+    buffer_free(&text);
+    return ok;
+}
+
+/* Writes a registry of the original as a TOML file with the same
+ * sections and values. */
+static bool reg_write(const uint8_t *data, size_t size, const char *path)
+{
+    Reg reg;
+    ByteBuffer text = {0};
+    bool ok = reg_open(data, size, &reg)
+        && toml_comment(&text, "From a registry of the original, under "
+            "the names it has there.")
+        && reg_toml_write(&text, &reg)
         && file_write_all(path, text.data, text.size);
     buffer_free(&text);
     return ok;
@@ -225,6 +254,62 @@ int import_maps(const char *game_folder, const char *content_folder)
     return failed;
 }
 
+/* Writes sounds.toml from the registry of the sounds: for each sound
+ * the number the game knows it by and its file. The registry has them
+ * as "Sfx100" = "units\sword", in a section "Sfx". */
+static bool sound_list_write(const ResArchive *sfx, const char *folder)
+{
+    ResEntry file;
+    Reg reg;
+    RegEntry section;
+    char path[1100];
+    int written = snprintf(path, sizeof path, "%s/effects/sounds.toml",
+        folder);
+    if (written < 0 || (size_t)written >= sizeof path
+        || !res_find(sfx, "sfx.reg", &file) || file.is_folder
+        || !reg_open(sfx->data + file.offset, file.size, &reg)) {
+        return false;
+    }
+    ByteBuffer text = {0};
+    bool ok = toml_comment(&text, "The sound effects by the number the "
+        "game knows each by. The files are in this folder.");
+    bool found = false;
+    for (uint32_t i = 0; ok && i < reg.root_count; i++) {
+        if (!reg_entry_at(&reg, reg.root_first + i, &section)
+            || section.type != REG_SECTION
+            || strcmp(section.name, "Sfx") != 0) {
+            continue;
+        }
+        found = true;
+        for (uint32_t k = 0; ok && k < section.b; k++) {
+            RegEntry entry;
+            const char *name = NULL;
+            char wav[300];
+            ok = reg_entry_at(&reg, section.a + k, &entry)
+                && strncmp(entry.name, "Sfx", 3) == 0
+                && mission_number(entry.name + 3, "") >= 0
+                && reg_text(&reg, "Sfx", entry.name, &name);
+            if (!ok) {
+                break;
+            }
+            written = snprintf(wav, sizeof wav, "%s.wav", name);
+            ok = written > 0 && (size_t)written < sizeof wav;
+            for (char *c = wav; *c != '\0'; c++) {
+                if (*c == '\\') {
+                    *c = '/';
+                }
+            }
+            ok = ok && toml_table_list(&text, "sound")
+                && toml_int(&text, "id",
+                    mission_number(entry.name + 3, ""))
+                && toml_text(&text, "file", wav);
+        }
+    }
+    ok = ok && found && file_write_all(path, text.data, text.size);
+    buffer_free(&text);
+    return ok;
+}
+
 int import_sounds(const ResArchive *sfx, const ResArchive *music,
     const ResArchive *speech, const char *content_folder)
 {
@@ -250,6 +335,11 @@ int import_sounds(const ResArchive *sfx, const ResArchive *music,
         tree_write_in(archives[i], NULL, folder, FOLDERS[i], ".wav",
             ".wav", tree_copy, &total);
         printf("  %s, %d sounds\n", FOLDERS[i], total.written - before);
+    }
+    if (sfx != NULL && !sound_list_write(sfx, folder)) {
+        fprintf(stderr, "  sounds.toml left out: the registry of the "
+            "sounds could not be read or written\n");
+        total.failed++;
     }
     printf("%d sounds written, %d left out\n", total.written,
         total.failed);
@@ -293,8 +383,55 @@ int import_videos(const ResArchive *video, const char *content_folder)
         return -1;
     }
     TreeCount total = {0, 0};
+    TreeCount fades = {0, 0};
     tree_write(video, NULL, folder, ".smk", ".smk", tree_copy, &total);
+    tree_write(video, NULL, folder, ".reg", ".toml", reg_write, &fades);
     printf("%s\n%d videos written, %d left out\n", folder, total.written,
-        total.failed);
-    return total.failed;
+        total.failed + fades.failed);
+    return total.failed + fades.failed;
+}
+
+/* Writes the registry at `path` in the archive as rules/<name>. */
+static bool rule_write(const ResArchive *archive, const char *path,
+    const char *folder, const char *name)
+{
+    ResEntry entry;
+    char to[1100];
+    int written = snprintf(to, sizeof to, "%s/%s", folder, name);
+    return written > 0 && (size_t)written < sizeof to
+        && res_find(archive, path, &entry) && !entry.is_folder
+        && reg_write(archive->data + entry.offset, entry.size, to);
+}
+
+int import_rules(const ResArchive *world, const ResArchive *scenario,
+    const char *content_folder)
+{
+    char folder[1000];
+    if (!step_folder("rules", content_folder, "rules", folder,
+            sizeof folder)) {
+        return -1;
+    }
+    int written = 0;
+    int failed = 0;
+    if (rule_write(world, "data/ai.reg", folder, "ai.toml")) {
+        written++;
+    } else {
+        failed++;
+    }
+    if (rule_write(world, "data/map.reg", folder, "map.toml")) {
+        written++;
+    } else {
+        failed++;
+    }
+    if (scenario == NULL) {
+        no_archive("rules", "scenario.res");
+        failed++;
+    } else if (rule_write(scenario, "npc.reg", folder, "npc.toml")) {
+        written++;
+    } else {
+        failed++;
+    }
+    printf("%s\n%d files of rules written, %d left out\n", folder, written,
+        failed);
+    return failed;
 }

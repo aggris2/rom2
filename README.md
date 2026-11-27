@@ -54,6 +54,7 @@ thing into a folder of `content`:
 | `maps` | the maps for several players, which lie loose in the game folder |
 | `sounds`, `videos` | the original's files, as they are |
 | `texts` | the other texts, as UTF-8 |
+| `rules` | small tables of settings: the cost of each kind of ground, and others |
 
 At the end it says how many of the original's files it read and how
 many it did not, and lists the ones it did not read in

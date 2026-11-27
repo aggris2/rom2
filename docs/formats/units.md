@@ -282,8 +282,14 @@ same palette. The colours of the 16 players are in `human.pal`:
 `heroes_l` has one of its own, which differs from that of `humans` in
 every row, and `heroes` has none.
 
+`units/material.reg` says which of the two folders armour shows, by
+what it is made of. Iron, bronze, steel, silver, gold, mithrill,
+adamantium, meteoric and crystal, the materials 0 to 7 and 14, name
+`heroes`. Wood, magic wood, the three leathers, bone and none, 8 to 13
+and 15, name `heroes_l`.
+
 Not measured: how the game picks a look. The names say it is by what
-the hero holds, and that armour picks `heroes` over `heroes_l`.
+the hero holds. Nor which piece of armour the material is taken from.
 
 ## What ROM2 writes for the hero
 
@@ -293,6 +299,9 @@ and, but for the mages, a folder `light`. Each of those is as a unit's
 folder: `hero.toml`, `sprites.png`, `edges.png`, `palettes.png`, and
 `dying.png` with `dying_edges.png` where the hero's file has dying
 frames.
+
+`heroes/heroes.toml` lists the materials that show the hero in armour
+and those that show it without.
 
 `hero.toml` starts with the look, whether it is in armour, and the unit
 it is laid out as. Then come the same tables as in a `unit.toml`, written

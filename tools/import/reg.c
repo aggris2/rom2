@@ -141,6 +141,21 @@ bool reg_int(const Reg *r, const char *section, const char *key,
     return true;
 }
 
+bool reg_float(const Reg *r, const char *section, const char *key,
+    double *out)
+{
+    RegEntry entry;
+    if (!reg_find(r, section, key, &entry) || entry.type != REG_FLOAT) {
+        return false;
+    }
+    /* The 8 bytes of the number, lowest first, are `a` and then `b`. */
+    uint64_t bits = ((uint64_t)entry.b << 32) | entry.a;
+    double value;
+    memcpy(&value, &bits, sizeof value);
+    *out = value;
+    return true;
+}
+
 bool reg_text(const Reg *r, const char *section, const char *key,
     const char **out)
 {

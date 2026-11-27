@@ -41,7 +41,7 @@ typedef enum RegType {
     REG_TEXT = 0,     /* a text */
     REG_SECTION = 1,  /* a section holding other entries */
     REG_INT = 2,      /* a whole number */
-    REG_FLOAT = 4,    /* a decimal number */
+    REG_FLOAT = 4,    /* a decimal number of 64 bits */
     REG_INT_LIST = 6  /* a list of whole numbers */
 } RegType;
 
@@ -91,6 +91,14 @@ bool reg_int(const Reg *r, const char *section, const char *key,
  * are. */
 bool reg_text(const Reg *r, const char *section, const char *key,
     const char **out);
+
+/* Reads a decimal number the same way. It is a number of 64 bits, kept
+ * in the entry itself: its lower half in `a` and its upper half in `b`.
+ *
+ * Returns false, and leaves `*out` alone, if there is no such value or
+ * it is not a decimal number. */
+bool reg_float(const Reg *r, const char *section, const char *key,
+    double *out);
 
 /* Reads a list of whole numbers into `out`, which has room for `capacity`
  * numbers, and stores how many there are in `*out_count`. Also returns

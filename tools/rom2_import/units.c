@@ -654,6 +654,55 @@ static const char *hero_write(const ResArchive *archive, const Reg *reg,
     return problem;
 }
 
+/* Writes heroes.toml: which materials of armour show the hero in
+ * armour and which without. The original says it in units/material.reg,
+ * as a folder for each material: "Material0" = "heroes", or
+ * "heroes_l". */
+static bool hero_materials_write(const ResArchive *archive,
+    const char *heroes_folder)
+{
+    ResEntry entry;
+    Reg reg;
+    char path[1040];
+    int32_t armour[64];
+    int32_t light[64];
+    size_t armour_count = 0;
+    size_t light_count = 0;
+    if (!res_find(archive, "units/material.reg", &entry) || entry.is_folder
+        || !reg_open(archive->data + entry.offset, entry.size, &reg)) {
+        return false;
+    }
+    /* The materials are numbered from 0 with no gaps. */
+    for (int32_t material = 0; material < 64; material++) {
+        char section[32];
+        const char *folder = NULL;
+        snprintf(section, sizeof section, "Material%d", (int)material);
+        if (!reg_text(&reg, section, "Path", &folder)) {
+            break;
+        }
+        if (strcmp(folder, "heroes") == 0) {
+            armour[armour_count++] = material;
+        } else if (strcmp(folder, "heroes_l") == 0) {
+            light[light_count++] = material;
+        } else {
+            return false;
+        }
+    }
+    if (armour_count + light_count == 0) {
+        return false;
+    }
+    ByteBuffer toml = {0};
+    snprintf(path, sizeof path, "%s/heroes.toml", heroes_folder);
+    bool ok = toml_comment(&toml, "Which look of the hero the material of "
+            "the armour it wears picks. The numbers are those of "
+            "items/materials.toml.")
+        && toml_int_list(&toml, "armour_materials", armour, armour_count)
+        && toml_int_list(&toml, "light_materials", light, light_count)
+        && file_write_all(path, toml.data, toml.size);
+    buffer_free(&toml);
+    return ok;
+}
+
 int import_heroes(const ResArchive *graphics, const char *content_folder)
 {
     ResEntry entry;
@@ -695,6 +744,11 @@ int import_heroes(const ResArchive *graphics, const char *content_folder)
         }
         printf("  %s, %d\n", look->name, here);
         done += here;
+    }
+    if (!hero_materials_write(graphics, heroes_folder)) {
+        fprintf(stderr, "  heroes.toml left out: units/material.reg could "
+            "not be read or written\n");
+        failed++;
     }
     printf("%d looks of the hero written, %d left out\n", done, failed);
     return failed;

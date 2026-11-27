@@ -94,6 +94,7 @@ add_library(rom2_import STATIC
     tools/import/projectile_toml.c
     tools/import/projectiles.c
     tools/import/reg.c
+    tools/import/reg_toml.c
     tools/import/res.c
     tools/import/sheet.c
     tools/import/spell_toml.c
@@ -165,6 +166,7 @@ add_executable(rom2_tests
     tests/import/test_projectile_toml.c
     tests/import/test_projectiles.c
     tests/import/test_reg.c
+    tests/import/test_reg_toml.c
     tests/import/test_res.c
     tests/import/test_sheet.c
     tests/import/test_spell_toml.c

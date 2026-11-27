@@ -26,8 +26,7 @@ bool tree_copy(const uint8_t *data, size_t size, const char *path);
 /* Goes through the folder `inside` of the archive, or the whole archive
  * if `inside` is NULL, and the folders in it. Each file whose name ends
  * in `ending` is given to `writer` with a path in `folder`: the path it
- * has below `inside`, with `new_ending` in place of `ending`. The two
- * endings must be equally long.
+ * has below `inside`, with `new_ending` in place of `ending`.
  *
  * A folder on disk is made when its first file turns up, so a folder
  * without such files leaves nothing behind. Each file written is noted

@@ -73,7 +73,13 @@ int import_sounds(const ResArchive *sfx, const ResArchive *music,
 /* content/texts: the texts, as UTF-8, but for those of the missions. */
 int import_texts(const ResArchive *main_archive, const char *content_folder);
 
-/* content/videos: the videos, as they are. */
+/* content/videos: the videos, as they are, each with the registry that
+ * says how it fades, as TOML. */
 int import_videos(const ResArchive *video, const char *content_folder);
+
+/* content/rules: the small registries of settings, as TOML. `scenario`
+ * may be NULL, and its one is then left out. */
+int import_rules(const ResArchive *world, const ResArchive *scenario,
+    const char *content_folder);
 
 #endif

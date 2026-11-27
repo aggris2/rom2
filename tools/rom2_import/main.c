@@ -7,7 +7,7 @@
  * one kind of thing into a folder of the content folder:
  *
  *     units, heroes, objects, structures, projectiles, spells, items,
- *     terrain, interface, campaign, maps, sounds, texts, videos
+ *     terrain, interface, campaign, maps, sounds, texts, videos, rules
  *
  * Then it says how many of the original's files were read and how many
  * were not, and lists the files not read in not_imported.txt in the
@@ -46,7 +46,7 @@ typedef struct Archives {
 static const char *const STEP_NAMES[] = {
     "units", "heroes", "objects", "structures", "projectiles", "spells",
     "items", "terrain", "interface", "campaign", "maps", "sounds", "texts",
-    "videos"
+    "videos", "rules"
 };
 #define STEP_COUNT (sizeof STEP_NAMES / sizeof STEP_NAMES[0])
 
@@ -114,6 +114,7 @@ static int step_run(const Archives *a, size_t step,
         archive_of(a, SPEECH), content);
     case 12: return import_texts(archive_of(a, MAIN), content);
     case 13: return import_videos(archive_of(a, VIDEO), content);
+    case 14: return import_rules(world, archive_of(a, SCENARIO), content);
     default: return -1;
     }
 }

@@ -83,6 +83,16 @@ static inline void make_reg_int(MakeReg *m, const char *name, int32_t value)
     make_reg_key(m, name, 2)->a = (uint32_t)value;
 }
 
+/* Adds a decimal number, given as the two halves of its 64 bits: the
+ * lower and the upper. 1.0 is 0 and 0x3ff00000. */
+static inline void make_reg_float(MakeReg *m, const char *name,
+    uint32_t low, uint32_t high)
+{
+    MakeRegKey *key = make_reg_key(m, name, 4);
+    key->a = low;
+    key->b = high;
+}
+
 static inline void make_reg_text(MakeReg *m, const char *name,
     const char *text)
 {

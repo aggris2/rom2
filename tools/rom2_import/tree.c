@@ -71,7 +71,9 @@ static void walk(const Walk *w, uint32_t first, uint32_t count,
         }
         int written = snprintf(path, sizeof path, "%s/%s", folder,
             entry.name);
-        if (written < 0 || (size_t)written >= sizeof path
+        /* Room is kept for the new ending, which may be the longer. */
+        if (written < 0
+            || (size_t)written + strlen(w->new_ending) >= sizeof path
             || depth >= MAX_DEPTH) {
             w->count->failed++;
             continue;
@@ -83,7 +85,6 @@ static void walk(const Walk *w, uint32_t first, uint32_t count,
         if (!made) {
             made = make_folders(folder);
         }
-        /* The two endings are equally long. */
         strcpy(path + strlen(path) - strlen(w->ending), w->new_ending);
         if (w->writer(w->archive->data + entry.offset, entry.size, path)) {
             res_note(w->archive, first + i);
@@ -111,10 +112,6 @@ void tree_write_but(const ResArchive *archive, const char *inside,
     Walk w = {archive, ending, new_ending, writer, skip, count};
     uint32_t first = archive->header.root_first;
     uint32_t entries = archive->header.root_count;
-    if (strlen(ending) != strlen(new_ending)) {
-        count->failed++;
-        return;
-    }
     if (inside != NULL) {
         ResEntry entry;
         if (!res_find(archive, inside, &entry) || !entry.is_folder) {

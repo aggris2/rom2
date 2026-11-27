@@ -2,6 +2,7 @@
 
 #include <string.h>
 
+#include "make_reg.h"
 #include "utest.h"
 
 /* A small valid registry, built by hand: the 24-byte header, a table of
@@ -822,4 +823,47 @@ UTEST(reg, int_list_of_a_missing_key_or_another_kind_fails)
     ASSERT_FALSE(reg_int_list(&r, "One", "Txt", numbers, 4, &count));
     ASSERT_EQ(99, numbers[0]);
     ASSERT_EQ((size_t)12345, count);
+}
+
+/* ---- reg_float ---- */
+
+UTEST(reg, float_reads_a_number_of_64_bits_from_the_two_halves)
+{
+    /* 1.0 is 0x3ff0000000000000, and -2.5 is 0xc004000000000000. A
+     * number with both halves filled: 0x3ff0000000000001, the next
+     * after 1.0. */
+    static MakeReg m;
+    Reg reg;
+    double value = 7;
+    make_reg_start(&m);
+    make_reg_section(&m, "Fading1");
+    make_reg_float(&m, "endfade", 0, 0x3ff00000u);
+    make_reg_float(&m, "startfade", 0, 0);
+    make_reg_float(&m, "minus", 0, 0xc0040000u);
+    make_reg_float(&m, "next", 1, 0x3ff00000u);
+    ASSERT_TRUE(reg_open(m.bytes, make_reg_finish(&m), &reg));
+
+    ASSERT_TRUE(reg_float(&reg, "Fading1", "endfade", &value));
+    ASSERT_TRUE(value == 1.0);
+    ASSERT_TRUE(reg_float(&reg, "Fading1", "startfade", &value));
+    ASSERT_TRUE(value == 0.0);
+    ASSERT_TRUE(reg_float(&reg, "Fading1", "minus", &value));
+    ASSERT_TRUE(value == -2.5);
+    ASSERT_TRUE(reg_float(&reg, "Fading1", "next", &value));
+    ASSERT_TRUE(value > 1.0 && value < 1.0000000001);
+}
+
+UTEST(reg, float_of_a_missing_key_or_another_kind_fails)
+{
+    static MakeReg m;
+    Reg reg;
+    double value = 7;
+    make_reg_start(&m);
+    make_reg_section(&m, "Common");
+    make_reg_int(&m, "startx", 3);
+    ASSERT_TRUE(reg_open(m.bytes, make_reg_finish(&m), &reg));
+
+    ASSERT_FALSE(reg_float(&reg, "Common", "startx", &value));
+    ASSERT_FALSE(reg_float(&reg, "Common", "none", &value));
+    ASSERT_TRUE(value == 7);
 }
