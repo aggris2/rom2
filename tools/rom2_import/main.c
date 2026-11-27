@@ -6,13 +6,14 @@
  * world.res and the others. Every step is run in turn, and each writes
  * one kind of thing into a folder of the content folder:
  *
- *     units, heroes, objects, structures, projectiles, spells, items,
- *     terrain, interface, fonts, campaign, maps, sounds, texts, videos,
- *     rules
+ *     units, heroes, objects, structures, projectiles, effects, spells,
+ *     items, terrain, interface, fonts, campaign, maps, sounds, texts,
+ *     videos, rules
  *
- * Then it says how many of the original's files were read and how many
- * were not, and lists the files not read in not_imported.txt in the
- * content folder.
+ * Then it says how many of the original's files were read, how many
+ * were left out on purpose and how many are still not read, and lists
+ * the last two with the reason in not_imported.txt in the content
+ * folder.
  *
  * With the name of a step only that step is run, and with an ID as well
  * only the one thing with that ID is written, for the steps that write a
@@ -45,9 +46,9 @@ typedef struct Archives {
 } Archives;
 
 static const char *const STEP_NAMES[] = {
-    "units", "heroes", "objects", "structures", "projectiles", "spells",
-    "items", "terrain", "interface", "fonts", "campaign", "maps", "sounds",
-    "texts", "videos", "rules"
+    "units", "heroes", "objects", "structures", "projectiles", "effects",
+    "spells", "items", "terrain", "interface", "fonts", "campaign", "maps",
+    "sounds", "texts", "videos", "rules"
 };
 #define STEP_COUNT (sizeof STEP_NAMES / sizeof STEP_NAMES[0])
 
@@ -103,20 +104,23 @@ static int step_run(const Archives *a, size_t step,
     case 2: return import_objects(graphics, content, only);
     case 3: return import_structures(graphics, world, content, only);
     case 4: return import_projectiles(graphics, content, only);
-    case 5: return import_spells(world, content, only);
-    case 6: return import_items(graphics, world, content);
-    case 7: return import_terrain(graphics, content);
-    case 8: return import_interface(graphics, archive_of(a, MAIN),
+    case 5: return import_effects(graphics, content);
+    case 6: return import_spells(world, content, only);
+    case 7: return import_items(graphics, world, archive_of(a, MAIN),
+        content);
+    case 8: return import_terrain(graphics, content);
+    case 9: return import_interface(graphics, archive_of(a, MAIN),
         archive_of(a, MOVIES), content);
-    case 9: return import_fonts(graphics, content);
-    case 10: return import_campaign(archive_of(a, SCENARIO),
+    case 10: return import_fonts(graphics, content);
+    case 11: return import_campaign(archive_of(a, SCENARIO),
         archive_of(a, MAIN), content);
-    case 11: return import_maps(game_folder, content);
-    case 12: return import_sounds(archive_of(a, SFX), archive_of(a, MUSIC),
+    case 12: return import_maps(game_folder, content);
+    case 13: return import_sounds(archive_of(a, SFX), archive_of(a, MUSIC),
         archive_of(a, SPEECH), content);
-    case 13: return import_texts(archive_of(a, MAIN), content);
-    case 14: return import_videos(archive_of(a, VIDEO), content);
-    case 15: return import_rules(world, archive_of(a, SCENARIO), content);
+    case 14: return import_texts(archive_of(a, MAIN), archive_of(a, PATCH),
+        content);
+    case 15: return import_videos(archive_of(a, VIDEO), content);
+    case 16: return import_rules(world, archive_of(a, SCENARIO), content);
     default: return -1;
     }
 }
@@ -133,9 +137,61 @@ typedef struct Group {
     uint32_t files;
 } Group;
 
+/* Files the import leaves alone knowingly. One is such a file if it is
+ * in `archive`, its path starts with `start` and ends with `end`. */
+typedef struct LeftOut {
+    int archive;
+    const char *start;
+    const char *end;
+    const char *why;
+} LeftOut;
+
+static const LeftOut LEFT_OUT[] = {
+    {GRAPHICS, "units/", ".pal",
+        "a palette that no unit names"},
+    {GRAPHICS, "projectiles/", ".pal",
+        "a palette that no projectile names"},
+    {GRAPHICS, "projectiles/firebolt/", ".256",
+        "an older copy: the registry names the .16a beside it"},
+    {GRAPHICS, "cursors/attack.256", "",
+        "a broken old cursor: the .16a one is written"},
+    {GRAPHICS, "cursors/pickup.256", "",
+        "a broken old cursor: the .16a one is written"},
+    {GRAPHICS, "interface/data.dat", "",
+        "not content: three bytes, a 0 and a line end"},
+    {MAIN, "id", "",
+        "not content: the language of the release"},
+    {MAIN, "text/namemake.exe", "",
+        "not content: a program"}
+};
+#define LEFT_OUT_COUNT (sizeof LEFT_OUT / sizeof LEFT_OUT[0])
+
+/* Returns why a file is left out on purpose, or NULL if it is not. A
+ * rule with an empty end names one file by its whole path. */
+static const char *left_out_why(int archive, const char *path)
+{
+    size_t length = strlen(path);
+    for (size_t i = 0; i < LEFT_OUT_COUNT; i++) {
+        const LeftOut *rule = &LEFT_OUT[i];
+        size_t start = strlen(rule->start);
+        size_t end = strlen(rule->end);
+        if (rule->archive != archive) {
+            continue;
+        }
+        if (end == 0 ? strcmp(path, rule->start) == 0
+            : (length >= start + end
+                && strncmp(path, rule->start, start) == 0
+                && strcmp(path + length - end, rule->end) == 0)) {
+            return rule->why;
+        }
+    }
+    return NULL;
+}
+
 typedef struct Report {
     uint32_t files[ARCHIVE_COUNT];
     uint32_t read[ARCHIVE_COUNT];
+    uint32_t left_out[ARCHIVE_COUNT];
     Group groups[MAX_GROUPS];
     size_t group_count;
     ByteBuffer list;
@@ -199,10 +255,16 @@ static void report_folder(Report *report, const Archives *a, int archive,
             report->read[archive]++;
             continue;
         }
-        group_add(report, archive, inner);
-        char line[700];
-        length = snprintf(line, sizeof line, "%s.res  %s\n",
-            ARCHIVE_NAMES[archive], inner);
+        const char *why = left_out_why(archive, inner);
+        if (why != NULL) {
+            report->left_out[archive]++;
+        } else {
+            group_add(report, archive, inner);
+        }
+        char line[800];
+        length = snprintf(line, sizeof line, "%s.res  %s  %s\n",
+            ARCHIVE_NAMES[archive], inner,
+            why != NULL ? why : "NOT READ YET");
         if (length > 0 && (size_t)length < sizeof line) {
             buffer_append(&report->list, (const uint8_t *)line,
                 (size_t)length);
@@ -219,9 +281,10 @@ static void report_print(const Archives *a, const char *content)
     memset(&report, 0, sizeof report);
     uint32_t files = 0;
     uint32_t read = 0;
+    uint32_t left_out = 0;
 
-    printf("\nThe original's files\n  %-10s %6s %6s %8s\n", "archive",
-        "files", "read", "not read");
+    printf("\nThe original's files\n  %-10s %6s %6s %9s %9s\n", "archive",
+        "files", "read", "left out", "not read");
     for (int i = 0; i < ARCHIVE_COUNT; i++) {
         if (!a->open[i]) {
             printf("  %-10s not in the game folder\n", ARCHIVE_NAMES[i]);
@@ -229,14 +292,22 @@ static void report_print(const Archives *a, const char *content)
         }
         report_folder(&report, a, i, a->res[i].header.root_first,
             a->res[i].header.root_count, "", 0);
-        printf("  %-10s %6u %6u %8u\n", ARCHIVE_NAMES[i], report.files[i],
-            report.read[i], report.files[i] - report.read[i]);
+        printf("  %-10s %6u %6u %9u %9u\n", ARCHIVE_NAMES[i],
+            report.files[i], report.read[i], report.left_out[i],
+            report.files[i] - report.read[i] - report.left_out[i]);
         files += report.files[i];
         read += report.read[i];
+        left_out += report.left_out[i];
     }
-    printf("  %-10s %6u %6u %8u\n", "all", files, read, files - read);
+    printf("  %-10s %6u %6u %9u %9u\n", "all", files, read, left_out,
+        files - read - left_out);
 
-    printf("\nNot read yet\n");
+    /* "left out" is on purpose: a spare palette, an older copy of a
+     * file, a file that is not content. "not read" is what is still to
+     * be done. */
+    if (report.group_count > 0) {
+        printf("\nNot read yet\n");
+    }
     for (size_t i = 0; i < report.group_count; i++) {
         const Group *g = &report.groups[i];
         printf("  %-10s %-18s %-8s %6u\n", ARCHIVE_NAMES[g->archive],
@@ -248,7 +319,8 @@ static void report_print(const Archives *a, const char *content)
         content);
     if (written > 0 && (size_t)written < sizeof path
         && file_write_all(path, report.list.data, report.list.size)) {
-        printf("\nEach of them is listed in %s\n", path);
+        printf("\nEvery file left out or not read is listed in %s, "
+            "with the reason\n", path);
     }
     buffer_free(&report.list);
 }

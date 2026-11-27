@@ -95,6 +95,15 @@ bool item_toml_write_shape(ByteBuffer *b, const DataBin *bin,
     DataBinTable table, const DataBinRow *row, int32_t place,
     uint32_t icon_width, uint32_t icon_height, const ItemTomlWorn *worn)
 {
+    return item_toml_write_shape_named(b, bin, table, row, place,
+        icon_width, icon_height, worn, NULL);
+}
+
+bool item_toml_write_shape_named(ByteBuffer *b, const DataBin *bin,
+    DataBinTable table, const DataBinRow *row, int32_t place,
+    uint32_t icon_width, uint32_t icon_height, const ItemTomlWorn *worn,
+    const ItemNames *names)
+{
     const char *kind;
     if (table == DATABIN_WEAPONS) {
         kind = "weapon";
@@ -133,12 +142,20 @@ bool item_toml_write_shape(ByteBuffer *b, const DataBin *bin,
 
     /* An entry for each variant: the folder with its pictures, and its
      * material and class as numbers of the rows of their tables. */
+    int32_t slot = -1;
+    items_slot(bin, table, row, &slot);
     for (uint32_t i = 0; i < count; i++) {
         char folder[ITEM_TOML_VARIANT_NAME_SIZE];
+        char shown[ITEM_NAME_SIZE];
+        /* The name the game shows, where the original gives one. */
+        bool named = names != NULL && item_names_shown(names,
+            variants[i].material, slot, variants[i].item_class, place,
+            shown);
         if (!item_toml_variant_name(bin, variants[i].material,
                 variants[i].item_class, folder)
             || !toml_table_list(b, "variant")
             || !toml_text(b, "folder", folder)
+            || (named && !toml_text(b, "display_name", shown))
             || !toml_int(b, "material", variants[i].material)
             || !toml_int(b, "class", variants[i].item_class)) {
             return false;
@@ -150,11 +167,24 @@ bool item_toml_write_shape(ByteBuffer *b, const DataBin *bin,
 bool item_toml_write_magic(ByteBuffer *b, const DataBinRow *row,
     int32_t place, uint32_t icon_width, uint32_t icon_height)
 {
+    return item_toml_write_magic_named(b, row, place, icon_width,
+        icon_height, NULL);
+}
+
+bool item_toml_write_magic_named(ByteBuffer *b, const DataBinRow *row,
+    int32_t place, uint32_t icon_width, uint32_t icon_height,
+    const ItemNames *names)
+{
+    char shown[ITEM_NAME_SIZE];
+    /* The server knows a magic item by the name its row has. */
+    bool named = names != NULL
+        && item_names_shown_for(names, row->name, shown);
     /* A magic item's row is its price, its weight, and a text of what
      * it does, if it does anything. */
     return toml_comment(b, row->name)
         && toml_int(b, "id", place)
         && toml_text(b, "name", row->name)
+        && (!named || toml_text(b, "display_name", shown))
         && toml_text(b, "kind", "magic")
         && (row->number_count < 1 || toml_int(b, "price", row->numbers[0]))
         && (row->number_count < 2 || toml_int(b, "weight", row->numbers[1]))

@@ -377,3 +377,98 @@ UTEST(unit_layout, dying_frames_in_another_units_file_are_not_given)
     ASSERT_TRUE(unit_layout_frame(&l, UNIT_ANIM_IDLE, 7, 1, &frame, &mirror));
     ASSERT_EQ(16u + 64u + 7u * 2u + 1u, frame);
 }
+
+/* ---- unit_layout_fit_dying ---- */
+
+/* A unit like the WarSheep: 8 moving phases, 4 dying and 3 bones, all
+ * in its own file, not mirrored. 16 + 8 * (8 + 4 + 3) is 136 frames. */
+static size_t make_sheep(MakeReg *m)
+{
+    make_reg_start(m);
+    make_reg_section(m, "Global");
+    make_reg_int(m, "UnitCount", 1);
+    make_reg_section(m, "Unit0");
+    make_reg_int(m, "ID", 107);
+    make_reg_int(m, "MovePhases", 8);
+    make_reg_int(m, "DyingPhases", 4);
+    make_reg_int(m, "BonePhases", 3);
+    make_reg_int(m, "Dying", 107);
+    return make_reg_finish(m);
+}
+
+UTEST(unit_layout, fit_dying_gives_the_frames_over_to_the_dying)
+{
+    static MakeReg m;
+    Reg reg;
+    UnitLayout layout;
+    ASSERT_TRUE(reg_open(m.bytes, make_sheep(&m), &reg));
+    ASSERT_TRUE(unit_layout_read(&reg, 107, &layout));
+    ASSERT_EQ(136u, layout.frame_count);
+    ASSERT_EQ(80u, layout.first[UNIT_ANIM_DYING]);
+    ASSERT_EQ(112u, layout.first[UNIT_ANIM_BONES]);
+
+    /* 144 frames: 8 over, one dying phase more for each direction. */
+    ASSERT_TRUE(unit_layout_fit_dying(&layout, 144));
+
+    ASSERT_EQ(5u, layout.phases[UNIT_ANIM_DYING]);
+    ASSERT_EQ(3u, layout.phases[UNIT_ANIM_BONES]);
+    ASSERT_EQ(8u, layout.phases[UNIT_ANIM_MOVE]);
+    ASSERT_EQ(80u, layout.first[UNIT_ANIM_DYING]);
+    ASSERT_EQ(120u, layout.first[UNIT_ANIM_BONES]);
+    ASSERT_EQ(144u, layout.first[UNIT_ANIM_IDLE]);
+    ASSERT_EQ(144u, layout.frame_count);
+
+    /* Two phases more at once. */
+    ASSERT_TRUE(unit_layout_fit_dying(&layout, 160));
+    ASSERT_EQ(7u, layout.phases[UNIT_ANIM_DYING]);
+    ASSERT_EQ(136u, layout.first[UNIT_ANIM_BONES]);
+}
+
+UTEST(unit_layout, fit_dying_leaves_alone_what_it_cannot_fit)
+{
+    static MakeReg m;
+    Reg reg;
+    UnitLayout layout;
+    ASSERT_TRUE(reg_open(m.bytes, make_sheep(&m), &reg));
+    ASSERT_TRUE(unit_layout_read(&reg, 107, &layout));
+    UnitLayout before = layout;
+
+    /* It fits already, the file is shorter, and frames over that are
+     * not a whole phase. */
+    ASSERT_FALSE(unit_layout_fit_dying(&layout, 136));
+    ASSERT_FALSE(unit_layout_fit_dying(&layout, 128));
+    ASSERT_FALSE(unit_layout_fit_dying(&layout, 143));
+    ASSERT_FALSE(unit_layout_fit_dying(&layout, 137));
+    ASSERT_EQ(0, memcmp(&layout, &before, sizeof layout));
+
+    /* A unit whose dying frames are in another unit's file. */
+    layout.own_dying = false;
+    before = layout;
+    ASSERT_FALSE(unit_layout_fit_dying(&layout, 144));
+    ASSERT_EQ(0, memcmp(&layout, &before, sizeof layout));
+}
+
+UTEST(unit_layout, fit_dying_of_a_mirrored_unit_counts_its_five_directions)
+{
+    /* Mirrored, a phase is 5 frames: 9 + 5 * (8 + 4 + 3) is 84. */
+    static MakeReg m;
+    Reg reg;
+    UnitLayout layout;
+    make_reg_start(&m);
+    make_reg_section(&m, "Global");
+    make_reg_int(&m, "UnitCount", 1);
+    make_reg_section(&m, "Unit0");
+    make_reg_int(&m, "ID", 1);
+    make_reg_int(&m, "Flip", 1);
+    make_reg_int(&m, "MovePhases", 8);
+    make_reg_int(&m, "DyingPhases", 4);
+    make_reg_int(&m, "BonePhases", 3);
+    ASSERT_TRUE(reg_open(m.bytes, make_reg_finish(&m), &reg));
+    ASSERT_TRUE(unit_layout_read(&reg, 1, &layout));
+    ASSERT_EQ(84u, layout.frame_count);
+
+    ASSERT_FALSE(unit_layout_fit_dying(&layout, 92));
+    ASSERT_TRUE(unit_layout_fit_dying(&layout, 89));
+    ASSERT_EQ(5u, layout.phases[UNIT_ANIM_DYING]);
+    ASSERT_EQ(89u, layout.frame_count);
+}

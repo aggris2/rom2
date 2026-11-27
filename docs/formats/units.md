@@ -126,9 +126,14 @@ The two that do not fit:
   but, unlike ID 1, does not set `Flip`. The file has 129 frames, which
   fits ID 1.
 - **ID 107, "WarSheep".** The file has 144 frames and the numbers give
-  136.
+  136. Its frames, looked at, are 16 standing, 8 by 8 moving, 8 by 5
+  dying and 8 by 3 bones: the registry gives the dying 4 phases and the
+  file has 5.
 
-ROM2's importer refuses these two with a message.
+ROM2's importer refuses ID 2 with a message. It writes the WarSheep with
+5 dying phases, and says so as it does: where a unit keeps its dying
+frames in its own file and the file is longer than the numbers give by
+a whole number of dying phases, the dying gets those phases.
 
 ## Where a frame sits
 
@@ -229,7 +234,6 @@ are left out with a message.
   otherwise. It is probably the height a flying unit is drawn at. Not
   checked.
 - `Index` is 0 wherever a unit states it.
-- Why the WarSheep has 8 more frames than its numbers give.
 
 ## The hero
 

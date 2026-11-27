@@ -83,7 +83,7 @@ registry has no centre: it is the middle too.
   file. ROM2 writes the first 7.
 - **5 sprite files are named by no projectile:** `diamonddust`,
   `freeze`, `smallxpl`, `smoke0` and `smoke1`. The game must use them
-  directly. ROM2 does not write them yet.
+  directly. ROM2 writes them as effects: see below.
 
 ## What ROM2 writes for a projectile
 
@@ -115,9 +115,19 @@ the two pictures together.
 
 All 31 projectiles are written.
 
+The five sprite files that no projectile names are written too, into
+`content/effects`, each as a sheet of its frames with a small
+definition, as the sprites of the interface are (see
+[pictures.md](pictures.md)).
+
+`projectiles/firebolt` has its sprite twice: `sprites.16a`, which the
+registry names, and an older `sprites.256` with its soft edges, which
+nothing names and the importer leaves out.
+
 ## Not known
 
 - How long each picture of an animation is shown. The registry has no
   times.
 - The meaning of `SFX` and `Homing` beyond their names.
-- What `projectile_.pal` is for.
+- What `projectile_.pal` is for. Nothing names it, and the importer
+  leaves it out.

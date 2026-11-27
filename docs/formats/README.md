@@ -33,7 +33,7 @@ and a few lines of values as examples.
 
 | Format | Files | What it is |
 |---|---|---|
-| `itemname.*`, `interface/data.dat` | 4 | small tables |
+| `itemname.pkt`, `itemname.pat` | 2 | more about the items' names; the names themselves are read, see [items.md](items.md) |
 
 ## Standard formats
 

@@ -79,4 +79,20 @@ bool unit_layout_frame(const UnitLayout *layout, UnitAnim anim,
     uint32_t direction, uint32_t phase, uint32_t *out_frame,
     bool *out_mirror);
 
+/* Makes a layout fit a sprite file that has more frames than the
+ * registry describes, where the frames over are dying frames: the unit
+ * keeps its dying frames in its own file, and the file is longer by a
+ * whole number of dying phases, one frame for each stored direction. The
+ * dying then gets those phases more, and the bones and what follows
+ * start that much later.
+ *
+ * The original has one such unit, the WarSheep: its registry gives its
+ * dying 4 phases and its file has 5.
+ *
+ * Returns true, with the layout changed, if that makes it fit
+ * `file_frames`. Returns false, and leaves the layout alone, if it fits
+ * already, the file is shorter, the unit's dying frames are elsewhere,
+ * or the frames over are not a whole number of phases. */
+bool unit_layout_fit_dying(UnitLayout *layout, uint32_t file_frames);
+
 #endif

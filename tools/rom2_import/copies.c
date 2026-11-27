@@ -10,6 +10,7 @@
  *               music.res     *.wav          to  sounds/music/
  *               speech.res    *.wav          to  sounds/speech/
  *     texts     main.res      text/ *.txt    to  texts/
+ *               patch.res     *.txt          to  texts/
  *     videos    video.res     *.smk, *.reg   to  videos/
  *     rules     world.res     data/ai.reg    to  rules/ai.toml
  *               world.res     data/map.reg   to  rules/map.toml
@@ -354,7 +355,8 @@ static bool mission_text(const char *name)
         && mission_number(name + 7, ".txt") >= 0;
 }
 
-int import_texts(const ResArchive *main_archive, const char *content_folder)
+int import_texts(const ResArchive *main_archive, const ResArchive *patch,
+    const char *content_folder)
 {
     char folder[1000];
     if (main_archive == NULL) {
@@ -367,6 +369,11 @@ int import_texts(const ResArchive *main_archive, const char *content_folder)
     TreeCount total = {0, 0};
     tree_write_but(main_archive, "text", folder, ".txt", ".txt",
         text_write, mission_text, &total);
+    /* patch.res has one more text: what the game says when the server
+     * does not answer, and the like. */
+    if (patch != NULL) {
+        tree_write(patch, NULL, folder, ".txt", ".txt", text_write, &total);
+    }
     printf("%s\n%d texts written, %d left out\n", folder, total.written,
         total.failed);
     return total.failed;

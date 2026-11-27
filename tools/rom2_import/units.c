@@ -88,6 +88,10 @@ typedef struct Unit {
     Rgb palettes[MAX_PALETTES * 256];
     uint32_t palette_rows;
     bool by_player;
+    /* Whether the file has more dying phases than the registry gives,
+     * and how many the registry gives. */
+    bool dying_corrected;
+    uint32_t dying_said;
 } Unit;
 
 /* Reads the .pal file with the given name next to the unit's sprite
@@ -211,8 +215,15 @@ static const char *unit_read(const ResArchive *archive, const Reg *reg,
         return "the unit's sprite file is not in the archive";
     }
     if (out->sprite.frame_count != out->layout.frame_count) {
-        return "the sprite file does not have the number of frames the "
-            "registry describes";
+        /* A file may have more dying frames than the registry says. */
+        uint32_t said = out->layout.phases[UNIT_ANIM_DYING];
+        if (!unit_layout_fit_dying(&out->layout,
+                out->sprite.frame_count)) {
+            return "the sprite file does not have the number of frames "
+                "the registry describes";
+        }
+        out->dying_said = said;
+        out->dying_corrected = true;
     }
 
     /* The soft edges are in a file of the same name with "b" before the
@@ -362,6 +373,12 @@ static const char *unit_write(const ResArchive *archive, const Reg *reg,
     }
     if (problem == NULL) {
         printf("  %s, %u kinds\n", name, *kind_count);
+        if (unit.dying_corrected) {
+            printf("    its file has %u dying phases where the registry "
+                "says %u: written with %u\n",
+                unit.layout.phases[UNIT_ANIM_DYING], unit.dying_said,
+                unit.layout.phases[UNIT_ANIM_DYING]);
+        }
     }
     return problem;
 }

@@ -47,6 +47,7 @@ thing into a folder of `content`:
 |---|---|
 | `units`, `objects`, `structures`, `projectiles`, `spells` | a folder for each thing, with its definition and its pictures |
 | `heroes` | a folder for each look of the player's hero, in armour and without |
+| `effects` | smoke, a small explosion and other sprites the game shows by itself |
 | `items`, `characters` | the items with their pictures, and the characters they are drawn on |
 | `terrain` | the ground tiles |
 | `interface` | the pictures and sprites of the interface, the menus, the shops and the cursors |
@@ -57,9 +58,10 @@ thing into a folder of `content`:
 | `texts` | the other texts, as UTF-8 |
 | `rules` | small tables of settings: the cost of each kind of ground, and others |
 
-At the end it says how many of the original's files it read and how
-many it did not, and lists the ones it did not read in
-`content/not_imported.txt`. That list is what is still to be done.
+At the end it says how many of the original's files it read, how many
+it left out on purpose, such as a spare palette, and how many it has
+not read yet. The last two are listed in `content/not_imported.txt`,
+each with the reason.
 
 A step can be run alone, and most can write one thing alone, by its ID:
 

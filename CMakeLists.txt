@@ -82,6 +82,7 @@ add_library(rom2_import STATIC
     tools/import/font_sheet.c
     tools/import/frames.c
     tools/import/icon_strip.c
+    tools/import/item_names.c
     tools/import/item_toml.c
     tools/import/items.c
     tools/import/name.c
@@ -135,6 +136,7 @@ add_executable(import_program
     tools/rom2_import/objects.c
     tools/rom2_import/projectiles.c
     tools/rom2_import/spells.c
+    tools/rom2_import/sprite_files.c
     tools/rom2_import/structures.c
     tools/rom2_import/terrain.c
     tools/rom2_import/tree.c
@@ -157,6 +159,7 @@ add_executable(rom2_tests
     tests/import/test_databin.c
     tests/import/test_font_sheet.c
     tests/import/test_icon_strip.c
+    tests/import/test_item_names.c
     tests/import/test_item_toml.c
     tests/import/test_items.c
     tests/import/test_name.c

@@ -190,6 +190,35 @@ The files are described at the top of `tools/import/item_toml.h`.
 65 shapes and 96 magic items are written, with all 491 pictures for the
 inventory, 984 pictures of items worn, and 116 characters.
 
+## The names shown
+
+The name a player sees for an item is not in `data.bin`. Three files
+give it:
+
+| File | What it is |
+|---|---|
+| `data/itemname.bin` in `world.res` | 491 numbers of 16 bits, low byte first, one for each item |
+| `text/itemserv.txt` in `main.res` | 491 lines: the name the server knows each by |
+| `text/itemname.txt` in `main.res` | 491 lines: the name shown |
+
+The three are in one order. A number is the item's material in its top
+4 bits, then 4 bits of its slot, 3 of its class and 5 of its place in
+its table: `0x1914` is material 1, slot 9, class 0, place 20, the common
+bronze bracers, which the server knows as `Common Bronze Bracers` and
+the player sees as `Bronze Bracers`.
+
+395 of the numbers are the 395 variants of the shapes, each exactly
+once. The other 96 have slot 14 and are the magic items: the server's
+name of each is the name its row has in `data.bin`, such as `Book Air`,
+shown as `Book`.
+
+ROM2 writes the name shown as `display_name`, in each variant of a
+shape's `item.toml` and at the top of a magic item's.
+
+`text/itemname.pat`, 527 lines of the form
+`Common Bronze Bracers=Bronze Bracers`, says much the same and is not
+read. Nor is `data/itemname.pkt`, which has a record for each item.
+
 ## Not known
 
 - In what order the worn pictures are laid over each other.

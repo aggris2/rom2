@@ -26,6 +26,8 @@
 #include "import/reg.h"
 #include "import/res.h"
 #include "import/sprite256.h"
+#include "rom2_import/sprite_files.h"
+#include "rom2_import/tree.h"
 
 /* The palette of the projectiles whose sprite file has none. */
 #define SHARED_PALETTE "projectiles/projectiles.pal"
@@ -210,4 +212,38 @@ int import_projectiles(const ResArchive *graphics,
     }
     printf("%d projectiles written, %d left out\n", done, failed);
     return failed;
+}
+
+/* ---- The effects ---- */
+
+/* Sprites that lie among the projectiles and that the registry does not
+ * name: smoke, a small explosion and the like. What shows them is in
+ * the game's program. */
+static const char *const EFFECTS[] = {
+    "diamonddust", "freeze", "smallxpl", "smoke0", "smoke1"
+};
+#define EFFECT_COUNT (sizeof EFFECTS / sizeof EFFECTS[0])
+
+int import_effects(const ResArchive *graphics, const char *content_folder)
+{
+    char folder[1000];
+    int written = snprintf(folder, sizeof folder, "%s/effects",
+        content_folder);
+    if (written < 0 || (size_t)written >= sizeof folder
+        || !file_make_folder(content_folder) || !file_make_folder(folder)) {
+        fprintf(stderr, "effects: cannot make the folder %s/effects\n",
+            content_folder);
+        return -1;
+    }
+    TreeCount total = {0, 0};
+    printf("%s\n", folder);
+    for (size_t i = 0; i < EFFECT_COUNT; i++) {
+        char inside[64];
+        snprintf(inside, sizeof inside, "projectiles/%s", EFFECTS[i]);
+        tree_write_in(graphics, inside, folder, EFFECTS[i], ".16a", ".png",
+            sprite_files_write_16a, &total);
+    }
+    printf("%d effects written, %d left out\n", total.written,
+        total.failed);
+    return total.failed;
 }

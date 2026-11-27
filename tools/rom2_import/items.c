@@ -255,7 +255,7 @@ static int characters_write(const ResArchive *archive,
  * not be written. `*done` and `*icons` count shapes and pictures. */
 static int shapes_write(const ResArchive *archive, const DataBin *bin,
     DataBinTable table, const char *items_folder, const char *kind_folder,
-    int *done, int *icons, int *worn_count)
+    const ItemNames *names, int *done, int *icons, int *worn_count)
 {
     static DataBinRow row;
     char parent[1024];
@@ -291,8 +291,8 @@ static int shapes_write(const ResArchive *archive, const DataBin *bin,
         ByteBuffer toml = {0};
         bool ok = name_folder(place, row.name, name)
             && make_folder(parent, name, folder, sizeof folder)
-            && item_toml_write_shape(&toml, bin, table, &row, place,
-                ICON_SIDE, ICON_SIDE, &worn)
+            && item_toml_write_shape_named(&toml, bin, table, &row, place,
+                ICON_SIDE, ICON_SIDE, &worn, names)
             && write_in(folder, "item.toml", &toml);
         buffer_free(&toml);
 
@@ -340,7 +340,7 @@ static bool magic_has_icon(const ResArchive *archive, int32_t place)
 
 /* Writes the folders of the magic items. */
 static int magic_write(const ResArchive *archive, const DataBin *bin,
-    const char *items_folder, int *done, int *icons)
+    const char *items_folder, const ItemNames *names, int *done, int *icons)
 {
     static DataBinRow row;
     char parent[1024];
@@ -363,7 +363,8 @@ static int magic_write(const ResArchive *archive, const DataBin *bin,
         ByteBuffer toml = {0};
         bool ok = name_folder(place, row.name, name)
             && make_folder(parent, name, folder, sizeof folder)
-            && item_toml_write_magic(&toml, &row, place, side, side)
+            && item_toml_write_magic_named(&toml, &row, place, side, side,
+                names)
             && write_in(folder, "item.toml", &toml)
             && (!has_icon || icon_write(archive, 0, ITEM_SLOT_MAGIC, 0,
                 place, folder));
@@ -391,7 +392,7 @@ static bool table_write(const char *items_folder, const char *name,
 }
 
 int import_items(const ResArchive *graphics, const ResArchive *world,
-    const char *content_folder)
+    const ResArchive *main_archive, const char *content_folder)
 {
     ResEntry entry;
     DataBin bin;
@@ -417,13 +418,38 @@ int import_items(const ResArchive *graphics, const ResArchive *world,
     int worn = 0;
     int failed = 0;
     printf("%s\n", items_folder);
+    /* The names the game shows, from three files in two archives. With
+     * one of them missing the items are written without. */
+    ItemNames names_files;
+    const ItemNames *names = NULL;
+    ResEntry numbers;
+    ResEntry server;
+    ResEntry shown;
+    if (main_archive != NULL
+        && res_find(world, "data/itemname.bin", &numbers)
+        && !numbers.is_folder
+        && res_find(main_archive, "text/itemserv.txt", &server)
+        && !server.is_folder
+        && res_find(main_archive, "text/itemname.txt", &shown)
+        && !shown.is_folder
+        && item_names_open(world->data + numbers.offset, numbers.size,
+            main_archive->data + server.offset, server.size,
+            main_archive->data + shown.offset, shown.size,
+            &names_files)) {
+        names = &names_files;
+    } else {
+        fprintf(stderr, "  the names of the items could not be read: "
+            "they are written without\n");
+    }
+
     failed += shapes_write(graphics, &bin, DATABIN_WEAPONS, items_folder,
-        "weapons", &shapes, &icons, &worn);
+        "weapons", names, &shapes, &icons, &worn);
     failed += shapes_write(graphics, &bin, DATABIN_SHIELDS, items_folder,
-        "shields", &shapes, &icons, &worn);
+        "shields", names, &shapes, &icons, &worn);
     failed += shapes_write(graphics, &bin, DATABIN_ARMOUR, items_folder,
-        "armour", &shapes, &icons, &worn);
-    failed += magic_write(graphics, &bin, items_folder, &magic, &icons);
+        "armour", names, &shapes, &icons, &worn);
+    failed += magic_write(graphics, &bin, items_folder, names, &magic,
+        &icons);
     if (!table_write(items_folder, "materials.toml", &bin,
             item_toml_write_materials)
         || !table_write(items_folder, "classes.toml", &bin,

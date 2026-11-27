@@ -85,7 +85,9 @@ with `steps.h` naming them all. `main.c` opens the original's archives
 once, runs the steps in turn and hands each the archives it needs. An
 archive notes every file a step reads, so at the end the program can say
 which of the original's files no step has read yet. That list is how we
-know what is left to import. A second small program, `res_list`, prints
+know what is left to import. The few files that are left out knowingly,
+such as a spare palette, are named in `main.c` with the reason, and the
+program counts them apart. A second small program, `res_list`, prints
 the files in an archive.
 
 ## Libraries

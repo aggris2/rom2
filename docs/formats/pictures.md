@@ -73,9 +73,12 @@ The largest is `interface/town_druid/bug/sprites.16a`, 183 frames of
 640 by 268.
 
 Four of the `.256` cursors are empty files: `cast`, `defend`, `move`
-and `patrol`. Two more, `attack.256` and `pickup.256`, keep their pixels
-in some way that is not known: read as a `.256` they have the right
-number of frames of the right size, and come out as noise. Each of the
+and `patrol`. Two more, `attack.256` and `pickup.256`, are broken
+files. Their pixels are three bytes of colour each, where a `.256` has
+one byte that is an index, but a frame is still counted out as one byte
+for a pixel: so a frame of 32 by 32 holds 1,024 bytes, which is the top
+third of its picture, and reads as noise. Laid out 96 bytes to a row,
+the first frame of `attack.256` shows the top of a sword. Each of the
 six has a `.16a` cursor of the same name beside it, which is the one the
 game shows.
 
@@ -94,4 +97,4 @@ going to `interface/cursors/` and `interface/backpack/`. The sheet has
 one name, such as `shopframe.bmp` and `shopframe.256`. A row holds as
 many frames as fit in 4,096 pixels. Where the frames are not all of one
 size, each lies in the top left corner of its cell and the definition
-lists their sizes. The two cursors that cannot be read are left out.
+lists their sizes. The two broken cursors are left out.

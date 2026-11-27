@@ -78,9 +78,9 @@ Example, the monster `Goblin_Pike`: body 20, healthMax 40, speed 24,
 physicalMin 4, physicalMax 8, typeID 64, face 1, XPvalue 60, and the
 item `Bronze Pike`.
 
-Of the 464 kinds, 6 point at a unit that `units.reg` does not have or
-that ROM2 leaves out: the monsters `Root` (78), `Sheep` (107) and `Human`
-(-1), and three humans on horseback (17, 18 and 20).
+Of the 464 kinds, 5 point at a unit that `units.reg` does not have: the
+monsters `Root` (78) and `Human` (-1), and three humans on horseback
+(17, 18 and 20).
 
 ## Spells
 

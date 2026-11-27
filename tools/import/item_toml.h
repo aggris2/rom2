@@ -111,6 +111,7 @@
 
 #include "base/buffer.h"
 #include "import/databin.h"
+#include "import/item_names.h"
 
 /* The room the name of a variant's folder needs, with its closing
  * zero. */
@@ -152,10 +153,23 @@ bool item_toml_write_shape(ByteBuffer *b, const DataBin *bin,
     DataBinTable table, const DataBinRow *row, int32_t place,
     uint32_t icon_width, uint32_t icon_height, const ItemTomlWorn *worn);
 
+/* The same, with the name the game shows for each variant as its
+ * "display_name", where `names` has one. `names` may be NULL. */
+bool item_toml_write_shape_named(ByteBuffer *b, const DataBin *bin,
+    DataBinTable table, const DataBinRow *row, int32_t place,
+    uint32_t icon_width, uint32_t icon_height, const ItemTomlWorn *worn,
+    const ItemNames *names);
+
 /* Adds the text of item.toml for a magic item to `b`. With `icon_width`
  * and `icon_height` not 0 the file names its picture, of that size. */
 bool item_toml_write_magic(ByteBuffer *b, const DataBinRow *row,
     int32_t place, uint32_t icon_width, uint32_t icon_height);
+
+/* The same, with the name the game shows for the item as its
+ * "display_name", where `names` has one. `names` may be NULL. */
+bool item_toml_write_magic_named(ByteBuffer *b, const DataBinRow *row,
+    int32_t place, uint32_t icon_width, uint32_t icon_height,
+    const ItemNames *names);
 
 /* Adds the text of materials.toml, classes.toml or modifiers.toml to
  * `b`: an entry for every row of that table of data.bin.

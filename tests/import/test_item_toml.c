@@ -2,6 +2,7 @@
 
 #include <string.h>
 
+#include "import/items.h"
 #include "make_databin.h"
 #include "utest.h"
 
@@ -216,6 +217,86 @@ UTEST(item_toml, write_shape_names_the_folder_of_each_variant)
         "folder = \"gold_common\"\n"
         "material = 1\n"
         "class = 0\n"));
+    buffer_free(&b);
+    buffer_free(&file);
+}
+
+UTEST(item_toml, write_shape_named_gives_each_variant_the_name_shown)
+{
+    static DataBinRow row;
+    ByteBuffer file = {0};
+    ByteBuffer b = {0};
+    DataBin bin;
+    ItemNames names;
+    int32_t slot = -1;
+    make_items(&file);
+    ASSERT_TRUE(databin_open(file.data, file.size, &bin));
+    ASSERT_TRUE(first_row(&bin, DATABIN_SHIELDS, &row));
+    ASSERT_TRUE(items_slot(&bin, DATABIN_SHIELDS, &row, &slot));
+
+    /* The buckler is place 1, common, in iron and in gold: materials 0
+     * and 1. The files name the one in gold, and one in iron at another
+     * place, so only the gold one gets a name. */
+    uint8_t numbers[4];
+    uint32_t gold = (1u << 12) | ((uint32_t)slot << 8) | 1u;
+    uint32_t other = ((uint32_t)slot << 8) | 2u;
+    numbers[0] = (uint8_t)(other & 0xff);
+    numbers[1] = (uint8_t)(other >> 8);
+    numbers[2] = (uint8_t)(gold & 0xff);
+    numbers[3] = (uint8_t)(gold >> 8);
+    ASSERT_TRUE(item_names_open(numbers, sizeof numbers,
+        (const uint8_t *)"a\nb\n", 4,
+        (const uint8_t *)"Other\nGolden Buckler\n", 21, &names));
+
+    ASSERT_TRUE(item_toml_write_shape_named(&b, &bin, DATABIN_SHIELDS,
+        &row, 1, 0, 0, NULL, &names));
+
+    ASSERT_TRUE(has(&b,
+        "\n[[variant]]\n"
+        "folder = \"iron_common\"\n"
+        "material = 0\n"
+        "class = 0\n"
+        "\n[[variant]]\n"
+        "folder = \"gold_common\"\n"
+        "display_name = \"Golden Buckler\"\n"
+        "material = 1\n"
+        "class = 0\n"));
+    buffer_free(&b);
+    buffer_free(&file);
+}
+
+UTEST(item_toml, write_magic_named_gives_the_name_shown)
+{
+    static DataBinRow row;
+    ByteBuffer file = {0};
+    ByteBuffer b = {0};
+    DataBin bin;
+    ItemNames names;
+    const uint8_t numbers[] = {0x01, 0x0e};
+    make_items(&file);
+    ASSERT_TRUE(databin_open(file.data, file.size, &bin));
+    DataBinRows rows = databin_rows(&bin, DATABIN_MAGIC_ITEMS);
+    ASSERT_TRUE(item_names_open(numbers, sizeof numbers,
+        (const uint8_t *)"Book Air\n", 9, (const uint8_t *)"Book\n", 5,
+        &names));
+
+    /* The server knows the book by the name of its row. */
+    ASSERT_TRUE(databin_next(&rows, &row));
+    ASSERT_TRUE(item_toml_write_magic_named(&b, &row, 1, 0, 0, &names));
+    ASSERT_TRUE(holds(&b,
+        "# Book Air\n"
+        "id = 1\n"
+        "name = \"Book Air\"\n"
+        "display_name = \"Book\"\n"
+        "kind = \"magic\"\n"
+        "price = 1\n"
+        "weight = 10\n"));
+    b.size = 0;
+
+    /* The scroll is not in the files, and is written without. */
+    ASSERT_TRUE(databin_next(&rows, &row));
+    ASSERT_TRUE(item_toml_write_magic_named(&b, &row, 2, 0, 0, &names));
+    ASSERT_FALSE(has(&b, "display_name"));
     buffer_free(&b);
     buffer_free(&file);
 }

@@ -118,3 +118,21 @@ bool unit_layout_frame(const UnitLayout *layout, UnitAnim anim,
     *out_mirror = mirror;
     return true;
 }
+
+bool unit_layout_fit_dying(UnitLayout *layout, uint32_t file_frames)
+{
+    uint32_t directions = stored_directions(layout);
+    if (!layout->own_dying || file_frames <= layout->frame_count
+        || directions == 0) {
+        return false;
+    }
+    uint32_t over = file_frames - layout->frame_count;
+    if (over % directions != 0) {
+        return false;
+    }
+    layout->phases[UNIT_ANIM_DYING] += over / directions;
+    layout->first[UNIT_ANIM_BONES] += over;
+    layout->first[UNIT_ANIM_IDLE] += over;
+    layout->frame_count = file_frames;
+    return true;
+}
