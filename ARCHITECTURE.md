@@ -95,7 +95,7 @@ definition. Those are `unit`, `object`, `structure`, `projectile`, `item`
 and `spell`. And a few the kinds share: `things`, `sheet`, `frames`,
 `plain_sheet`, `name` and `reg_toml`.
 
-One program runs it, `rom2_import`: `tools/import/main.c`. Each kind of
+One program runs it, `import`: `tools/import/main.c`. Each kind of
 thing is a step, in a file of its own in `tools/import/steps`: `units.c`,
 `objects.c` and so on, with `steps.h` naming them all and `shared.c` holding
 what they share. The steps are the part that touches the file system and
@@ -118,7 +118,8 @@ zlib is the one outside library so far. The build downloads its source at
 an exact version, checked by its hash, and builds it with ROM2, so every
 build uses the same zlib. Nothing of zlib is kept in this repository.
 
-`rom2_import` is a static library built from `tools/import`. It depends on
+`rom2_formats` is a static library built from the modules of
+`tools/import`, without the program and its steps. It depends on
 `rom2_core` and nothing else.
 
 ## Naming

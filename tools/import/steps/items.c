@@ -1,4 +1,4 @@
-/* The items step of rom2_import: writes the items of the original game as
+/* The items step of import: writes the items of the original game as
  * ROM2 content.
  *
  * In <content folder>/items this makes:

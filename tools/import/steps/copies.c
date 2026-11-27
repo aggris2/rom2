@@ -1,5 +1,5 @@
 /* The campaign, maps, sounds, texts, videos and rules steps of
- * rom2_import: the files of the original game that ROM2 takes as they
+ * import: the files of the original game that ROM2 takes as they
  * are, or nearly.
  *
  *     campaign  scenario.res  N.alm             to  campaign/missions/N/
@@ -10,6 +10,7 @@
  *               music.res     *.wav          to  sounds/music/
  *               speech.res    *.wav          to  sounds/speech/
  *     texts     main.res      text/ *.txt    to  texts/
+ *               main.res      text/ *.pat    to  texts/ *_pat.txt
  *               patch.res     *.txt          to  texts/
  *     videos    video.res     *.smk, *.reg   to  videos/
  *     rules     world.res     data/ai.reg    to  rules/ai.toml
@@ -354,6 +355,10 @@ int import_texts(const ResArchive *main_archive, const ResArchive *patch,
     TreeCount total = {0, 0};
     tree_write_but(main_archive, "text", folder, ".txt", ".txt",
         text_write, mission_text, &total);
+    /* One text has another ending: itemname.pat, the names of the items
+     * as "the server's name=the name shown". */
+    tree_write(main_archive, "text", folder, ".pat", "_pat.txt", text_write,
+        &total);
     /* patch.res has one more text: what the game says when the server
      * does not answer, and the like. */
     if (patch != NULL) {

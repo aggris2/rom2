@@ -1,4 +1,4 @@
-/* The structures step of rom2_import: writes the structures of the original
+/* The structures step of import: writes the structures of the original
  * game as ROM2 content.
  *
  * Every structure gets a folder of its own in <content folder>/structures,

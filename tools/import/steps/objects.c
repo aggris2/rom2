@@ -1,4 +1,4 @@
-/* The objects step of rom2_import: writes the objects of the original game
+/* The objects step of import: writes the objects of the original game
  * as ROM2 content.
  *
  * Every object gets a folder of its own in <content folder>/objects,

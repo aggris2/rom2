@@ -1,4 +1,4 @@
-/* The interface step of rom2_import: writes the pictures and the
+/* The interface step of import: writes the pictures and the
  * sprites of the interface, the menus, the shops and the cursors.
  *
  * They all go into <content folder>/interface, each under the path it

@@ -1,4 +1,4 @@
-/* The units step of rom2_import: writes the units of the original game as
+/* The units step of import: writes the units of the original game as
  * ROM2 content.
  *
  * Every unit gets a folder of its own in <content folder>/units, named

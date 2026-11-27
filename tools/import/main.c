@@ -1,6 +1,6 @@
-/* rom2_import: writes the original game's files as ROM2 content.
+/* import: writes the original game's files as ROM2 content.
  *
- *     rom2_import <game folder> <content folder> [step [id]]
+ *     import <game folder> <content folder> [step [id]]
  *
  * <game folder> is the folder with the original's archives: graphics.res,
  * world.res and the others. Every step is run in turn, and each writes
@@ -68,7 +68,7 @@ static void archives_open(Archives *a, const char *game_folder)
             continue;
         }
         if (!res_open(a->data[i], size, &a->res[i])) {
-            fprintf(stderr, "rom2_import: %s is not a .res archive\n", path);
+            fprintf(stderr, "import: %s is not a .res archive\n", path);
             continue;
         }
         /* One byte for each entry, to note the files that are read. */
@@ -160,6 +160,8 @@ static const LeftOut LEFT_OUT[] = {
         "a broken old cursor: the .16a one is written"},
     {GRAPHICS, "interface/data.dat", "",
         "not content: three bytes, a 0 and a line end"},
+    {WORLD, "data/itemname.pkt", "",
+        "the items' numbers worked out in advance: ours come to the same"},
     {MAIN, "id", "",
         "not content: the language of the release"},
     {MAIN, "text/namemake.exe", "",
@@ -353,7 +355,7 @@ static void report_print(const Archives *a, const char *content)
 int main(int argc, char **argv)
 {
     if (argc < 3 || argc > 5) {
-        fprintf(stderr, "usage: rom2_import <game folder> "
+        fprintf(stderr, "usage: import <game folder> "
             "<content folder> [step [id]]\nsteps:");
         for (size_t i = 0; i < STEP_COUNT; i++) {
             fprintf(stderr, " %s", STEP_NAMES[i]);
@@ -370,7 +372,7 @@ int main(int argc, char **argv)
             }
         }
         if (one_step == STEP_COUNT) {
-            fprintf(stderr, "rom2_import: there is no step \"%s\"\n",
+            fprintf(stderr, "import: there is no step \"%s\"\n",
                 argv[3]);
             return 2;
         }
@@ -381,7 +383,7 @@ int main(int argc, char **argv)
     static Archives archives;
     archives_open(&archives, argv[1]);
     if (!archives.open[GRAPHICS] || !archives.open[WORLD]) {
-        fprintf(stderr, "rom2_import: %s has no graphics.res and "
+        fprintf(stderr, "import: %s has no graphics.res and "
             "world.res\n", argv[1]);
         archives_close(&archives);
         return 1;

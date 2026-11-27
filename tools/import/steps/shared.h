@@ -1,4 +1,4 @@
-/* What the steps of rom2_import share: opening the original's tables and
+/* What the steps of import share: opening the original's tables and
  * making a step's folder, going through the things of a registry,
  * writing a whole folder of an archive file by file, and writing a
  * sprite no registry describes as a sheet. The parts follow in that
@@ -20,7 +20,7 @@
 #include "import/sprite256.h"
 #include "import/things.h"
 
-/* What the steps of rom2_import have in common: opening the original's
+/* What the steps of import have in common: opening the original's
  * tables, making a step's folder, writing a file into it, and going
  * through the things of a registry.
  */

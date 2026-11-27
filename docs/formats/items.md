@@ -215,9 +215,50 @@ shown as `Book`.
 ROM2 writes the name shown as `display_name`, in each variant of a
 shape's `item.toml` and at the top of a magic item's.
 
-`text/itemname.pat`, 527 lines of the form
-`Common Bronze Bracers=Bronze Bracers`, says much the same and is not
-read. Nor is `data/itemname.pkt`, which has a record for each item.
+`text/itemname.pat` has the same names in another form, lines of
+`Common Bronze Bracers=Bronze Bracers`: 521 of them, and 5 lines without
+a `=`. All 491 pairs of the two lists above are in it, word for word. The
+other 30 are names of things for quests and of five scrolls, which no
+table has an item for. The importer writes the file as
+`texts/itemname_pat.txt`.
+
+## The numbers worked out in advance
+
+`data/itemname.pkt` in `world.res` has, for each of the 491 items in
+the order of `itemname.bin`, what the game shows of it:
+
+```
+3 bytes of 0, the count of items in 32 bits, the size of the rest in 16
+for each item:
+    its number, 16 bits        as in itemname.bin
+    how many, 16 bits          1 in all
+    a kind, 1 byte             2 for most of what is worn or held
+    the count of values, 1 byte
+    their size in bytes, 1 byte
+    the values                 a tag of 1 byte and then the value
+```
+
+A value is one byte, but for tag 1, the price, which is 32 bits. The
+tags that were matched: 1 the price, 12 the bonus to hit, 13 the least
+damage, 14 how much more the most damage is, 15 the defence, 16 the
+absorption. The file reads to its exact end so.
+
+This is the game's own arithmetic, and it checks ours. For each of the
+395 variants the numbers were worked out from the shape's row and the
+multipliers of its material and class in `data.bin`:
+
+| Value | Worked out as | Agrees |
+|---|---|---|
+| price | shape × class × material, rounded | 395 of 395 |
+| defence | shape × class × material, rounded | 395 of 395 |
+| absorption | shape × class × material, cut off | 395 of 395 |
+| least damage | shape × class × material, rounded | 154 of 154 weapons |
+| most damage, as what it adds | the same for the most, less the least, rounded | 154 of 154 |
+| bonus to hit | shape × class × material, rounded | 154 of 154 |
+
+"Rounded" is half added and the fraction dropped. The importer does not
+read this file: it holds nothing that is not worked out from the
+tables.
 
 ## Not known
 

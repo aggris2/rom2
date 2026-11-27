@@ -1,4 +1,4 @@
-/* The spells step of rom2_import: writes the spells of the original game as
+/* The spells step of import: writes the spells of the original game as
  * ROM2 content.
  *
  * Every spell gets a folder of its own in <content folder>/spells, named

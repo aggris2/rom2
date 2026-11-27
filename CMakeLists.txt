@@ -76,9 +76,9 @@ target_include_directories(rom2_core PUBLIC src)
 target_link_libraries(rom2_core PRIVATE ${ROM2_ZLIB})
 rom2_set_warnings(rom2_core)
 
-# rom2_import: readers for the original game's file formats. Only the
+# rom2_formats: readers for the original game's file formats. Only the
 # importer uses them; the game itself never reads an original file.
-add_library(rom2_import STATIC
+add_library(rom2_formats STATIC
     tools/import/bmp.c
     tools/import/databin.c
     tools/import/frames.c
@@ -101,14 +101,14 @@ add_library(rom2_import STATIC
     tools/import/things.c
     tools/import/unit.c
 )
-target_include_directories(rom2_import PUBLIC tools)
-target_link_libraries(rom2_import PUBLIC rom2_core)
-rom2_set_warnings(rom2_import)
+target_include_directories(rom2_formats PUBLIC tools)
+target_link_libraries(rom2_formats PUBLIC rom2_core)
+rom2_set_warnings(rom2_formats)
 
-# rom2_import: writes the original game's files as ROM2 content. Each
-# kind of thing is a step, in a file of its own in tools/import/steps.
-# The library of readers has the name already, so the target is called
-# import_program and only the file it builds is rom2_import.
+# import: the program that writes the original game's files as ROM2
+# content. Each kind of thing is a step, in a file of its own in
+# tools/import/steps. The target is called import_program, and the file
+# it builds is import.
 add_executable(import_program
     tools/import/main.c
     tools/import/steps/copies.c
@@ -123,8 +123,8 @@ add_executable(import_program
     tools/import/steps/terrain.c
     tools/import/steps/units.c
 )
-set_target_properties(import_program PROPERTIES OUTPUT_NAME rom2_import)
-target_link_libraries(import_program PRIVATE rom2_import)
+set_target_properties(import_program PROPERTIES OUTPUT_NAME import)
+target_link_libraries(import_program PRIVATE rom2_formats)
 rom2_set_warnings(import_program)
 
 # Tests: one program, rom2_tests, built from every test file.
@@ -163,6 +163,6 @@ add_executable(rom2_tests
 # domain). SYSTEM: it is not held to our warning settings.
 target_include_directories(rom2_tests SYSTEM PRIVATE tests)
 target_include_directories(rom2_tests PRIVATE tests/import)
-target_link_libraries(rom2_tests PRIVATE rom2_core rom2_import)
+target_link_libraries(rom2_tests PRIVATE rom2_core rom2_formats)
 rom2_set_warnings(rom2_tests)
 add_test(NAME rom2_tests COMMAND rom2_tests)

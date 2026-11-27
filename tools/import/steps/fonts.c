@@ -1,4 +1,4 @@
-/* The fonts step of rom2_import: writes the fonts of the original game
+/* The fonts step of import: writes the fonts of the original game
  * as ROM2 content.
  *
  * The original has four, font1 to font4 in graphics.res. Each is a

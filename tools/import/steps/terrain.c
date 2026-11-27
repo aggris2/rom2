@@ -1,4 +1,4 @@
-/* The terrain step of rom2_import: writes the ground tiles of the original
+/* The terrain step of import: writes the ground tiles of the original
  * game as ROM2 content.
  *
  * In <content folder>/terrain this makes:

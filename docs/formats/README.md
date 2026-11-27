@@ -24,16 +24,11 @@ and a few lines of values as examples.
 | | | how a structure's values and tiles fit together | [structures.md](structures.md) |
 | | | how a projectile's values and frames fit together | [projectiles.md](projectiles.md) |
 | | | how items are put together, and their pictures | [items.md](items.md) |
+| `itemname.bin`, `.pkt`, `.pat` | 3 | the names of the items, and their numbers worked out in advance | [items.md](items.md) |
 | `.bmp` | 53 | the ground tiles, in `terrain/` | [terrain.md](terrain.md) |
 | `.bmp` | 1,462 | plain pictures: interface, menus, shops | [pictures.md](pictures.md) |
 | | | the sprites of the interface and the cursors | [pictures.md](pictures.md) |
 | `.alm` | 46 | maps: the layout and the ground | [alm.md](alm.md) |
-
-## Not described yet
-
-| Format | Files | What it is |
-|---|---|---|
-| `itemname.pkt`, `itemname.pat` | 2 | more about the items' names; the names themselves are read, see [items.md](items.md) |
 
 ## Standard formats
 
@@ -55,5 +50,5 @@ five have a few Cyrillic letters left in them.
 The importer copies the maps, the sounds and the videos as they are, and
 writes the texts as UTF-8 with plain line ends.
 
-The counts are over the ten archives. `rom2_import` lists every file of
+The counts are over the ten archives. `import` lists every file of
 them, with its size, in `original_files.txt` in the content folder.

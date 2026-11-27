@@ -37,7 +37,7 @@ archives, `graphics.res`, `world.res` and the others, in a folder called
 `game`:
 
 ```bash
-./build/rom2_import game content
+./build/import game content
 ```
 
 This runs every step of the import in turn. Each step writes one kind of
@@ -67,8 +67,8 @@ each with the reason, and every file of the original with its size in
 A step can be run alone, and most can write one thing alone, by its ID:
 
 ```bash
-./build/rom2_import game content units
-./build/rom2_import game content units 12
+./build/import game content units
+./build/import game content units 12
 ```
 
 The `content` folder is yours and is not part of this repository.

@@ -1,4 +1,4 @@
-/* The steps of rom2_import. Each writes one kind of thing of the
+/* The steps of import. Each writes one kind of thing of the
  * original game into the content folder, from archives that are open.
  *
  * A step prints what it wrote, and on stderr what it had to leave out.

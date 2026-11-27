@@ -1,4 +1,4 @@
-/* The projectiles step of rom2_import: writes the projectiles of the
+/* The projectiles step of import: writes the projectiles of the
  * original game as ROM2 content.
  *
  * Every projectile gets a folder of its own in <content folder>/
