@@ -1,7 +1,8 @@
 /* Being in a map: the one place of the game there is so far.
  *
  * It shows the ground of a map, with its hills and the light on them,
- * and the arrow keys or W, A, S and D move the camera over it.
+ * and the trees and rocks that stand on it. The arrow keys or W, A, S
+ * and D move the camera over it.
  */
 #ifndef ROM2_GAME_MAP_SCREEN_H
 #define ROM2_GAME_MAP_SCREEN_H

@@ -654,6 +654,11 @@ bool toml_read(const uint8_t *data, size_t size, TomlTable **out,
     return true;
 }
 
+bool toml_has(const TomlTable *table, const char *key)
+{
+    return find(table, key) != NULL;
+}
+
 bool toml_get_int(const TomlTable *table, const char *key, int32_t *out)
 {
     const Entry *entry = find_kind(table, key, KIND_INT);

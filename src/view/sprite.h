@@ -9,7 +9,7 @@
 
 #include <stdint.h>
 
-/* All of it is in pixels. */
+/* Places and sizes are in pixels. */
 typedef struct Sprite {
     uint16_t sheet;         /* the number the renderer gave the sheet */
     uint16_t source_x;      /* the part of the sheet to take */
@@ -18,6 +18,7 @@ typedef struct Sprite {
     uint16_t height;
     int16_t x;              /* where its top left corner goes */
     int16_t y;
+    uint16_t light;         /* how bright: see FRAME_LIGHT_WHOLE */
 } Sprite;
 
 #endif

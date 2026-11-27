@@ -98,35 +98,43 @@ importer. It gives the map's size, ground, heights, objects, structures,
 players and units. The map's script is not read yet.
 
 `src/data/sprite_sheet` is the first of the readers of definitions, the
-`.toml` files the importer wrote: which file a sprite sheet is, the size
-of a cell in it, and the point of a cell that stands on the map.
+`.toml` files the importer wrote: which file a sprite sheet is, which file
+has its soft edges, the size of a cell in it, and the point of a cell that
+stands on the map. It also joins the two pictures into what a sheet is when
+it is drawn, two numbers for each pixel: which colour of the palette, and
+how solid, with the soft edge half see-through. In the content the two stay
+separate pictures, each of which can be looked at.
 
 `src/view` turns what there is into what is drawn. `frame.h` is what the
-renderer is handed once a frame: the ground, and the sprites that lie on
-it. `sprite.h` is the record for one sprite, a part of a sheet at a place
-on the screen. `camera` says which part of a map is on the screen and
-keeps it inside the map. `light` works out how bright the ground is at
-each corner of a square, from its slopes and the angle of the sun.
-`ground` writes the corners of each square the camera sees, raised by the
-heights of the map and with that light: a square on a slope is not a
-rectangle, so the ground has a record of its own and is not made of
-sprites. None of it knows the graphics card, so all of it has unit tests.
+renderer is handed once a frame: the ground, and the sprites that lie on it.
+`sprite.h` is the record for one sprite, a part of a sheet at a place on the
+screen. `camera` says which part of a map is on the screen and keeps it
+inside the map. `light` works out how bright the ground is at each corner of
+a square, from its slopes and the angle of the sun. `ground` writes the
+corners of each square the camera sees, raised by the heights of the map and
+with that light: a square on a slope is not a rectangle, so the ground has a
+record of its own and is not made of sprites. `objects` writes a sprite for
+each tree or rock the camera can see, standing on the ground at its height,
+in the order they are drawn: row after row from the top, and in a row from
+the right. None of it knows the graphics card, so all of it has unit tests.
 
-`src/game` is the program `rom2`, and the only code that uses SDL.
-`main.c` is the window and the loop. `map_screen` is being in a map, the
-one place of the game there is so far: it reads the map, moves the camera
-by the keys, asks the view for the frame's list and hands it to the
-renderer. Each place still to come, such as the main menu, is a file like
-it, with the same three functions: open, one frame, close.
+`src/game` is the program `rom2`, and the only code that uses SDL. `main.c`
+is the window and the loop. `map_screen` is being in a map, the one place of
+the game there is so far: it reads the map and the sheets of what is on it,
+moves the camera by the keys, asks the view for the frame and hands it to
+the renderer. `sheets` reads a sheet from the content and puts it on the
+card. Each place still to come, such as the main menu, is a file like
+`map_screen`, with the same three functions: open, one frame, close.
 
-`renderer` is the one module that talks to the graphics card, through
-SDL's GPU API. It is handed a frame and draws the ground first, then the
-sprites in the order of their list. A sheet goes to the card as it is in
-its file, a number for each pixel and the 256 colours beside it, and a
-shader looks each colour up as it draws: sprites stay 8 bits a pixel on
-the card, and a palette can be changed without touching the picture. The
-ground's shader also makes each pixel as bright as the light there says,
-up to three times its tile's colours.
+`renderer` is the one module that talks to the graphics card, through SDL's
+GPU API. It is handed a frame and draws the ground first, then the sprites
+in the order of their list. A sheet is on the card as three small things:
+for each pixel which colour of the palette it is, for each pixel how solid
+it is, and the 256 colours. A shader looks each colour up as it draws, makes
+it as bright as the ground's light or the sprite says, up to three times the
+sheet's own colours, and lays it over what is there by how solid it is. So
+sprites stay 8 bits a pixel on the card, and a palette can be changed
+without touching the picture.
 
 The shaders, the small programs the graphics card runs, are written in
 GLSL in `src/game/shaders`. The card does not take them as text, and each

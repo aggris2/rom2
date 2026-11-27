@@ -108,6 +108,7 @@ add_library(rom2_core STATIC
     src/view/camera.c
     src/view/ground.c
     src/view/light.c
+    src/view/objects.c
 )
 target_include_directories(rom2_core PUBLIC src)
 target_link_libraries(rom2_core PRIVATE ${ROM2_ZLIB})
@@ -175,6 +176,7 @@ if(ROM2_BUILD_GAME)
         src/game/map_screen.c
         src/game/renderer.c
         src/game/shader.c
+        src/game/sheets.c
         src/game/shaders/data.c
     )
     target_link_libraries(rom2 PRIVATE rom2_core SDL3::SDL3)
@@ -200,6 +202,7 @@ add_executable(rom2_tests
     tests/view/test_camera.c
     tests/view/test_ground.c
     tests/view/test_light.c
+    tests/view/test_objects.c
     tests/import/test_bmp.c
     tests/import/test_databin.c
     tests/import/test_item.c

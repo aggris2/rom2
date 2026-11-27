@@ -107,6 +107,10 @@ void toml_free(TomlTable *top);
  * A whole number is also given as a number with a fraction, and not
  * the other way round. A list with nothing in it is a list of either
  * kind. */
+/* True if the table has the key, whatever it holds. For a key that
+ * need not be there, to tell "not there" from "there and wrong". */
+bool toml_has(const TomlTable *table, const char *key);
+
 bool toml_get_int(const TomlTable *table, const char *key, int32_t *out);
 bool toml_get_bool(const TomlTable *table, const char *key, bool *out);
 bool toml_get_float(const TomlTable *table, const char *key, double *out);

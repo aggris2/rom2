@@ -36,6 +36,7 @@ UTEST(sprite_sheet, reads_the_sheet_the_cell_and_the_anchor)
         "cell = [64, 48]\n"
         "anchor = [32, 46]\n", &def));
     EXPECT_STREQ("sprites.png", def.file);
+    EXPECT_STREQ("edges.png", def.edges);
     EXPECT_EQ(64u, def.cell_width);
     EXPECT_EQ(48u, def.cell_height);
     EXPECT_EQ(32, def.anchor_x);
@@ -132,3 +133,124 @@ UTEST(sprite_sheet, refuses_a_sheet_that_is_not_a_plain_file_name)
     EXPECT_TRUE(refuses(
         "[sprite]\nsheet = \".\"\ncell = [8, 8]\nanchor = [0, 0]\n"));
 }
+
+UTEST(sprite_sheet, a_sheet_need_not_have_edges)
+{
+    SpriteSheet def;
+    ASSERT_TRUE(reads("[sprite]\nsheet = \"s.png\"\ncell = [8, 8]\n"
+        "anchor = [0, 0]\n", &def));
+    EXPECT_STREQ("", def.edges);
+}
+
+UTEST(sprite_sheet, refuses_edges_that_are_not_a_plain_file_name)
+{
+    EXPECT_TRUE(refuses("[sprite]\nsheet = \"s.png\"\nedges = \"\"\n"
+        "cell = [8, 8]\nanchor = [0, 0]\n"));
+    EXPECT_TRUE(refuses("[sprite]\nsheet = \"s.png\"\nedges = \"../e.png\"\n"
+        "cell = [8, 8]\nanchor = [0, 0]\n"));
+    EXPECT_TRUE(refuses("[sprite]\nsheet = \"s.png\"\nedges = 5\n"
+        "cell = [8, 8]\nanchor = [0, 0]\n"));
+}
+
+/* A picture of 4 by 1 with a palette whose colour 0 is see-through, as
+ * the importer writes a sheet. */
+static Png picture_of(uint8_t *pixels)
+{
+    Png png;
+    memset(&png, 0, sizeof png);
+    png.width = 4;
+    png.height = 1;
+    png.kind = PNG_INDEXED;
+    png.pixels = pixels;
+    memset(png.alpha, 255, sizeof png.alpha);
+    png.alpha[0] = 0;
+    return png;
+}
+
+UTEST(sprite_sheet, join_takes_the_figure_then_the_edge_then_nothing)
+{
+    uint8_t figure_pixels[4] = {7, 0, 0, 9};
+    uint8_t edge_pixels[4] = {0, 5, 0, 6};
+    Png figure = picture_of(figure_pixels);
+    Png edges = picture_of(edge_pixels);
+    uint8_t colours[4];
+    uint8_t solid[4];
+    ASSERT_TRUE(sprite_sheet_join(&figure, &edges, colours, solid));
+    /* The figure. */
+    EXPECT_EQ(7u, colours[0]);
+    EXPECT_EQ(255u, solid[0]);
+    /* The edge, where the figure is empty. */
+    EXPECT_EQ(5u, colours[1]);
+    EXPECT_EQ(128u, solid[1]);
+    /* Nothing. */
+    EXPECT_EQ(0u, colours[2]);
+    EXPECT_EQ(0u, solid[2]);
+    /* The figure wins where both have a pixel. */
+    EXPECT_EQ(9u, colours[3]);
+    EXPECT_EQ(255u, solid[3]);
+}
+
+UTEST(sprite_sheet, join_without_edges_keeps_the_figure_alone)
+{
+    uint8_t figure_pixels[4] = {7, 0, 3, 0};
+    Png figure = picture_of(figure_pixels);
+    uint8_t colours[4];
+    uint8_t solid[4];
+    ASSERT_TRUE(sprite_sheet_join(&figure, NULL, colours, solid));
+    EXPECT_EQ(7u, colours[0]);
+    EXPECT_EQ(255u, solid[0]);
+    EXPECT_EQ(0u, solid[1]);
+    EXPECT_EQ(3u, colours[2]);
+    EXPECT_EQ(255u, solid[2]);
+    EXPECT_EQ(0u, solid[3]);
+}
+
+UTEST(sprite_sheet, join_goes_by_what_the_palette_makes_see_through)
+{
+    /* Colour 4 is see-through in the figure, and colour 0 is not. */
+    uint8_t figure_pixels[4] = {4, 0, 4, 2};
+    uint8_t edge_pixels[4] = {1, 1, 0, 1};
+    Png figure = picture_of(figure_pixels);
+    Png edges = picture_of(edge_pixels);
+    figure.alpha[0] = 255;
+    figure.alpha[4] = 0;
+    uint8_t colours[4];
+    uint8_t solid[4];
+    ASSERT_TRUE(sprite_sheet_join(&figure, &edges, colours, solid));
+    EXPECT_EQ(1u, colours[0]);
+    EXPECT_EQ(128u, solid[0]);
+    EXPECT_EQ(0u, colours[1]);
+    EXPECT_EQ(255u, solid[1]);
+    EXPECT_EQ(0u, solid[2]);
+    EXPECT_EQ(2u, colours[3]);
+    EXPECT_EQ(255u, solid[3]);
+}
+
+UTEST(sprite_sheet, join_refuses_pictures_it_cannot_join)
+{
+    uint8_t figure_pixels[4] = {7, 0, 0, 9};
+    uint8_t edge_pixels[4] = {0, 5, 0, 6};
+    uint8_t colours[4] = {1, 1, 1, 1};
+    uint8_t solid[4] = {2, 2, 2, 2};
+    Png figure = picture_of(figure_pixels);
+    Png edges = picture_of(edge_pixels);
+    Png wide = edges;
+    wide.width = 2;
+    wide.height = 2;
+    Png tall = edges;
+    tall.height = 2;
+    Png coloured = edges;
+    coloured.kind = PNG_RGB;
+    Png grey = figure;
+    grey.kind = PNG_GREY;
+    EXPECT_FALSE(sprite_sheet_join(&figure, &wide, colours, solid));
+    EXPECT_FALSE(sprite_sheet_join(&figure, &tall, colours, solid));
+    EXPECT_FALSE(sprite_sheet_join(&figure, &coloured, colours, solid));
+    EXPECT_FALSE(sprite_sheet_join(&grey, &edges, colours, solid));
+    EXPECT_FALSE(sprite_sheet_join(&grey, NULL, colours, solid));
+    for (int i = 0; i < 4; i++) {
+        EXPECT_EQ(1u, colours[i]);
+        EXPECT_EQ(2u, solid[i]);
+    }
+}
+

@@ -546,6 +546,21 @@ UTEST(toml, an_empty_file_is_an_empty_table)
     toml_free(t);
 }
 
+UTEST(toml, has_says_whether_a_key_is_there_whatever_it_holds)
+{
+    TomlTable *t = NULL;
+    ASSERT_TRUE(reads("i = 1\ns = \"x\"\nl = []\n[t]\nj = 2\n[[k]]\n", &t));
+    EXPECT_TRUE(toml_has(t, "i"));
+    EXPECT_TRUE(toml_has(t, "s"));
+    EXPECT_TRUE(toml_has(t, "l"));
+    EXPECT_TRUE(toml_has(t, "t"));
+    EXPECT_TRUE(toml_has(t, "k"));
+    EXPECT_FALSE(toml_has(t, "j"));
+    EXPECT_FALSE(toml_has(t, "none"));
+    EXPECT_TRUE(toml_has(toml_get_table(t, "t"), "j"));
+    toml_free(t);
+}
+
 UTEST(toml, a_key_holds_one_kind_of_value_and_no_other)
 {
     TomlTable *t = NULL;

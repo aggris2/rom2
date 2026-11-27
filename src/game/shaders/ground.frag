@@ -4,8 +4,11 @@
  * light there says. The light runs smoothly between the corners of a
  * square, so a slope shades from one side to the other. */
 
+/* The same three as a sprite's, so that one sheet serves both: how
+ * solid a pixel is does not matter to the ground, which has no holes. */
 layout(set = 2, binding = 0) uniform sampler2D indices;
-layout(set = 2, binding = 1) uniform sampler2D palette;
+layout(set = 2, binding = 1) uniform sampler2D solid;
+layout(set = 2, binding = 2) uniform sampler2D palette;
 
 layout(location = 0) in vec2 at;
 layout(location = 1) flat in vec2 from;

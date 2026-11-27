@@ -7,11 +7,12 @@
 #include <SDL3/SDL.h>
 
 #include "base/file.h"
-#include "base/png.h"
 #include "data/map.h"
+#include "game/sheets.h"
 #include "view/camera.h"
 #include "view/ground.h"
 #include "view/light.h"
+#include "view/objects.h"
 
 /* How fast the keys move the camera, in pixels a second. In a frame
  * it moves a whole number of pixels, the nearest to this speed: the
@@ -30,8 +31,11 @@ struct MapScreen {
     float left;
     float top;
     uint8_t *light;             /* the light at each corner of the map */
+    ObjectLook objects[OBJECT_KINDS];   /* how each kind of object looks */
     GroundCorner *ground;       /* room for a frame's ground */
-    size_t room;
+    size_t ground_room;
+    Sprite *sprites;            /* room for a frame's sprites */
+    size_t sprite_room;
 };
 
 /* Reads a whole file, with a message if it cannot. */
@@ -84,27 +88,64 @@ static bool add_tiles(MapScreen *screen, const char *content)
     char path[1024];
     int written = snprintf(path, sizeof path, "%s/terrain/tiles.png",
         content);
-    uint8_t *data = NULL;
-    size_t size = 0;
-    if (written < 0 || (size_t)written >= sizeof path
-        || !read_file(path, &data, &size)) {
+    return written >= 0 && (size_t)written < sizeof path
+        && sheets_load_picture(screen->renderer, path, &screen->tiles,
+            &screen->tiles_width, &screen->tiles_height);
+}
+
+/* Reads the sheets of the kinds of object the map has on it. A kind's
+ * folder is named by its ID, three digits, and then its name.
+ *
+ * A kind that has no folder, or whose sheet cannot be read, is left
+ * unknown and is not drawn: the original has a few objects without a
+ * picture. Returns false only if the folder of objects cannot be
+ * listed. */
+static bool add_objects(MapScreen *screen, const char *content)
+{
+    bool used[OBJECT_KINDS] = {false};
+    size_t squares = (size_t)screen->map.info.width
+        * screen->map.info.height;
+    for (size_t i = 0; i < squares; i++) {
+        if (screen->map.objects[i] != 0) {
+            used[screen->map.objects[i] - 1] = true;
+        }
+    }
+    char folder[1024];
+    char *names = NULL;
+    size_t count = 0;
+    int written = snprintf(folder, sizeof folder, "%s/objects", content);
+    if (written < 0 || (size_t)written >= sizeof folder
+        || !file_list_folder(folder, &names, &count)) {
+        fprintf(stderr, "rom2: cannot list %s\n", folder);
         return false;
     }
-    Png png;
-    bool ok = png_read(data, size, &png);
-    free(data);
-    if (!ok) {
-        fprintf(stderr, "rom2: %s is not a PNG picture\n", path);
-        return false;
+    const char *name = names;
+    for (size_t i = 0; i < count; i++, name += strlen(name) + 1) {
+        /* Three digits and an underscore. */
+        if (strspn(name, "0123456789") != 3 || name[3] != '_') {
+            continue;
+        }
+        int id = atoi(name);
+        char path[1024];
+        written = snprintf(path, sizeof path, "%s/%s/object.toml", folder,
+            name);
+        if (id >= OBJECT_KINDS || !used[id] || written < 0
+            || (size_t)written >= sizeof path) {
+            continue;
+        }
+        SpriteSheet layout;
+        ObjectLook *look = &screen->objects[id];
+        if (sheets_load_sprites(screen->renderer, path, &layout,
+                &look->sheet)) {
+            look->known = true;
+            look->cell_width = layout.cell_width;
+            look->cell_height = layout.cell_height;
+            look->anchor_x = layout.anchor_x;
+            look->anchor_y = layout.anchor_y;
+        }
     }
-    screen->tiles_width = png.width;
-    screen->tiles_height = png.height;
-    ok = renderer_add_sheet(screen->renderer, &png, &screen->tiles);
-    png_free(&png);
-    if (!ok) {
-        fprintf(stderr, "rom2: cannot use %s: %s\n", path, SDL_GetError());
-    }
-    return ok;
+    free(names);
+    return true;
 }
 
 /* The camera as it is now: where the screen has been moved to, at the
@@ -172,7 +213,7 @@ MapScreen *map_screen_open(Renderer *renderer, const char *content,
         return NULL;
     }
     light_ground(&screen->map, screen->light);
-    if (!add_tiles(screen, content)) {
+    if (!add_tiles(screen, content) || !add_objects(screen, content)) {
         map_screen_close(screen);
         return NULL;
     }
@@ -205,7 +246,7 @@ bool map_screen_frame(MapScreen *screen, float seconds)
     move_camera(screen, seconds);
     Camera camera = camera_now(screen);
     size_t most = ground_most(&camera);
-    if (most > screen->room) {
+    if (most > screen->ground_room) {
         GroundCorner *ground = realloc(screen->ground,
             most * sizeof *ground);
         if (ground == NULL) {
@@ -213,14 +254,26 @@ bool map_screen_frame(MapScreen *screen, float seconds)
             return false;
         }
         screen->ground = ground;
-        screen->room = most;
+        screen->ground_room = most;
+    }
+    most = objects_most(&camera, screen->objects);
+    if (most > screen->sprite_room) {
+        Sprite *sprites = realloc(screen->sprites, most * sizeof *sprites);
+        if (sprites == NULL) {
+            fprintf(stderr, "rom2: out of memory\n");
+            return false;
+        }
+        screen->sprites = sprites;
+        screen->sprite_room = most;
     }
     Frame frame;
-    memset(&frame, 0, sizeof frame);
     frame.ground_sheet = screen->tiles;
     frame.ground = screen->ground;
     frame.ground_count = ground_corners(&screen->map, screen->light,
         &camera, screen->tiles_width, screen->tiles_height, screen->ground);
+    frame.sprites = screen->sprites;
+    frame.sprite_count = objects_sprites(&screen->map, screen->objects,
+        &camera, screen->sprites);
     if (!renderer_draw(screen->renderer, &frame)) {
         fprintf(stderr, "rom2: cannot draw: %s\n", SDL_GetError());
         return false;
@@ -236,5 +289,6 @@ void map_screen_close(MapScreen *screen)
     map_free(&screen->map);
     free(screen->light);
     free(screen->ground);
+    free(screen->sprites);
     free(screen);
 }

@@ -2,9 +2,9 @@
 
 #include <math.h>
 
-/* The two numbers of the light by day. A map has its own, and the time
- * of day changes them: neither is used yet. */
-#define DARKNESS 14.0
+/* How strongly a slope changes the light, by day: the number the
+ * original calls contrast. Like the darkness it changes with the time
+ * of day, which is not used yet. */
 #define CONTRAST 32.0
 
 #define SIXTH_OF_PI 0.52359877559829887
@@ -23,7 +23,7 @@ static double height_at(const Map *map, int64_t x, int64_t y)
 /* How dark a slope is that rises by `rise` towards the sun: 0 to 94. */
 static double darkness_of(double rise, double reach)
 {
-    double base = DARKNESS + CONTRAST / 2.0 + 32.0;
+    double base = (double)LIGHT_DARKNESS + CONTRAST / 2.0 + 32.0;
     double value = base - sin(SIXTH_OF_PI - atan2(rise, reach)) * CONTRAST;
     return value < 0.0 ? 0.0 : value > 94.0 ? 94.0 : value;
 }

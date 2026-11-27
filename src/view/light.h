@@ -19,6 +19,22 @@
 #define LIGHT_FLAT 50u
 #define LIGHT_MAX (3u * FRAME_LIGHT_WHOLE)
 
+/* How dark it is, by day: the number the original calls darkness, which
+ * grows towards the night. A map has its own, and the time of day
+ * changes it: neither is used yet. */
+#define LIGHT_DARKNESS 14
+
+/* The level of what stands on the ground: objects, and structures. The
+ * original draws these from one of 16 palettes that run from twice the
+ * picture's colours down in sixteenths of that, and picks the palette
+ * by a quarter of the darkness: by day the fourth of them, 13 parts of
+ * 16. That is 52, a little brighter than flat ground.
+ *
+ * Measured on a screenshot of the original, where pieces of trees are
+ * found at exactly this level, and at half of it under the fog. */
+#define LIGHT_STANDING \
+    ((16 - LIGHT_DARKNESS / 4) * 2 * FRAME_LIGHT_WHOLE / 16)
+
 /* Works out the level at the top left corner of each square, row after
  * row from the top, into `levels`, which has room for the map's width
  * times its height. Each is from 2 to LIGHT_MAX. */
