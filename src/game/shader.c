@@ -1,12 +1,15 @@
 #include "game/shader.h"
 
 SDL_GPUShader *shader_open(SDL_GPUDevice *device, const ShaderData *data,
-                           SDL_GPUShaderStage stage)
+                           SDL_GPUShaderStage stage, uint32_t textures,
+                           uint32_t blocks)
 {
     SDL_GPUShaderFormat formats = SDL_GetGPUShaderFormats(device);
     SDL_GPUShaderCreateInfo info;
     SDL_zero(info);
     info.stage = stage;
+    info.num_samplers = textures;
+    info.num_uniform_buffers = blocks;
     if ((formats & SDL_GPU_SHADERFORMAT_SPIRV) != 0) {
         info.format = SDL_GPU_SHADERFORMAT_SPIRV;
         info.code = data->spirv;

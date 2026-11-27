@@ -164,11 +164,11 @@ rom2_set_warnings(import_program)
 if(ROM2_BUILD_GAME)
     add_executable(rom2
         src/game/main.c
+        src/game/picture.c
         src/game/shader.c
         src/game/shaders/data.c
     )
-    target_include_directories(rom2 PRIVATE src)
-    target_link_libraries(rom2 PRIVATE SDL3::SDL3)
+    target_link_libraries(rom2 PRIVATE rom2_core SDL3::SDL3)
     rom2_set_warnings(rom2)
     # Only a build with the sanitizers has this file.
     if(ROM2_SANITIZE AND NOT MSVC)

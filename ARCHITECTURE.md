@@ -60,9 +60,15 @@ ROM2 takes as it is, so the game reads it and not the importer. It gives
 the map's size, ground, heights, objects, structures, players and units.
 The map's script is not read yet.
 
-`src/game` is the program `rom2`, and the only code that uses SDL. So far
-it opens a window and draws one triangle through SDL's GPU API, which is
-what the game will draw with.
+`src/game` is the program `rom2`, and the only code that uses SDL. It
+draws through SDL's GPU API. So far it opens a window and shows one
+picture of the content in it.
+
+`picture` puts a picture with a palette on the graphics card as it is in
+its file, a number for each pixel and the 256 colours beside it, and a
+shader looks each colour up as it draws. Sprites stay 8 bits a pixel on
+the card this way, and a palette can be changed without touching the
+picture.
 
 The shaders, the small programs the graphics card runs, are written in
 GLSL in `src/game/shaders`. The card does not take them as text, and each

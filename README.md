@@ -83,10 +83,11 @@ The `content` folder is yours and is not part of this repository.
 ## Running
 
 ```bash
-./build/rom2
+./build/rom2 content/terrain/tiles.png
 ```
 
-So far the game opens a window with one triangle in it. It covers the
+So far the game shows one picture of the content: any PNG with a palette,
+such as the ground tiles or a unit's `sprites.png`. The window covers the
 whole screen; Alt+Enter switches to a plain window and back, and
 `--window` starts in one. Escape closes it.
 

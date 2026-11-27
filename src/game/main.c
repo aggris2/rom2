@@ -1,4 +1,6 @@
-/* rom2: the game. So far it opens a window and draws one triangle.
+/* rom2: the game. So far it opens a window and shows one picture of the
+ * content in it: a sprite sheet or the ground tiles, any PNG with a
+ * palette.
  *
  * The window covers the whole screen at the screen's own size, without
  * changing the mode of the monitor, and the mouse stays inside it.
@@ -6,11 +8,15 @@
  * starts in one. Escape or the window's own button closes it.
  */
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 
 #include <SDL3/SDL.h>
 #include <SDL3/SDL_main.h>
 
+#include "base/file.h"
+#include "base/png.h"
+#include "game/picture.h"
 #include "game/shader.h"
 
 /* The size of the plain window, which Alt+Enter and `--window` give.
@@ -82,44 +88,9 @@ static SDL_GPUDevice *open_device(SDL_Window *window)
     return device;
 }
 
-/* Makes the pipeline that draws the triangle: its two shaders, and
- * what they draw into. The triangle is here to prove the way from a
- * shader's source to the screen, and goes when the game draws something
- * real. Returns NULL on failure. */
-static SDL_GPUGraphicsPipeline *open_triangle(SDL_GPUDevice *device,
-                                              SDL_Window *window)
-{
-    SDL_GPUShader *vertex = shader_open(device, &shader_triangle_vert,
-        SDL_GPU_SHADERSTAGE_VERTEX);
-    SDL_GPUShader *fragment = shader_open(device, &shader_triangle_frag,
-        SDL_GPU_SHADERSTAGE_FRAGMENT);
-    SDL_GPUGraphicsPipeline *pipeline = NULL;
-    if (vertex != NULL && fragment != NULL) {
-        SDL_GPUColorTargetDescription target;
-        SDL_zero(target);
-        target.format = SDL_GetGPUSwapchainTextureFormat(device, window);
-        SDL_GPUGraphicsPipelineCreateInfo info;
-        SDL_zero(info);
-        info.vertex_shader = vertex;
-        info.fragment_shader = fragment;
-        info.primitive_type = SDL_GPU_PRIMITIVETYPE_TRIANGLELIST;
-        info.target_info.color_target_descriptions = &target;
-        info.target_info.num_color_targets = 1;
-        pipeline = SDL_CreateGPUGraphicsPipeline(device, &info);
-    }
-    /* The pipeline keeps what it needs of the shaders. */
-    if (vertex != NULL) {
-        SDL_ReleaseGPUShader(device, vertex);
-    }
-    if (fragment != NULL) {
-        SDL_ReleaseGPUShader(device, fragment);
-    }
-    return pipeline;
-}
-
-/* Draws one frame: so far a triangle on a black screen. */
+/* Draws one frame: so far a picture on a black screen. */
 static bool draw_frame(SDL_GPUDevice *device, SDL_Window *window,
-                       SDL_GPUGraphicsPipeline *triangle)
+                       const Picture *picture)
 {
     SDL_GPUCommandBuffer *commands = SDL_AcquireGPUCommandBuffer(device);
     if (commands == NULL) {
@@ -128,8 +99,10 @@ static bool draw_frame(SDL_GPUDevice *device, SDL_Window *window,
     /* The picture the window shows next. There is none while the
      * window is hidden or has no size, and then nothing is drawn. */
     SDL_GPUTexture *screen = NULL;
+    Uint32 width = 0;
+    Uint32 height = 0;
     if (!SDL_WaitAndAcquireGPUSwapchainTexture(commands, window, &screen,
-            NULL, NULL)) {
+            &width, &height)) {
         SDL_CancelGPUCommandBuffer(commands);
         return false;
     }
@@ -143,12 +116,29 @@ static bool draw_frame(SDL_GPUDevice *device, SDL_Window *window,
         SDL_GPURenderPass *pass = SDL_BeginGPURenderPass(commands, &target,
             1, NULL);
         if (pass != NULL) {
-            SDL_BindGPUGraphicsPipeline(pass, triangle);
-            SDL_DrawGPUPrimitives(pass, 3, 1, 0, 0);
+            picture_draw(picture, commands, pass, width, height);
             SDL_EndGPURenderPass(pass);
         }
     }
     return SDL_SubmitGPUCommandBuffer(commands);
+}
+
+/* Reads a PNG file. Returns false, with a message printed, if it
+ * cannot. */
+static bool read_picture(const char *path, Png *png)
+{
+    uint8_t *data = NULL;
+    size_t size = 0;
+    if (!file_read_all(path, &data, &size)) {
+        fprintf(stderr, "rom2: cannot read %s\n", path);
+        return false;
+    }
+    bool ok = png_read(data, size, png);
+    free(data);
+    if (!ok) {
+        fprintf(stderr, "rom2: %s is not a PNG picture\n", path);
+    }
+    return ok;
 }
 
 int main(int argc, char **argv)
@@ -160,16 +150,28 @@ int main(int argc, char **argv)
         | SDL_WINDOW_MOUSE_GRABBED;
     SDL_WindowFlags flags = SDL_WINDOW_RESIZABLE
         | SDL_WINDOW_HIGH_PIXEL_DENSITY | whole_screen;
+    const char *path = NULL;
     for (int i = 1; i < argc; i++) {
         if (strcmp(argv[i], "--window") == 0) {
             flags &= ~whole_screen;
+        } else if (path == NULL) {
+            path = argv[i];
         } else {
-            fprintf(stderr, "usage: rom2 [--window]\n");
-            return 2;
+            path = NULL;
+            break;
         }
+    }
+    if (path == NULL) {
+        fprintf(stderr, "usage: rom2 <picture.png> [--window]\n");
+        return 2;
+    }
+    Png png;
+    if (!read_picture(path, &png)) {
+        return 1;
     }
     if (!SDL_Init(SDL_INIT_VIDEO)) {
         fprintf(stderr, "rom2: cannot start: %s\n", SDL_GetError());
+        png_free(&png);
         return 1;
     }
     /* The window stays hidden until there is something to show in it.
@@ -180,6 +182,7 @@ int main(int argc, char **argv)
     if (window == NULL) {
         fprintf(stderr, "rom2: cannot open a window: %s\n", SDL_GetError());
         SDL_Quit();
+        png_free(&png);
         return 1;
     }
     SDL_GPUDevice *device = open_device(window);
@@ -188,24 +191,27 @@ int main(int argc, char **argv)
             SDL_GetError());
         SDL_DestroyWindow(window);
         SDL_Quit();
+        png_free(&png);
         return 1;
     }
-    SDL_GPUGraphicsPipeline *triangle = open_triangle(device, window);
-    if (triangle == NULL) {
-        fprintf(stderr, "rom2: cannot make the shaders: %s\n",
-            SDL_GetError());
+    /* Once the picture is on the card, the copy in memory is not
+     * needed. */
+    Picture picture;
+    memset(&picture, 0, sizeof picture);
+    bool ok = picture_open(&picture, device, window, &png);
+    png_free(&png);
+    if (!ok) {
+        fprintf(stderr, "rom2: cannot show %s: %s\n", path, SDL_GetError());
     }
 
-    bool ok = triangle != NULL && SDL_ShowWindow(window);
+    ok = ok && SDL_ShowWindow(window);
     while (ok && handle_events(window)) {
-        ok = draw_frame(device, window, triangle);
+        ok = draw_frame(device, window, &picture);
         if (!ok) {
             fprintf(stderr, "rom2: cannot draw: %s\n", SDL_GetError());
         }
     }
-    if (triangle != NULL) {
-        SDL_ReleaseGPUGraphicsPipeline(device, triangle);
-    }
+    picture_close(&picture, device);
     SDL_ReleaseWindowFromGPUDevice(device, window);
     SDL_DestroyGPUDevice(device);
     SDL_DestroyWindow(window);

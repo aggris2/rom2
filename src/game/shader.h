@@ -15,10 +15,13 @@
 /* The forms of shader the game has. A device is opened for these. */
 #define SHADER_FORMATS (SDL_GPU_SHADERFORMAT_SPIRV | SDL_GPU_SHADERFORMAT_MSL)
 
-/* Gives the card the form of the shader it takes. Release it with
+/* Gives the card the form of the shader it takes. `textures` and
+ * `blocks` are how many pictures the shader reads and how many blocks
+ * of values it is told: the card has to know. Release the shader with
  * SDL_ReleaseGPUShader(). Returns NULL, with SDL's error set, if the
  * card takes neither form or refuses the shader. */
 SDL_GPUShader *shader_open(SDL_GPUDevice *device, const ShaderData *data,
-                           SDL_GPUShaderStage stage);
+                           SDL_GPUShaderStage stage, uint32_t textures,
+                           uint32_t blocks);
 
 #endif
