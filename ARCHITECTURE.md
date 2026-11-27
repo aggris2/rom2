@@ -61,8 +61,16 @@ the map's size, ground, heights, objects, structures, players and units.
 The map's script is not read yet.
 
 `src/game` is the program `rom2`, and the only code that uses SDL. So far
-it opens a window and clears it through SDL's GPU API, which is what the
-game will draw with.
+it opens a window and draws one triangle through SDL's GPU API, which is
+what the game will draw with.
+
+The shaders, the small programs the graphics card runs, are written in
+GLSL in `src/game/shaders`. The card does not take them as text, and each
+system wants its own form: SPIR-V for Vulkan, on Linux and Windows, and
+MSL for Metal, on macOS. `build.sh` in that folder compiles every shader
+into both and writes them as C into `data.c` beside them, which is kept
+in the repository. So the build needs no shader tools: only someone who
+changes a shader runs the script, and commits what it writes.
 
 `tools/import` reads the original game's files: so far the `.res` archives,
 the `.reg` registries, the `.256`, `.16a` and `.16` sprites, the `.pal`

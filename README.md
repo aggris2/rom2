@@ -86,9 +86,9 @@ The `content` folder is yours and is not part of this repository.
 ./build/rom2
 ```
 
-So far the game opens an empty window. It covers the whole screen;
-Alt+Enter switches to a plain window and back, and `--window` starts in
-one. Escape closes it.
+So far the game opens a window with one triangle in it. It covers the
+whole screen; Alt+Enter switches to a plain window and back, and
+`--window` starts in one. Escape closes it.
 
 ## Licence
 
