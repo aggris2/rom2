@@ -61,7 +61,8 @@ the map's size, ground, heights, objects, structures, players and units.
 The map's script is not read yet.
 
 `src/game` is the program `rom2`, and the only code that uses SDL. So far
-it opens an empty window.
+it opens a window and clears it through SDL's GPU API, which is what the
+game will draw with.
 
 `tools/import` reads the original game's files: so far the `.res` archives,
 the `.reg` registries, the `.256`, `.16a` and `.16` sprites, the `.pal`

@@ -54,6 +54,66 @@ static bool handle_events(SDL_Window *window)
     return true;
 }
 
+/* Opens the graphics card for the window. A shader is a small program
+ * the card runs, and each system wants its own form of it: the three
+ * named here are those of Linux and Windows, of Windows, and of macOS.
+ * SDL picks the way of drawing the system has.
+ *
+ * A new frame is shown when the monitor is ready for one, so that no
+ * more frames are drawn than can be seen. Returns NULL on failure. */
+static SDL_GPUDevice *open_device(SDL_Window *window)
+{
+    SDL_GPUDevice *device = SDL_CreateGPUDevice(
+        SDL_GPU_SHADERFORMAT_SPIRV | SDL_GPU_SHADERFORMAT_DXIL
+            | SDL_GPU_SHADERFORMAT_MSL,
+        false, NULL);
+    if (device == NULL) {
+        return NULL;
+    }
+    if (!SDL_ClaimWindowForGPUDevice(device, window)) {
+        SDL_DestroyGPUDevice(device);
+        return NULL;
+    }
+    if (!SDL_SetGPUSwapchainParameters(device, window,
+            SDL_GPU_SWAPCHAINCOMPOSITION_SDR, SDL_GPU_PRESENTMODE_VSYNC)) {
+        SDL_ReleaseWindowFromGPUDevice(device, window);
+        SDL_DestroyGPUDevice(device);
+        return NULL;
+    }
+    return device;
+}
+
+/* Draws one frame: so far a black screen. */
+static bool draw_frame(SDL_GPUDevice *device, SDL_Window *window)
+{
+    SDL_GPUCommandBuffer *commands = SDL_AcquireGPUCommandBuffer(device);
+    if (commands == NULL) {
+        return false;
+    }
+    /* The picture the window shows next. There is none while the
+     * window is hidden or has no size, and then nothing is drawn. */
+    SDL_GPUTexture *screen = NULL;
+    if (!SDL_WaitAndAcquireGPUSwapchainTexture(commands, window, &screen,
+            NULL, NULL)) {
+        SDL_CancelGPUCommandBuffer(commands);
+        return false;
+    }
+    if (screen != NULL) {
+        SDL_GPUColorTargetInfo target;
+        SDL_zero(target);
+        target.texture = screen;
+        target.clear_color.a = 1.0f;
+        target.load_op = SDL_GPU_LOADOP_CLEAR;
+        target.store_op = SDL_GPU_STOREOP_STORE;
+        SDL_GPURenderPass *pass = SDL_BeginGPURenderPass(commands, &target,
+            1, NULL);
+        if (pass != NULL) {
+            SDL_EndGPURenderPass(pass);
+        }
+    }
+    return SDL_SubmitGPUCommandBuffer(commands);
+}
+
 int main(int argc, char **argv)
 {
     /* The real pixels of the screen, also where the system scales
@@ -71,31 +131,35 @@ int main(int argc, char **argv)
             return 2;
         }
     }
-    SDL_Window *window = NULL;
-    SDL_Renderer *renderer = NULL;
     if (!SDL_Init(SDL_INIT_VIDEO)) {
         fprintf(stderr, "rom2: cannot start: %s\n", SDL_GetError());
         return 1;
     }
-    if (!SDL_CreateWindowAndRenderer("ROM2", WINDOW_WIDTH, WINDOW_HEIGHT,
-            flags, &window, &renderer)) {
+    SDL_Window *window = SDL_CreateWindow("ROM2", WINDOW_WIDTH,
+        WINDOW_HEIGHT, flags);
+    if (window == NULL) {
         fprintf(stderr, "rom2: cannot open a window: %s\n", SDL_GetError());
         SDL_Quit();
         return 1;
     }
-    /* Without this a frame is drawn as often as the machine can. */
-    SDL_SetRenderVSync(renderer, 1);
+    SDL_GPUDevice *device = open_device(window);
+    if (device == NULL) {
+        fprintf(stderr, "rom2: cannot use the graphics card: %s\n",
+            SDL_GetError());
+        SDL_DestroyWindow(window);
+        SDL_Quit();
+        return 1;
+    }
 
     bool ok = true;
     while (ok && handle_events(window)) {
-        ok = SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255)
-            && SDL_RenderClear(renderer)
-            && SDL_RenderPresent(renderer);
+        ok = draw_frame(device, window);
     }
     if (!ok) {
         fprintf(stderr, "rom2: cannot draw: %s\n", SDL_GetError());
     }
-    SDL_DestroyRenderer(renderer);
+    SDL_ReleaseWindowFromGPUDevice(device, window);
+    SDL_DestroyGPUDevice(device);
     SDL_DestroyWindow(window);
     SDL_Quit();
     return ok ? 0 : 1;
