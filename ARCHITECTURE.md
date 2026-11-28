@@ -134,8 +134,29 @@ animation for the tick, which its sprite sheet lists.
 `src/mechanics/terrain` is the ground of a map as units meet it: for each
 square how slow it is to cross, from the kinds of ground that meet on it,
 and whether it is closed to what walks, hovers or flies, by its ground, the
-tree or rock on it and the structures. `src/view/closed` turns it into marks
-that the ground is drawn with, for a look at the closed squares.
+tree or rock on it and the structures. `src/view/marks` turns it into marks
+that the ground is drawn with, for a look at the closed squares, and marks
+the squares the selected unit holds.
+
+`src/mechanics/walk` is a step from a square to one beside it. A unit turns
+to face the way, and then the step is looked at and taken in one tick: if
+the ground is open to it and nobody holds the square, the unit holds it at
+once, and what is drawn of it slides there over the next ticks at the
+original's speeds, the same part of the way in each. Half-way it is on the
+new square and lets go of the old; until then it is on the old one, where it
+is seen to be and where it would be hit. Nothing lies between the looking
+and the taking, which is why two units cannot end up on one square. A long
+test of hundreds of units told to step at random checks the list after every
+tick, and that the same game plays out the same again.
+
+`src/mechanics/field` is how a unit finds its way: a flow field. One spread
+from a goal outward over the terrain writes into every square how far it is
+from the goal by the way a unit would walk it, at the original's prices. A
+unit that is sent somewhere carries no path: each time it stands, `walk` has
+it step to the square beside it that is nearest to the goal among those open
+to it and free, wait if there is none, and give up after a while. All units
+with one goal share one field, so the work goes by the squares of the map
+and not by the number of units.
 
 `src/mechanics/units` holds the units of a game that is being played, made
 from a map's records when the game starts: from then on the map is only the

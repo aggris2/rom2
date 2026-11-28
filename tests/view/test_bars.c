@@ -61,7 +61,7 @@ static size_t sprites_for(MakeBars *m)
 {
     Camera camera = {0, 0, 320, 320};
     size_t count = bars_sprites(&m->map, &m->live, m->looks, &m->bars,
-        m->has_selected ? &m->selected : NULL, m->all, &camera,
+        m->has_selected ? &m->selected : NULL, m->all, 0, &camera,
         m->sprites);
     return count <= bars_most(&m->live) ? count : 9999;
 }
@@ -225,7 +225,7 @@ UTEST(bars, a_unit_off_the_screen_or_not_drawn_has_no_bars)
     EXPECT_EQ(6u, sprites_for(&m));
     Camera far = {1000, 1000, 320, 320};
     EXPECT_EQ(0u, bars_sprites(&m.map, &m.live, m.looks, &m.bars, NULL,
-        true, &far, m.sprites));
+        true, 0, &far, m.sprites));
     /* Nor is anything drawn without the sheet. */
     m.bars.known = false;
     EXPECT_EQ(0u, sprites_for(&m));

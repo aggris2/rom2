@@ -4,6 +4,7 @@
 #ifndef ROM2_VIEW_GROUND_H
 #define ROM2_VIEW_GROUND_H
 
+#include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
 
@@ -23,12 +24,11 @@ size_t ground_most(const Camera *camera);
  * ticks of the game have passed.
  *
  * `light` is the level of light at the top left corner of each square,
- * as light_ground() gives it. `marks` says how strongly each square is
- * marked, a value for each square as `light` has them, 0 for not at
- * all; NULL marks none. The sheet of tiles is `sheet_width` by
- * `sheet_height` pixels. A square names its tile by a column and a row
- * of that sheet: one that names a tile the sheet does not have is left
- * out.
+ * as light_ground() gives it. `marks` has the mark of each square, a
+ * FRAME_MARK_ for each as `light` has them; NULL marks none. The sheet
+ * of tiles is `sheet_width` by `sheet_height` pixels. A square names
+ * its tile by a column and a row of that sheet: one that names a tile
+ * the sheet does not have is left out.
  *
  * Water moves. The sheet has four sets of pictures of water, one after
  * the other, that are the four frames of its waves, and a square of
@@ -55,6 +55,13 @@ size_t ground_squares(const Map *map, const uint8_t *light,
  * the one to the other, each step cut towards zero. A corner outside
  * the map counts as the nearest inside it. */
 int32_t ground_height_at(const Map *map, int32_t x, int32_t y);
+
+/* The square of the map that is drawn under a point of the screen:
+ * the one in front, if the heights bring two there. `*column` and
+ * `*row` get it. Returns false, and leaves the two alone, if no
+ * square of the map is drawn there. */
+bool ground_square_under(const Map *map, const Camera *camera, int32_t x,
+                         int32_t y, int32_t *column, int32_t *row);
 
 /* How far an object that stands on the square (`column`, `row`) is
  * raised: the mean of the heights at the square's four corners, cut

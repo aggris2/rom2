@@ -42,6 +42,31 @@ UTEST(unit_animation, reads_its_columns_and_the_frame_of_each_tick)
     EXPECT_EQ(0u, sprite_round_frame(&idle.round, 4));
 }
 
+UTEST(unit_animation, its_round_counts_from_after_the_frames_of_begin)
+{
+    UnitAnimation idle;
+    /* Ten columns, the first two for setting off: its round has the
+     * other eight. */
+    ASSERT_TRUE(reads("[anim.idle]\ncolumn = 4\ncolumns = 10\nbegin = 2\n"
+        "frames = [0, 7]\nticks = [1, 1]\n", &idle));
+    EXPECT_EQ(4u, idle.column);
+    EXPECT_EQ(2u, idle.begin);
+    EXPECT_EQ(7u, sprite_round_frame(&idle.round, 1));
+    /* One that does not say has none. */
+    ASSERT_TRUE(reads("[anim.idle]\ncolumn = 4\ncolumns = 10\n"
+        "frames = [0, 9]\nticks = [1, 1]\n", &idle));
+    EXPECT_EQ(0u, idle.begin);
+    /* A frame past the columns that are left, and a begin that leaves
+     * none or cannot be. */
+    UnitAnimation other;
+    EXPECT_FALSE(reads("[anim.idle]\ncolumn = 4\ncolumns = 10\n"
+        "begin = 2\nframes = [8]\nticks = [1]\n", &other));
+    EXPECT_FALSE(reads("[anim.idle]\ncolumn = 4\ncolumns = 10\n"
+        "begin = 10\nframes = [0]\nticks = [1]\n", &other));
+    EXPECT_FALSE(reads("[anim.idle]\ncolumn = 4\ncolumns = 10\n"
+        "begin = -1\nframes = [0]\nticks = [1]\n", &other));
+}
+
 UTEST(unit_animation, a_unit_without_it_has_one_of_no_length)
 {
     UnitAnimation idle;

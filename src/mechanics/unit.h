@@ -48,7 +48,45 @@ typedef struct Unit {
      * how it moves, a UnitMover: 0 counts as walking. */
     uint8_t size;
     uint8_t mover;
+    uint8_t speed;          /* its kind's: see mechanics/walk.h */
+    /* Walking. A step goes from the square `from` to the square
+     * `to`, and what is drawn slides from the one to the other, the
+     * same part of the way in every tick. `ticks` is how many ticks
+     * the step lasts and `left` how many of them are still to come:
+     * at none left it has arrived. `ticks` stays for the tick in
+     * which it arrives, so that the last part of the slide can be
+     * drawn, and is 0 for a unit that stood before that.
+     *
+     * The unit holds the squares it steps to from the first tick, so
+     * that no other can take them, and is `reaching` them. But its
+     * place, where it is met and hit, stays where it came from until
+     * it is half-way: then its place becomes the new square and the
+     * old one is let go. So a unit is always on the square most of it
+     * is over. */
+    int16_t from_x;         /* in squares */
+    int16_t from_y;
+    int16_t to_x;
+    int16_t to_y;
+    bool reaching;
+    uint16_t left;
+    uint16_t ticks;
+    /* How many ticks it has walked without a stop, for its frames. */
+    uint16_t walked;
+    /* The step it was told to take and has not yet begun: `way` is
+     * one of the eight, see mechanics/walk.h. */
+    bool told;
+    uint8_t way;
+    /* Where it is going, if `going`: the number of the field of its
+     * goal, see mechanics/field.h. And for how many ticks it has had
+     * no square nearer to step to. */
+    bool going;
+    uint16_t field;
+    uint16_t waited;
 } Unit;
+
+/* The whole of a step, in the parts a stride is counted in: see
+ * mechanics/walk.h. */
+#define UNIT_STEP 256
 
 /* A turn of less than this many steps is taken at once, by a unit that
  * was not turning already. */

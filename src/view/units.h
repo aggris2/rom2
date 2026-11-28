@@ -44,6 +44,15 @@ typedef struct UnitLook {
     /* The part of its picture a click takes it by, from its anchor.
      * One with a box of no size cannot be picked. */
     SpriteBox selection;
+    /* How many squares its type covers each way: its place is the
+     * first of them, the top left, and it is drawn over the middle of
+     * them all. 0 counts as 1. And how high over the ground it is
+     * drawn, in pixels: what flies is. */
+    uint8_t squares;
+    uint8_t high;
+    /* How it walks: the frames of a step, which go round for as long
+     * as it walks. Of no length for a unit without them. */
+    UnitAnimation move;
     /* What it does as it stands, if it does not stand still: a bat
      * beats its wings. Of no length for a unit that stands still. */
     UnitAnimation idle;
@@ -53,14 +62,33 @@ typedef struct UnitLook {
  * `type` is less than UNIT_TYPES and `dress` than UNIT_DRESSES. */
 size_t unit_look_at(uint16_t type, uint8_t dress);
 
+/* How high over the ground a unit of the air is drawn, in pixels, as
+ * the original draws one. A type of the air is one whose definition
+ * states a `z` that is not 0: the number itself is not this height. */
+#define UNIT_AIR_HIGH 16
+
+/* How far the clock is from the last tick to the next when a frame is
+ * drawn, in these parts: what walks is drawn that far on. */
+#define UNIT_BETWEEN 256
+
 /* Where a unit is on the screen: `*x` and `*y` get the point its
- * anchor is drawn on, its place raised by the ground under it, and
- * the look it is drawn in is returned. Returns NULL, and leaves the
- * two alone, for a unit that is not drawn: one of a type or a dress
- * without a look, or off the map. */
+ * anchor is drawn on, raised by the ground under that point, and the
+ * look it is drawn in is returned. A unit that stands is drawn on its
+ * place: for one of several squares that is the middle of them, half
+ * a square further right and down for each square more, and the
+ * ground under that point is what raises it. One that flies is drawn
+ * as high over it as its look says. One that walks is drawn on the
+ * way from the square its step is from to the one it is to. What a
+ * tick does of the step is drawn while the next tick is awaited,
+ * `between` parts of UNIT_BETWEEN of it by now: so it glides, at one
+ * speed from square to square, and is on its place as the tick after
+ * its last comes.
+ * Returns NULL, and leaves the two alone, for a unit that is not
+ * drawn: one of a type or a dress without a look, or off the map. */
 const UnitLook *unit_on_screen(const Map *map, const Unit *unit,
-                               const UnitLook *looks, const Camera *camera,
-                               int32_t *x, int32_t *y);
+                               const UnitLook *looks, uint32_t between,
+                               const Camera *camera, int32_t *x,
+                               int32_t *y);
 
 /* Finds the unit under a point of the screen: one whose selection box,
  * where it is drawn, holds the point. Of several it is the one that
@@ -69,7 +97,8 @@ const UnitLook *unit_on_screen(const Map *map, const Unit *unit,
  *
  * Returns false, and leaves `*out` alone, if there is none. */
 bool units_pick(const Map *map, const Units *units, const UnitLook *looks,
-                const Camera *camera, int32_t x, int32_t y, UnitId *out);
+                uint32_t between, const Camera *camera, int32_t x,
+                int32_t y, UnitId *out);
 
 /* The most sprites units_sprites() writes for a list of units: room
  * for this many is enough. */
@@ -100,6 +129,13 @@ size_t units_most(const Units *units);
  * their rows come after the row of the standing frames, starting half
  * a turn on as those do. All such units move as one.
  *
+ * A unit that walks shows the frames of its walk from the same rows,
+ * the one for each tick it has walked, and is drawn where
+ * unit_on_screen() says for `between`. It keeps the turn of the
+ * square it is on: for a unit of several squares, of the last of
+ * them, the low right one, so that it is drawn after what stands
+ * beside it further up.
+ *
  * A unit whose sheet goes by the player is drawn in the palette that
  * its player's colour numbers, and any other in the palette of its
  * kind's face. One whose player the map does not have, or whose kind
@@ -110,6 +146,6 @@ size_t units_most(const Units *units);
 size_t units_sprites(const Map *map, const Units *units,
                      const UnitLook *looks, const UnitKind *kinds,
                      const UnitId *hovered, uint64_t tick,
-                     const Camera *camera, Sprite *out);
+                     uint32_t between, const Camera *camera, Sprite *out);
 
 #endif

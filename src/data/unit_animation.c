@@ -17,14 +17,19 @@ bool unit_animation_read(const TomlTable *top, const char *name,
     }
     int32_t column = 0;
     int32_t columns = 0;
+    int32_t begin = 0;
     if (!toml_get_int(table, "column", &column) || column < 0
         || column > MOST || !toml_get_int(table, "columns", &columns)
         || columns < 1 || columns > MOST
-        || !sprite_round_read(table, columns, &animation.round)
+        || (toml_has(table, "begin")
+            && (!toml_get_int(table, "begin", &begin) || begin < 0
+                || begin >= columns))
+        || !sprite_round_read(table, columns - begin, &animation.round)
         || animation.round.length == 0) {
         return false;
     }
     animation.column = (uint16_t)column;
+    animation.begin = (uint16_t)begin;
     *out = animation;
     return true;
 }

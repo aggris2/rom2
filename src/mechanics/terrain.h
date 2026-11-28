@@ -41,6 +41,7 @@ typedef struct Terrain {
     uint32_t height;
     uint8_t *cost;          /* TERRAIN_COST_NONE where nothing crosses */
     uint8_t *closed;        /* TERRAIN_NO_ bits */
+    uint8_t *raised;        /* its top left corner, as the map has it */
 } Terrain;
 
 /* What a square's number in a map says of it: `*cost` gets its cost,

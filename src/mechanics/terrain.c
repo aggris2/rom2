@@ -122,11 +122,15 @@ bool terrain_from_map(const Map *map, const TerrainCosts *costs,
     terrain.height = map->info.height;
     terrain.cost = malloc(squares > 0 ? squares : 1);
     terrain.closed = calloc(squares > 0 ? squares : 1, 1);
-    if (terrain.cost == NULL || terrain.closed == NULL) {
+    terrain.raised = malloc(squares > 0 ? squares : 1);
+    if (terrain.cost == NULL || terrain.closed == NULL
+        || terrain.raised == NULL) {
         free(terrain.cost);
         free(terrain.closed);
+        free(terrain.raised);
         return false;
     }
+    memcpy(terrain.raised, map->heights, squares);
     for (size_t i = 0; i < squares; i++) {
         if (terrain_of_number(map->ground[i], costs, &terrain.cost[i])) {
             terrain.closed[i] = TERRAIN_NO_WALK;
@@ -155,5 +159,6 @@ void terrain_free(Terrain *terrain)
 {
     free(terrain->cost);
     free(terrain->closed);
+    free(terrain->raised);
     memset(terrain, 0, sizeof *terrain);
 }

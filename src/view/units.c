@@ -41,23 +41,54 @@ static const UnitLook *look_of(const Unit *unit, const UnitLook *looks)
     return look->known ? look : NULL;
 }
 
+/* The squares a look covers along a side. */
+static int32_t squares_of(const UnitLook *look)
+{
+    return look->squares == 0 ? 1 : look->squares;
+}
+
 const UnitLook *unit_on_screen(const Map *map, const Unit *unit,
-                               const UnitLook *looks, const Camera *camera,
-                               int32_t *x, int32_t *y)
+                               const UnitLook *looks, uint32_t between,
+                               const Camera *camera, int32_t *x,
+                               int32_t *y)
 {
     const UnitLook *look = look_of(unit, looks);
     if (look == NULL) {
         return NULL;
     }
-    int32_t place_x = unit->x * MAP_SQUARE / UNIT_PLACE_PARTS;
-    int32_t place_y = unit->y * MAP_SQUARE / UNIT_PLACE_PARTS;
+    /* From the middle of its first square to the middle of them
+     * all. */
+    int32_t middle = (squares_of(look) - 1) * MAP_SQUARE / 2;
+    int32_t place_x = unit->x * MAP_SQUARE / UNIT_PLACE_PARTS + middle;
+    int32_t place_y = unit->y * MAP_SQUARE / UNIT_PLACE_PARTS + middle;
+    if (unit->ticks > 0) {
+        /* On the way from the square of its step to the other,
+         * whichever of the two is its place by now. */
+        place_x = unit->to_x * MAP_SQUARE + MAP_SQUARE / 2 + middle;
+        place_y = unit->to_y * MAP_SQUARE + MAP_SQUARE / 2 + middle;
+        /* The part of the step it does in the tick that is passing
+         * now is the one before those that are left: how much of the
+         * way is still to go, of UNIT_BETWEEN times the ticks. */
+        int32_t whole = (int32_t)unit->ticks * UNIT_BETWEEN;
+        int32_t gone = ((int32_t)unit->ticks - (int32_t)unit->left - 1)
+            * UNIT_BETWEEN + (int32_t)between;
+        int32_t left = gone < 0 ? whole : gone > whole ? 0 : whole - gone;
+        int32_t from_x = unit->from_x * MAP_SQUARE + MAP_SQUARE / 2
+            + middle;
+        int32_t from_y = unit->from_y * MAP_SQUARE + MAP_SQUARE / 2
+            + middle;
+        place_x += (from_x - place_x) * left / whole;
+        place_y += (from_y - place_y) * left / whole;
+    }
     *x = place_x - camera->left;
-    *y = place_y - camera->top - ground_height_at(map, place_x, place_y);
+    *y = place_y - camera->top - ground_height_at(map, place_x, place_y)
+        - look->high;
     return look;
 }
 
 bool units_pick(const Map *map, const Units *units, const UnitLook *looks,
-                const Camera *camera, int32_t x, int32_t y, UnitId *out)
+                uint32_t between, const Camera *camera, int32_t x,
+                int32_t y, UnitId *out)
 {
     bool found = false;
     int32_t lowest = 0;
@@ -67,7 +98,8 @@ bool units_pick(const Map *map, const Units *units, const UnitLook *looks,
         int32_t at_y = 0;
         const Unit *unit = units_at(units, slot, &id);
         const UnitLook *look = unit == NULL ? NULL
-            : unit_on_screen(map, unit, looks, camera, &at_x, &at_y);
+            : unit_on_screen(map, unit, looks, between, camera, &at_x,
+                &at_y);
         if (look == NULL) {
             continue;
         }
@@ -87,7 +119,7 @@ bool units_pick(const Map *map, const Units *units, const UnitLook *looks,
 size_t units_sprites(const Map *map, const Units *units,
                      const UnitLook *looks, const UnitKind *kinds,
                      const UnitId *hovered, uint64_t tick,
-                     const Camera *camera, Sprite *out)
+                     uint32_t between, const Camera *camera, Sprite *out)
 {
     size_t count = 0;
     for (uint32_t slot = 0; slot < units->count; slot++) {
@@ -96,7 +128,8 @@ size_t units_sprites(const Map *map, const Units *units,
         int32_t at_y = 0;
         const Unit *unit = units_at(units, slot, &id);
         const UnitLook *look = unit == NULL ? NULL
-            : unit_on_screen(map, unit, looks, camera, &at_x, &at_y);
+            : unit_on_screen(map, unit, looks, between, camera, &at_x,
+                &at_y);
         if (look == NULL) {
             continue;
         }
@@ -112,7 +145,13 @@ size_t units_sprites(const Map *map, const Units *units,
         int32_t shown = unit->facing / (UNIT_TURN / UNIT_FACINGS);
         int32_t frame = (shown + UNIT_FACINGS / 2) % UNIT_FACINGS;
         int32_t row = 0;
-        if (look->idle.round.length > 0) {
+        if (unit->ticks > 0 && look->move.round.length > 0) {
+            /* The frame of the tick it is in: it has walked one. */
+            row = 1 + frame / (UNIT_FACINGS / UNIT_ANIMATION_FACINGS);
+            frame = look->move.column + look->move.begin
+                + (int32_t)sprite_round_frame(&look->move.round,
+                    unit->walked > 0 ? unit->walked - 1u : 0u);
+        } else if (look->idle.round.length > 0) {
             /* Two standing frames to each row of an animation. */
             row = 1 + frame / (UNIT_FACINGS / UNIT_ANIMATION_FACINGS);
             frame = look->idle.column
@@ -127,8 +166,9 @@ size_t units_sprites(const Map *map, const Units *units,
         sprite->light = hovered != NULL && hovered->slot == id.slot
             && hovered->age == id.age ? LIGHT_HOVERED : LIGHT_STANDING;
         sprite->palette = palette_of(map, unit, look, kinds);
-        sprite->order = sprite_order(unit->x / UNIT_PLACE_PARTS,
-            unit->y / UNIT_PLACE_PARTS);
+        sprite->order = sprite_order(
+            unit->x / UNIT_PLACE_PARTS + squares_of(look) - 1,
+            unit->y / UNIT_PLACE_PARTS + squares_of(look) - 1);
     }
     return count;
 }

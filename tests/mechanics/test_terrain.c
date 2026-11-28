@@ -121,6 +121,7 @@ typedef struct MakeTerrain {
     Map map;
     uint16_t ground[24 * 22];
     uint8_t objects[24 * 22];
+    uint8_t heights[24 * 22];
     MapStructure structures[4];
     StructureKind kinds[STRUCTURE_KINDS];
     Terrain terrain;
@@ -136,6 +137,7 @@ static void make_terrain(MakeTerrain *m)
     m->map.info.height = 22;
     m->map.ground = m->ground;
     m->map.objects = m->objects;
+    m->map.heights = m->heights;
     m->map.structures = m->structures;
     for (int i = 0; i < 24 * 22; i++) {
         m->ground[i] = LAND;
@@ -190,6 +192,19 @@ UTEST(terrain, open_land_is_open_to_all_and_costs_as_land)
     EXPECT_EQ(22u, m.terrain.height);
     terrain_free(&m.terrain);
     EXPECT_TRUE(m.terrain.cost == NULL);
+}
+
+UTEST(terrain, a_square_keeps_the_height_the_map_gives_it)
+{
+    static MakeTerrain m;
+    make_terrain(&m);
+    m.heights[10 * 24 + 9] = 77;
+    m.heights[0] = 3;
+    EXPECT_EQ(0u, closed_at(&m, 9, 10));
+    EXPECT_EQ(77u, m.terrain.raised[10 * 24 + 9]);
+    EXPECT_EQ(3u, m.terrain.raised[0]);
+    EXPECT_EQ(0u, m.terrain.raised[10 * 24 + 10]);
+    terrain_free(&m.terrain);
 }
 
 UTEST(terrain, the_edge_of_a_map_is_closed_to_everything)

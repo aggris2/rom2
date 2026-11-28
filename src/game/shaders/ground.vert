@@ -12,8 +12,8 @@ layout(set = 1, binding = 0) uniform Screen {
 } screen;
 
 layout(location = 0) in ivec4 corner_y;  /* of its corners, on the screen */
-layout(location = 1) in ivec2 left;      /* its left edge, and how
-                                            strongly it is marked */
+layout(location = 1) in ivec2 left;      /* its left edge, and its
+                                            mark */
 layout(location = 2) in uvec2 tile;      /* its tile's corner in the sheet */
 layout(location = 3) in uvec4 light;     /* the level at its corners */
 

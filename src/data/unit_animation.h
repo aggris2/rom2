@@ -21,6 +21,10 @@
 
 typedef struct UnitAnimation {
     uint16_t column;        /* the first of its columns in a row */
+    /* How many of its columns come before the frames its round
+     * counts from: walking has a few frames of setting off first,
+     * which the game does not show. 0 for the others. */
+    uint16_t begin;
     /* Which of its frames it shows in each tick, counted from its
      * first column. Of no length for a unit that has no such
      * animation. */
@@ -33,9 +37,10 @@ typedef struct UnitAnimation {
  *
  * Returns false, and leaves `*out` alone, if the animation is there
  * and lacks its column or its columns, either is not from 0 to 4096,
- * it has no column at all, or its lists are not a round: see
- * sprite_round_read(). An animation with columns and no lists is
- * refused as well. */
+ * it has no column at all, its `begin` is not from 0 to less than its
+ * columns, or its lists are not a round of the columns after `begin`:
+ * see sprite_round_read(). An animation with columns and no lists is
+ * refused as well. It need not say its `begin`, which is then 0. */
 bool unit_animation_read(const TomlTable *top, const char *name,
                          UnitAnimation *out);
 

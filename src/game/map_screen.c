@@ -16,11 +16,12 @@
 #include "mechanics/random.h"
 #include "mechanics/terrain.h"
 #include "mechanics/units.h"
+#include "mechanics/walk.h"
 #include "view/bars.h"
 #include "view/camera.h"
-#include "view/closed.h"
 #include "view/ground.h"
 #include "view/light.h"
+#include "view/marks.h"
 #include "view/objects.h"
 #include "view/pointer.h"
 #include "view/structures.h"
@@ -72,8 +73,16 @@ struct MapScreen {
     /* The ground as units meet it, and the kinds of structure it was
      * made with: each by its ID, all zeros for one not read. */
     Terrain terrain;
+    Fields fields;              /* the fields of where units are going */
     StructureKind structure_kinds[STRUCTURE_KINDS];
-    uint8_t *closed_marks;      /* the mark of each closed square */
+    /* The marks the ground is drawn with: those of the closed
+     * squares, none at all where they are not shown, and the list
+     * that is handed over, which has the selected unit's squares on
+     * top of one of the two. */
+    uint8_t *closed_marks;
+    uint8_t *no_marks;
+    uint8_t *marks;
+    bool show_held;             /* the selected unit's squares are marked */
     /* Whose closed squares are marked: 0 for none, or TERRAIN_NO_WALK,
      * TERRAIN_NO_HOVER or TERRAIN_NO_FLY. */
     uint8_t show_closed;
@@ -284,6 +293,19 @@ static void add_unit_look(MapScreen *screen, UnitLook *look,
             fprintf(stderr, "rom2: %s: its idle animation is not usable\n",
                 path);
         }
+        if (!unit_animation_read(top, "move", &look->move)) {
+            fprintf(stderr, "rom2: %s: its walk is not usable\n", path);
+        }
+        /* The squares its type covers, and whether it is of the air. */
+        int32_t squares = 1;
+        int32_t air = 0;
+        if (toml_get_int(top, "tile_size", &squares) && squares >= 1
+            && squares <= UNIT_KIND_MAX_SIZE) {
+            look->squares = (uint8_t)squares;
+        }
+        if (toml_get_int(top, "z", &air) && air != 0) {
+            look->high = UNIT_AIR_HIGH;
+        }
     }
 }
 
@@ -327,9 +349,13 @@ static bool add_terrain(MapScreen *screen, const char *content)
         fprintf(stderr, "rom2: out of memory\n");
         return false;
     }
-    screen->closed_marks = malloc((size_t)screen->terrain.width
-        * screen->terrain.height + 1);
-    if (screen->closed_marks == NULL) {
+    size_t squares = (size_t)screen->terrain.width
+        * screen->terrain.height + 1;
+    screen->closed_marks = calloc(squares, 1);
+    screen->no_marks = calloc(squares, 1);
+    screen->marks = calloc(squares, 1);
+    if (screen->closed_marks == NULL || screen->no_marks == NULL
+        || screen->marks == NULL) {
         fprintf(stderr, "rom2: out of memory\n");
         return false;
     }
@@ -541,6 +567,15 @@ static bool mouse_place(const MapScreen *screen, int32_t *x, int32_t *y)
     return true;
 }
 
+/* How far the clock is on to the next tick, in parts of
+ * UNIT_BETWEEN. */
+static uint32_t between_ticks(const MapScreen *screen)
+{
+    double between = clock_between(&screen->clock) * UNIT_BETWEEN;
+    return between <= 0.0 ? 0u : between >= UNIT_BETWEEN - 1
+        ? UNIT_BETWEEN - 1u : (uint32_t)between;
+}
+
 /* The camera as it is now: where the screen has been moved to, at the
  * size the window has, and inside the map. */
 static Camera camera_now(MapScreen *screen)
@@ -660,7 +695,8 @@ bool map_screen_frame(MapScreen *screen, float seconds)
      * and not the game's, and moves while the game is paused too. */
     for (uint32_t ticks = clock_advance(&screen->clock, seconds);
         ticks > 0; ticks--) {
-        units_tick(&screen->live, &screen->random);
+        units_tick(&screen->live, &screen->terrain, &screen->fields,
+            &screen->random);
     }
     /* The mouse: on the edge of the screen it scrolls the map. */
     int32_t mouse_x = 0;
@@ -711,10 +747,21 @@ bool map_screen_frame(MapScreen *screen, float seconds)
     frame.ground_sheet = screen->tiles;
     frame.ground = screen->ground;
     uint64_t tick = screen->clock.tick;
+    /* The squares the selected unit holds are marked for this frame,
+     * and given back after it. */
+    const uint8_t *under = screen->show_closed != 0 ? screen->closed_marks
+        : screen->no_marks;
+    if (screen->show_held && screen->has_selected) {
+        marks_held(&screen->live, screen->selected, true, under,
+            screen->marks);
+    }
     frame.ground_count = ground_squares(&screen->map, screen->light,
-        screen->show_closed != 0 ? screen->closed_marks : NULL, tick,
-        &camera,
-        screen->tiles_width, screen->tiles_height, screen->ground);
+        screen->marks, tick, &camera, screen->tiles_width,
+        screen->tiles_height, screen->ground);
+    if (screen->show_held && screen->has_selected) {
+        marks_held(&screen->live, screen->selected, false, under,
+            screen->marks);
+    }
     frame.sprites = screen->sprites;
     frame.sprite_count = objects_sprites(&screen->map, screen->objects,
         tick, &camera, screen->sprites);
@@ -723,15 +770,16 @@ bool map_screen_frame(MapScreen *screen, float seconds)
         screen->sprites + frame.sprite_count);
     /* The unit the mouse is on shows it by its brightness. */
     UnitId hovered;
+    uint32_t between = between_ticks(screen);
     bool has_hovered = mouse && units_pick(&screen->map, &screen->live,
-        screen->units, &camera, mouse_x, mouse_y, &hovered);
+        screen->units, between, &camera, mouse_x, mouse_y, &hovered);
     frame.sprite_count += units_sprites(&screen->map, &screen->live,
         screen->units, screen->kinds, has_hovered ? &hovered : NULL, tick,
-        &camera, screen->sprites + frame.sprite_count);
+        between, &camera, screen->sprites + frame.sprite_count);
     frame.sprite_count += bars_sprites(&screen->map, &screen->live,
         screen->units, &screen->bars,
         screen->has_selected ? &screen->selected : NULL, screen->all_bars,
-        &camera, screen->sprites + frame.sprite_count);
+        between, &camera, screen->sprites + frame.sprite_count);
     /* How many frames a second are drawn, in the top left corner. */
     count_frame(screen);
     if (screen->show_rate && screen->rate > 0) {
@@ -773,10 +821,19 @@ void map_screen_button(MapScreen *screen, Uint8 button)
     }
     Camera camera = camera_now(screen);
     UnitId picked;
-    if (units_pick(&screen->map, &screen->live, screen->units, &camera, x,
-            y, &picked)) {
+    int32_t column = 0;
+    int32_t row = 0;
+    if (units_pick(&screen->map, &screen->live, screen->units,
+            between_ticks(screen), &camera, x, y, &picked)) {
         screen->selected = picked;
         screen->has_selected = true;
+        return;
+    }
+    /* On the ground: the selected unit goes there. */
+    if (screen->has_selected && ground_square_under(&screen->map, &camera,
+            x, y, &column, &row)) {
+        walk_send(&screen->live, &screen->fields, &screen->terrain,
+            screen->selected, column, row);
     }
 }
 
@@ -790,15 +847,20 @@ void map_screen_key(MapScreen *screen, SDL_Keycode key)
         screen->show_rate = !screen->show_rate;
     } else if (key == SDLK_B) {
         screen->all_bars = !screen->all_bars;
+    } else if (key == SDLK_E) {
+        screen->show_held = !screen->show_held;
     } else if (key == SDLK_W) {
         /* What walks, what hovers, what flies, and none again. */
         screen->show_closed = screen->show_closed == 0 ? TERRAIN_NO_WALK
             : screen->show_closed == TERRAIN_NO_WALK ? TERRAIN_NO_HOVER
             : screen->show_closed == TERRAIN_NO_HOVER ? TERRAIN_NO_FLY : 0;
         if (screen->show_closed != 0) {
-            closed_marks(&screen->terrain, screen->show_closed,
+            marks_closed(&screen->terrain, screen->show_closed,
                 screen->closed_marks);
         }
+        memcpy(screen->marks, screen->show_closed != 0
+            ? screen->closed_marks : screen->no_marks,
+            (size_t)screen->terrain.width * screen->terrain.height);
     }
 }
 
@@ -808,8 +870,11 @@ void map_screen_close(MapScreen *screen)
         return;
     }
     units_free(&screen->live);
+    fields_free(&screen->fields);
     terrain_free(&screen->terrain);
     free(screen->closed_marks);
+    free(screen->no_marks);
+    free(screen->marks);
     map_free(&screen->map);
     free(screen->light);
     free(screen->ground);

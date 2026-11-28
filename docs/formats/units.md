@@ -243,8 +243,11 @@ are left out with a message.
   the ogre and the catapult, 3 for the dragon). It is probably the number
   of map tiles the unit takes. Not checked.
 - `Z` is 96 for the bat, the dragon and the succubus and not stated
-  otherwise. It is probably the height a flying unit is drawn at. Not
-  checked.
+  otherwise. A type that states it is a unit of the air, which the
+  original draws 16 pixels above the ground: the 96 itself is not that
+  height, and what else it is for is not known. From earlier work on
+  the original; drawn 96 pixels up, a dragon sent to a spot was seen
+  three squares above it.
 - `Index` is 0 wherever a unit states it.
 
 ## The hero

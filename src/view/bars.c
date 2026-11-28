@@ -82,8 +82,8 @@ static size_t bar_sprites(const BarsLook *bars, BarLine bright,
 
 size_t bars_sprites(const Map *map, const Units *units,
                     const UnitLook *looks, const BarsLook *bars,
-                    const UnitId *selected, bool all, const Camera *camera,
-                    Sprite *out)
+                    const UnitId *selected, bool all, uint32_t between,
+                    const Camera *camera, Sprite *out)
 {
     size_t count = 0;
     if (!bars->known) {
@@ -97,7 +97,8 @@ size_t bars_sprites(const Map *map, const Units *units,
         bool chosen = unit != NULL && selected != NULL
             && selected->slot == id.slot && selected->age == id.age;
         const UnitLook *look = unit == NULL || (!all && !chosen) ? NULL
-            : unit_on_screen(map, unit, looks, camera, &at_x, &at_y);
+            : unit_on_screen(map, unit, looks, between, camera, &at_x,
+                &at_y);
         if (look == NULL) {
             continue;
         }

@@ -152,9 +152,11 @@ int main(int argc, char **argv)
             "Shows a map: mission 10 if none is named. The content is\n"
             "taken from the folder `content` if no other is named. The\n"
             "mouse on the edge of the screen moves over the map and a\n"
-            "click selects a unit, which the right button lets go. B hides\n"
-            "the health of the units that are not selected, W marks the\n"
-            "squares closed to what walks, then hovers, then flies, G shows\n"
+            "click selects a unit, which the right button lets go, and on\n"
+            "the ground sends it there. B hides the health of\n"
+            "the units that are not selected, W marks the\n"
+            "squares closed to what walks, then hovers, then flies, E those\n"
+            "the selected unit stands on, G shows\n"
             "a grid, P pauses, F hides the count of frames a second, and\n"
             "Escape leaves.\n");
         return 2;

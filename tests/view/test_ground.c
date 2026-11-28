@@ -226,17 +226,83 @@ UTEST(ground, the_bits_above_the_tile_are_not_part_of_it)
     EXPECT_EQ(4u * 32, m.squares[0].tile_y);
 }
 
+/* The square under a point of a screen that shows the map from its
+ * corner: its column plus 100 times its row, or -1 for none. */
+static int32_t square_under(MakeGround *m, int32_t x, int32_t y)
+{
+    Camera camera = {0, 0, 192, 160};
+    int32_t column = 77;
+    int32_t row = 77;
+    if (!ground_square_under(&m->map, &camera, x, y, &column, &row)) {
+        return column == 77 && row == 77 ? -1 : -2;
+    }
+    return column + 100 * row;
+}
+
+UTEST(ground, on_flat_ground_the_square_under_a_point_is_the_one_there)
+{
+    MakeGround m;
+    make_ground(&m);
+    EXPECT_EQ(0, square_under(&m, 0, 0));
+    EXPECT_EQ(2 + 100 * 1, square_under(&m, 64, 32));
+    EXPECT_EQ(2 + 100 * 1, square_under(&m, 95, 63));
+    EXPECT_EQ(3 + 100 * 2, square_under(&m, 96, 64));
+    EXPECT_EQ(5 + 100 * 4, square_under(&m, 191, 159));
+    /* Past the map there is none. */
+    EXPECT_EQ(-1, square_under(&m, 192, 10));
+    EXPECT_EQ(-1, square_under(&m, -1, 10));
+    EXPECT_EQ(-1, square_under(&m, 10, 160));
+    EXPECT_EQ(-1, square_under(&m, 10, -1));
+    /* And the camera counts. */
+    Camera camera = {64, 32, 100, 100};
+    int32_t column = 0;
+    int32_t row = 0;
+    ASSERT_TRUE(ground_square_under(&m.map, &camera, 5, 5, &column, &row));
+    EXPECT_EQ(2, column);
+    EXPECT_EQ(1, row);
+}
+
+UTEST(ground, raised_ground_is_under_a_point_higher_up_the_screen)
+{
+    MakeGround m;
+    make_ground(&m);
+    /* The whole map is raised 40: a square is drawn 40 higher. */
+    memset(m.heights, 40, sizeof m.heights);
+    EXPECT_EQ(2 + 100 * 3, square_under(&m, 70, 3 * 32 - 40));
+    EXPECT_EQ(2 + 100 * 2, square_under(&m, 70, 3 * 32 - 41));
+    /* The top row is drawn above the screen's first line now, and the
+     * last row ends 40 above where it did. */
+    EXPECT_EQ(2 + 100 * 1, square_under(&m, 70, 0));
+    EXPECT_EQ(-1, square_under(&m, 70, 5 * 32 - 40));
+    EXPECT_EQ(2 + 100 * 4, square_under(&m, 70, 5 * 32 - 41));
+}
+
+UTEST(ground, of_two_squares_drawn_over_a_point_the_one_in_front_is_under_it)
+{
+    MakeGround m;
+    make_ground(&m);
+    /* Row 3 stands up 60 at both its edges: it is drawn over the
+     * place of row 1 and 2. */
+    for (int x = 0; x < 6; x++) {
+        m.heights[3 * 6 + x] = 60;
+        m.heights[4 * 6 + x] = 60;
+    }
+    EXPECT_EQ(2 + 100 * 3, square_under(&m, 70, 3 * 32 - 50));
+    EXPECT_EQ(2 + 100 * 3, square_under(&m, 70, 3 * 32 - 60));
+    EXPECT_EQ(2 + 100 * 1, square_under(&m, 70, 3 * 32 - 61));
+}
+
 UTEST(ground, a_square_takes_its_mark_if_marks_are_given)
 {
     MakeGround m;
     make_ground(&m);
     uint8_t marks[30] = {0};
-    marks[1 * 6 + 2] = 85;
+    marks[1 * 6 + 2] = FRAME_MARK_HELD;
     m.marks = marks;
     /* The squares (2, 1) and (3, 1) come first, then those of the
      * rows below that could reach up. */
     ASSERT_EQ(8u, squares_for(&m, 2 * 32, 1 * 32, 64, 1));
-    EXPECT_EQ(85u, m.squares[0].mark);
+    EXPECT_EQ((unsigned)FRAME_MARK_HELD, m.squares[0].mark);
     for (int i = 1; i < 8; i++) {
         EXPECT_EQ(0u, m.squares[i].mark);
     }

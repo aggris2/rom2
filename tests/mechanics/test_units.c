@@ -21,10 +21,11 @@ static const UnitKind *some_kinds(void)
 #define SIDE 64
 static uint8_t open_cost[SIDE * SIDE];
 static uint8_t open_closed[SIDE * SIDE];
+static uint8_t open_height[SIDE * SIDE];
 
 static Terrain open_ground(void)
 {
-    Terrain terrain = {SIDE, SIDE, open_cost, open_closed};
+    Terrain terrain = {SIDE, SIDE, open_cost, open_closed, open_height};
     memset(open_closed, 0, sizeof open_closed);
     return terrain;
 }
@@ -358,6 +359,144 @@ UTEST(units, the_check_finds_a_unit_and_its_squares_that_disagree)
     units_free(&units);
 }
 
+UTEST(units, a_step_holds_the_new_squares_and_the_old_until_it_arrives)
+{
+    Units units;
+    ASSERT_TRUE(units_make(SIDE, SIDE, &units));
+    Unit unit = unit_on(10, 12, 1, UNIT_WALKS);
+    UnitId id;
+    ASSERT_TRUE(units_add(&units, &unit, &id));
+    ASSERT_TRUE(units_step(&units, id, 11, 12));
+    const Unit *now = units_get(&units, id);
+    /* It is still where it was, and holds both. */
+    EXPECT_TRUE(now->reaching);
+    EXPECT_EQ(10 * 256 + 128, now->x);
+    EXPECT_EQ(10, now->from_x);
+    EXPECT_EQ(11, now->to_x);
+    EXPECT_EQ(12, now->to_y);
+    EXPECT_EQ(0, standing_at(&units, false, 10, 12));
+    EXPECT_EQ(0, standing_at(&units, false, 11, 12));
+    EXPECT_TRUE(units_check(&units));
+    /* Nobody else gets either, and it takes no second step. */
+    Unit other = unit_on(11, 12, 1, UNIT_WALKS);
+    EXPECT_FALSE(units_add(&units, &other, NULL));
+    other = unit_on(10, 12, 1, UNIT_HOVERS);
+    EXPECT_FALSE(units_add(&units, &other, NULL));
+    EXPECT_FALSE(units_step(&units, id, 12, 12));
+    /* Arrived, it is on the new one and the old is free. */
+    units_arrive(&units, id);
+    EXPECT_FALSE(now->reaching);
+    EXPECT_EQ(11 * 256 + 128, now->x);
+    EXPECT_EQ(12 * 256 + 128, now->y);
+    EXPECT_EQ(-1, standing_at(&units, false, 10, 12));
+    EXPECT_EQ(0, standing_at(&units, false, 11, 12));
+    EXPECT_TRUE(units_check(&units));
+    /* To arrive again changes nothing. */
+    units_arrive(&units, id);
+    EXPECT_EQ(11 * 256 + 128, now->x);
+    EXPECT_TRUE(units_check(&units));
+    units_free(&units);
+}
+
+UTEST(units, a_step_onto_a_held_square_or_off_the_map_is_refused)
+{
+    Units units;
+    ASSERT_TRUE(units_make(SIDE, SIDE, &units));
+    Unit unit = unit_on(10, 12, 1, UNIT_WALKS);
+    UnitId id;
+    UnitId other;
+    ASSERT_TRUE(units_add(&units, &unit, &id));
+    unit = unit_on(12, 12, 1, UNIT_WALKS);
+    ASSERT_TRUE(units_add(&units, &unit, &other));
+    /* The other is reaching for the square between them. */
+    ASSERT_TRUE(units_step(&units, other, 11, 12));
+    EXPECT_FALSE(units_can_step(&units, id, 11, 12));
+    EXPECT_FALSE(units_step(&units, id, 11, 12));
+    EXPECT_FALSE(units_get(&units, id)->reaching);
+    EXPECT_FALSE(units_step(&units, id, -1, 12));
+    EXPECT_FALSE(units_step(&units, id, 10, SIDE));
+    /* One in the air goes over them. */
+    unit = unit_on(10, 13, 1, UNIT_FLIES);
+    UnitId flyer;
+    ASSERT_TRUE(units_add(&units, &unit, &flyer));
+    EXPECT_TRUE(units_step(&units, flyer, 11, 12));
+    EXPECT_TRUE(units_check(&units));
+    units_free(&units);
+}
+
+UTEST(units, a_large_unit_that_steps_holds_all_of_both_places)
+{
+    Units units;
+    ASSERT_TRUE(units_make(SIDE, SIDE, &units));
+    Unit dragon = unit_on(10, 12, 3, UNIT_WALKS);
+    UnitId id;
+    ASSERT_TRUE(units_add(&units, &dragon, &id));
+    /* One square right and down: the two places share four squares,
+     * and together are fourteen. */
+    ASSERT_TRUE(units_step(&units, id, 11, 13));
+    int held = 0;
+    for (int y = 11; y < 17; y++) {
+        for (int x = 9; x < 15; x++) {
+            held += standing_at(&units, false, x, y) == 0 ? 1 : 0;
+        }
+    }
+    EXPECT_EQ(14, held);
+    EXPECT_TRUE(units_check(&units));
+    units_arrive(&units, id);
+    held = 0;
+    for (int y = 11; y < 17; y++) {
+        for (int x = 9; x < 15; x++) {
+            held += standing_at(&units, false, x, y) == 0 ? 1 : 0;
+        }
+    }
+    EXPECT_EQ(9, held);
+    EXPECT_EQ(-1, standing_at(&units, false, 10, 12));
+    EXPECT_EQ(0, standing_at(&units, false, 13, 15));
+    EXPECT_TRUE(units_check(&units));
+    units_free(&units);
+}
+
+UTEST(units, a_unit_taken_away_in_a_step_frees_both_places)
+{
+    Units units;
+    ASSERT_TRUE(units_make(SIDE, SIDE, &units));
+    Unit unit = unit_on(10, 12, 2, UNIT_WALKS);
+    UnitId id;
+    ASSERT_TRUE(units_add(&units, &unit, &id));
+    ASSERT_TRUE(units_step(&units, id, 12, 12));
+    units_remove(&units, id);
+    for (int x = 10; x < 14; x++) {
+        EXPECT_EQ(-1, standing_at(&units, false, x, 12));
+        EXPECT_EQ(-1, standing_at(&units, false, x, 13));
+    }
+    EXPECT_TRUE(units_check(&units));
+    /* The next unit in the slot does not start out reaching. */
+    unit = unit_on(20, 20, 1, UNIT_WALKS);
+    unit.reaching = true;
+    ASSERT_TRUE(units_add(&units, &unit, &id));
+    EXPECT_FALSE(units_get(&units, id)->reaching);
+    EXPECT_TRUE(units_check(&units));
+    units_free(&units);
+}
+
+UTEST(units, the_check_finds_a_reaching_unit_that_does_not_hold_its_next)
+{
+    Units units;
+    ASSERT_TRUE(units_make(SIDE, SIDE, &units));
+    Unit unit = unit_on(10, 12, 1, UNIT_WALKS);
+    UnitId id;
+    ASSERT_TRUE(units_add(&units, &unit, &id));
+    ASSERT_TRUE(units_step(&units, id, 11, 12));
+    units.on_ground[12 * SIDE + 11] = 0;
+    EXPECT_FALSE(units_check(&units));
+    units.on_ground[12 * SIDE + 11] = 1;
+    EXPECT_TRUE(units_check(&units));
+    /* Or one that says it is not reaching and still holds it. */
+    units_get(&units, id)->reaching = false;
+    EXPECT_FALSE(units_check(&units));
+    units_free(&units);
+}
+
 UTEST(units, a_list_on_no_map_takes_any_unit_and_checks_as_false)
 {
     Units units = {0};
@@ -637,10 +776,10 @@ UTEST(units, a_tick_is_a_tick_of_every_unit_there_is)
     units_add(&units, &unit, &second);
     units_add(&units, &unit, &third);
     units_remove(&units, second);
-    units_tick(&units, &random);
+    units_tick(&units, NULL, NULL, &random);
     EXPECT_EQ(16u, units_get(&units, first)->facing);
     EXPECT_EQ(16u, units_get(&units, third)->facing);
-    units_tick(&units, &random);
+    units_tick(&units, NULL, NULL, &random);
     EXPECT_EQ(32u, units_get(&units, first)->facing);
     units_free(&units);
 }
@@ -661,7 +800,7 @@ static bool looks_around(int32_t player, uint32_t people)
     UnitId id;
     units_add(&units, &unit, &id);
     for (int tick = 0; tick < 5000; tick++) {
-        units_tick(&units, &random);
+        units_tick(&units, NULL, NULL, &random);
     }
     bool looked = units_get(&units, id)->facing != 40;
     units_free(&units);
@@ -707,7 +846,7 @@ UTEST(units, a_hero_makes_his_player_a_persons)
     unit.x = 6 * 256;
     ASSERT_TRUE(units_add(&units, &unit, &other));
     for (int tick = 0; tick < 5000; tick++) {
-        units_tick(&units, &random);
+        units_tick(&units, NULL, NULL, &random);
     }
     EXPECT_EQ(0u, units_get(&units, hero)->facing);
     EXPECT_EQ(0u, units_get(&units, own)->facing);
@@ -726,7 +865,7 @@ UTEST(units, no_dice_are_thrown_for_a_unit_of_a_person)
     unit.player = 1;
     units_add(&units, &unit, NULL);
     for (int tick = 0; tick < 100; tick++) {
-        units_tick(&units, &random);
+        units_tick(&units, NULL, NULL, &random);
     }
     EXPECT_EQ(random_next(&same), random_next(&random));
     units_free(&units);
@@ -744,7 +883,7 @@ UTEST(units, a_unit_of_a_person_still_turns_as_told)
     unit.facing_wanted = 64;
     UnitId id;
     units_add(&units, &unit, &id);
-    units_tick(&units, &random);
+    units_tick(&units, NULL, NULL, &random);
     EXPECT_EQ(16u, units_get(&units, id)->facing);
     units_free(&units);
 }
@@ -773,8 +912,8 @@ UTEST(units, the_same_dice_play_the_same_game)
     ASSERT_TRUE(units_from_map(&map, some_kinds(), &ground, &a));
     ASSERT_TRUE(units_from_map(&map, some_kinds(), &ground, &b));
     for (int tick = 0; tick < 3000; tick++) {
-        units_tick(&a, &dice_a);
-        units_tick(&b, &dice_b);
+        units_tick(&a, NULL, NULL, &dice_a);
+        units_tick(&b, NULL, NULL, &dice_b);
     }
     int moved = 0;
     for (uint32_t slot = 0; slot < 20; slot++) {

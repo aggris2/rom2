@@ -10,10 +10,12 @@
  * what stops two units from being on one. A unit that walks or hovers
  * stands on the ground and one that flies in the air, so one of each
  * may be on a square. One sentence is always true of a list that was
- * made for a map: every unit holds exactly the squares it covers, and
- * every square that is held names the unit that covers it. Only
- * adding a unit and taking one away change who stands where, and each
- * changes the unit and the squares together or nothing.
+ * made for a map: every unit holds exactly the squares it covers and,
+ * while it is reaching for the next ones in the first half of a step,
+ * those too; and every square that is held names the unit that holds
+ * it. Only adding a unit, taking one away, a step and its arrival
+ * change who holds what, and each changes the unit and the squares
+ * together or nothing.
  */
 #ifndef ROM2_MECHANICS_UNITS_H
 #define ROM2_MECHANICS_UNITS_H
@@ -24,6 +26,7 @@
 
 #include "data/map.h"
 #include "data/unit_kind.h"
+#include "mechanics/field.h"
 #include "mechanics/terrain.h"
 #include "mechanics/random.h"
 #include "mechanics/unit.h"
@@ -80,14 +83,16 @@ bool units_make(uint32_t width, uint32_t height, Units *out);
  * for finding a fault, and no rule of the game goes by it. */
 bool units_check(const Units *units);
 
-/* The unit that stands on a square, on the ground or `in_air`.
- * Returns false, and leaves `*out` alone, if nobody does or the
- * square is not on the map. */
+/* The unit that holds a square, on the ground or `in_air`: it stands
+ * there or is reaching for it. Returns false, and leaves `*out`
+ * alone, if nobody does or the square is not on the map. */
 bool units_standing(const Units *units, bool in_air, int32_t x, int32_t y,
                     UnitId *out);
 
-/* How far a unit turns in a tick whose kind is not known. */
+/* How far a unit turns in a tick whose kind is not known, and how
+ * fast it goes. */
 #define UNITS_TURN_SPEED_UNKNOWN 16
+#define UNITS_SPEED_UNKNOWN 16
 
 /* How far around its place a unit is looked for a free square, in
  * squares, when its own is taken. */
@@ -139,12 +144,15 @@ bool units_enter(Units *units, const Map *map, const UnitKind *kinds,
                  const Terrain *terrain, const UnitsHero *hero,
                  Random *random, UnitId *out);
 
-/* One tick of every unit: so far each stands, having nothing else to
- * do. A unit the computer plays may look around, as in the original;
- * one of a player a person plays, his hero and any other, stands as
- * it was left. The units take their turn in the order of their
- * slots. */
-void units_tick(Units *units, Random *random);
+/* One tick of every unit. A unit that walks or was told to step does
+ * that: see mechanics/walk.h. Of the others, one the computer plays
+ * may look around, as in the original; one of a player a person
+ * plays, his hero and any other, stands as it was left. The units
+ * take their turn in the order of their slots. `terrain` is the
+ * ground they walk on and `fields` the fields of their goals: both
+ * NULL for a list on no map, whose units do not walk. */
+void units_tick(Units *units, const Terrain *terrain, Fields *fields,
+                Random *random);
 
 /* Frees the list and sets it to none. */
 void units_free(Units *units);
@@ -159,6 +167,25 @@ bool units_add(Units *units, const Unit *unit, UnitId *out);
 /* The unit an id names, or NULL if it is gone or never was. What is
  * returned holds until the next unit is added. */
 Unit *units_get(const Units *units, UnitId id);
+
+/* Begins a step of a unit to stand with its first square on (x, y):
+ * it holds the squares it would cover there from now on, as well as
+ * those it is on, and is `reaching`. Its place does not change yet.
+ * Its `from_x` and `from_y` get the square it is on and `to_x` and
+ * `to_y` this one. Returns false, and changes nothing, if the unit is
+ * gone or is reaching already, or a square it would cover is not on
+ * the map or is held by another of its layer. The ground is not
+ * asked: that is for whoever moves it. */
+bool units_step(Units *units, UnitId id, int32_t x, int32_t y);
+
+/* Puts a unit that is reaching on the squares it reached for, in the
+ * middle of the first, and lets go of those it was on. Does nothing
+ * for a unit that is gone or is not reaching. */
+void units_arrive(Units *units, UnitId id);
+
+/* Whether units_step() would move the unit there: every square it
+ * would cover is on the map and held by nobody else of its layer. */
+bool units_can_step(const Units *units, UnitId id, int32_t x, int32_t y);
 
 /* Takes a unit away, and frees the squares it stood on. Does nothing
  * if it is gone already. */

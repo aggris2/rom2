@@ -64,6 +64,40 @@ int32_t ground_height_at(const Map *map, int32_t x, int32_t y)
     return top + (low - top) * down / MAP_SQUARE;
 }
 
+bool ground_square_under(const Map *map, const Camera *camera, int32_t x,
+                         int32_t y, int32_t *column, int32_t *row)
+{
+    int32_t map_x = x + camera->left;
+    int32_t map_y = y + camera->top;
+    int32_t at = square_of(map_x);
+    if (at < 0 || at >= (int32_t)map->info.width) {
+        return false;
+    }
+    int32_t across = map_x - at * MAP_SQUARE;
+    /* From the lowest row that could be raised this far up to the one
+     * the point would be on if the ground were flat: what is lower
+     * down the map is in front. */
+    int32_t last = square_of(map_y + MAP_HIGHEST);
+    last = last >= (int32_t)map->info.height
+        ? (int32_t)map->info.height - 1 : last;
+    for (int32_t r = last; r >= 0 && (r + 1) * MAP_SQUARE > map_y; r--) {
+        int32_t top_left = corner_height(map, at, r);
+        int32_t top_right = corner_height(map, at + 1, r);
+        int32_t low_left = corner_height(map, at, r + 1);
+        int32_t low_right = corner_height(map, at + 1, r + 1);
+        int32_t top = r * MAP_SQUARE - top_left
+            - (top_right - top_left) * across / MAP_SQUARE;
+        int32_t low = (r + 1) * MAP_SQUARE - low_left
+            - (low_right - low_left) * across / MAP_SQUARE;
+        if (map_y >= top && map_y < low) {
+            *column = at;
+            *row = r;
+            return true;
+        }
+    }
+    return false;
+}
+
 int32_t ground_square_height(const Map *map, int32_t column, int32_t row)
 {
     int32_t sum = 0;

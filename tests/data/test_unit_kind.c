@@ -20,37 +20,55 @@ static bool reads(const char *text, UnitKind *out)
 /* True if the kind is refused and `out` is left as it was. */
 static bool refuses(const char *text)
 {
-    UnitKind kind = {0x5a5a, 0x5a5a, 0x5a, 0x5a5a, 0x5a5a, 0x5a, 0x5a};
+    UnitKind kind = {0x5a5a, 0x5a5a, 0x5a, 0x5a, 0x5a5a, 0x5a5a, 0x5a,
+        0x5a};
     return !reads(text, &kind) && kind.id == 0x5a5a && kind.face == 0x5a5a
-        && kind.rotation_speed == 0x5a && kind.health == 0x5a5a
+        && kind.rotation_speed == 0x5a && kind.speed == 0x5a
+        && kind.health == 0x5a5a
         && kind.mana == 0x5a5a && kind.size == 0x5a && kind.mover == 0x5a;
 }
 
-#define LIFE "health = 45\nmana = 0\n"
+#define LIFE "speed = 18\nhealth = 45\nmana = 0\n"
 
 UTEST(unit_kind, reads_the_health_and_the_mana)
 {
     UnitKind kind;
     ASSERT_TRUE(reads("[[kind]]\nid = 600\nface = 2\n"
-        "rotation_speed = 16\nhealth = 3600\nmana = 22500\n", &kind));
+        "rotation_speed = 16\nspeed = 9\nhealth = 3600\nmana = 22500\n",
+        &kind));
     EXPECT_EQ(3600, kind.health);
     EXPECT_EQ(22500, kind.mana);
     /* A few kinds have -1 for one or the other. */
     ASSERT_TRUE(reads("[[kind]]\nid = 600\nface = 2\n"
-        "rotation_speed = 16\nhealth = -1\nmana = -1\n", &kind));
+        "rotation_speed = 16\nspeed = 9\nhealth = -1\nmana = -1\n", &kind));
     EXPECT_EQ(-1, kind.health);
     EXPECT_EQ(-1, kind.mana);
     EXPECT_TRUE(refuses("[[kind]]\nid = 600\nface = 2\n"
-        "rotation_speed = 16\nhealth = -2\nmana = 0\n"));
+        "rotation_speed = 16\nspeed = 9\nhealth = -2\nmana = 0\n"));
     EXPECT_TRUE(refuses("[[kind]]\nid = 600\nface = 2\n"
-        "rotation_speed = 16\nhealth = 45\nmana = -2\n"));
+        "rotation_speed = 16\nspeed = 9\nhealth = 45\nmana = -2\n"));
     EXPECT_TRUE(refuses("[[kind]]\nid = 600\nface = 2\n"
-        "rotation_speed = 16\nmana = 0\n"));
+        "rotation_speed = 16\nspeed = 9\nmana = 0\n"));
     EXPECT_TRUE(refuses("[[kind]]\nid = 600\nface = 2\n"
-        "rotation_speed = 16\nhealth = 45\n"));
+        "rotation_speed = 16\nspeed = 9\nhealth = 45\n"));
 }
 
 #define KIND "[[kind]]\nid = 600\nface = 2\nrotation_speed = 16\n" LIFE
+
+UTEST(unit_kind, reads_its_speed)
+{
+    UnitKind kind;
+    ASSERT_TRUE(reads("[[kind]]\nid = 600\nface = 2\n"
+        "rotation_speed = 16\nspeed = 35\nhealth = 45\nmana = 0\n",
+        &kind));
+    EXPECT_EQ(35u, kind.speed);
+    EXPECT_TRUE(refuses("[[kind]]\nid = 600\nface = 2\n"
+        "rotation_speed = 16\nhealth = 45\nmana = 0\n"));
+    EXPECT_TRUE(refuses("[[kind]]\nid = 600\nface = 2\n"
+        "rotation_speed = 16\nspeed = 0\nhealth = 45\nmana = 0\n"));
+    EXPECT_TRUE(refuses("[[kind]]\nid = 600\nface = 2\n"
+        "rotation_speed = 16\nspeed = 256\nhealth = 45\nmana = 0\n"));
+}
 
 UTEST(unit_kind, reads_its_size_and_how_it_moves)
 {

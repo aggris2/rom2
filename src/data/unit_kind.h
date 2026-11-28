@@ -37,6 +37,9 @@ typedef struct UnitKind {
     /* How far it turns in a tick, in the 256 steps of a full turn:
      * never 0, so a record that is all zeros is no kind. */
     uint8_t rotation_speed;
+    /* How fast it goes: see mechanics/walk.h for what a step makes of
+     * it. From 1 to 255. */
+    uint8_t speed;
     /* The most health and the most mana a unit of it has, which it
      * starts with. A kind without mana has 0 or -1, and a few have a
      * health of -1. */
@@ -52,12 +55,12 @@ typedef struct UnitKind {
 /* Reads a kind from its table.
  *
  * Returns false, and leaves `*out` alone, if the table lacks its ID,
- * its face, its rotation speed, its health or its mana, the ID is not
- * from 0 to UNIT_KIND_IDS - 1, the face not from 0 to 65,535, the
- * rotation speed not from 1 to 255, or the health or the mana less
- * than -1. It need not say its `token_size` or its `movement_type`,
- * but is refused if the one is not -1 or from 1 to
- * UNIT_KIND_MAX_SIZE, or the other not -1 or a UnitMover. */
+ * its face, its rotation speed, its speed, its health or its mana,
+ * the ID is not from 0 to UNIT_KIND_IDS - 1, the face not from 0 to
+ * 65,535, the rotation speed or the speed not from 1 to 255, or the
+ * health or the mana less than -1. It need not say its `token_size`
+ * or its `movement_type`, but is refused if the one is not -1 or from
+ * 1 to UNIT_KIND_MAX_SIZE, or the other not -1 or a UnitMover. */
 bool unit_kind_read(const TomlTable *kind, UnitKind *out);
 
 #endif

@@ -72,7 +72,8 @@ size_t bars_most(const Units *units);
 /* Writes the sprites of the bars and returns how many it wrote.
  * `selected` names the unit that is selected, NULL for none. With
  * `all`, every unit shows its bars, the others faint; without, the
- * selected one alone. `looks` is as units_sprites() takes it.
+ * selected one alone. `looks` and `between` are as units_sprites()
+ * takes them: a bar goes with its unit as it walks.
  *
  * A unit has a bar of health if the most it can have is above 0, and
  * one of mana likewise. A bar is as long as the selection box is wide
@@ -83,7 +84,7 @@ size_t bars_most(const Units *units);
  * middle on the top of the box. */
 size_t bars_sprites(const Map *map, const Units *units,
                     const UnitLook *looks, const BarsLook *bars,
-                    const UnitId *selected, bool all, const Camera *camera,
-                    Sprite *out);
+                    const UnitId *selected, bool all, uint32_t between,
+                    const Camera *camera, Sprite *out);
 
 #endif

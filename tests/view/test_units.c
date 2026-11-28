@@ -17,6 +17,7 @@ typedef struct MakeUnits {
     UnitLook looks[UNIT_LOOKS];
     UnitKind kinds[UNIT_KIND_IDS];
     uint64_t tick;
+    uint32_t between;       /* of UNIT_BETWEEN: how far to the next tick */
     UnitId hovered;         /* the unit the mouse is on, if has_hovered */
     bool has_hovered;
     Sprite sprites[4];
@@ -65,7 +66,8 @@ static size_t sprites_for(MakeUnits *m, int32_t left, int32_t top,
 {
     Camera camera = {left, top, width, height};
     size_t count = units_sprites(&m->map, &m->live, m->looks, m->kinds,
-        m->has_hovered ? &m->hovered : NULL, m->tick, &camera, m->sprites);
+        m->has_hovered ? &m->hovered : NULL, m->tick, m->between, &camera,
+        m->sprites);
     return count <= units_most(&m->live) ? count : 9999;
 }
 
@@ -103,7 +105,7 @@ static int picked_at(MakeUnits *m, int32_t x, int32_t y)
 {
     Camera camera = {0, 0, 320, 320};
     UnitId id = {9999, 9999};
-    if (!units_pick(&m->map, &m->live, m->looks, &camera, x, y, &id)) {
+    if (!units_pick(&m->map, &m->live, m->looks, 0, &camera, x, y, &id)) {
         return id.slot == 9999 ? -1 : -2;
     }
     return id.slot;
@@ -136,11 +138,11 @@ UTEST(units, the_box_is_where_the_unit_is_drawn)
     }
     Camera camera = {100, 50, 200, 200};
     UnitId id;
-    EXPECT_TRUE(units_pick(&m.map, &m.live, m.looks, &camera, 44, 106,
+    EXPECT_TRUE(units_pick(&m.map, &m.live, m.looks, 0, &camera, 44, 106,
         &id));
-    EXPECT_FALSE(units_pick(&m.map, &m.live, m.looks, &camera, 44,
+    EXPECT_FALSE(units_pick(&m.map, &m.live, m.looks, 0, &camera, 44,
         106 + 12, &id));
-    EXPECT_TRUE(units_pick(&m.map, &m.live, m.looks, &camera, 44,
+    EXPECT_TRUE(units_pick(&m.map, &m.live, m.looks, 0, &camera, 44,
         106 - 30, &id));
 }
 
@@ -187,6 +189,203 @@ UTEST(units, the_unit_the_mouse_is_on_is_as_bright_as_can_be)
     m.hovered = (UnitId){1, 7};
     ASSERT_EQ(2u, sprites_for(&m, 0, 0, 320, 320));
     EXPECT_EQ((unsigned)LIGHT_STANDING, m.sprites[1].light);
+}
+
+/* Sets a unit walking from the square (x, y) to its place, in a step
+ * of 16 ticks of which this many are left. */
+static void walking_from(Unit *unit, int x, int y, uint16_t left)
+{
+    unit->from_x = (int16_t)x;
+    unit->from_y = (int16_t)y;
+    unit->to_x = (int16_t)(unit->x / 256);
+    unit->to_y = (int16_t)(unit->y / 256);
+    unit->left = left;
+    unit->ticks = 16;
+    unit->walked = 1;
+}
+
+UTEST(units, a_unit_that_walks_is_drawn_on_the_way_to_its_place)
+{
+    MakeUnits m;
+    make_units(&m);
+    /* From the square to its left, 32 pixels. Four ticks have gone
+     * before the one that passes now: three quarters to go. */
+    walking_from(put(&m, 5, 5, 3), 4, 5, 11);
+    ASSERT_EQ(1u, sprites_for(&m, 0, 0, 320, 320));
+    EXPECT_EQ(5 * 32 + 16 - 24 - 32, m.sprites[0].x);
+    EXPECT_EQ(5 * 32 + 16 - 40, m.sprites[0].y);
+    /* It has the turn of the square it is on. */
+    EXPECT_EQ(sprite_order(5, 5), m.sprites[0].order);
+    /* At the start of the tick in which it arrives it has one
+     * sixteenth to go, and when it stands it is on its place. */
+    m.slots[0].unit.left = 0;
+    ASSERT_EQ(1u, sprites_for(&m, 0, 0, 320, 320));
+    EXPECT_EQ(5 * 32 + 16 - 2 - 32, m.sprites[0].x);
+    m.slots[0].unit.ticks = 0;
+    ASSERT_EQ(1u, sprites_for(&m, 0, 0, 320, 320));
+    EXPECT_EQ(5 * 32 + 16 - 32, m.sprites[0].x);
+}
+
+UTEST(units, between_two_ticks_it_is_drawn_part_of_a_tick_further)
+{
+    MakeUnits m;
+    make_units(&m);
+    walking_from(put(&m, 5, 5, 3), 4, 5, 11);
+    /* Half a tick on: four and a half sixteenths gone, and eleven and
+     * a half of 32 pixels to go, which are 23. */
+    m.between = UNIT_BETWEEN / 2;
+    ASSERT_EQ(1u, sprites_for(&m, 0, 0, 320, 320));
+    EXPECT_EQ(5 * 32 + 16 - 23 - 32, m.sprites[0].x);
+    /* At the end of its last tick it is on its place, and the first
+     * tick of the next step starts from there: no jump between. */
+    m.slots[0].unit.left = 0;
+    m.between = UNIT_BETWEEN - 1;
+    ASSERT_EQ(1u, sprites_for(&m, 0, 0, 320, 320));
+    EXPECT_EQ(5 * 32 + 16 - 32, m.sprites[0].x);
+    walking_from(&m.slots[0].unit, 5, 5, 15);
+    m.slots[0].unit.x += 256;
+    m.between = 0;
+    ASSERT_EQ(1u, sprites_for(&m, 0, 0, 320, 320));
+    EXPECT_EQ(5 * 32 + 16 - 32, m.sprites[0].x);
+    /* A unit that stands does not move with it. */
+    m.slots[0].unit.ticks = 0;
+    m.slots[0].unit.left = 0;
+    m.between = UNIT_BETWEEN / 2;
+    ASSERT_EQ(1u, sprites_for(&m, 0, 0, 320, 320));
+    EXPECT_EQ(6 * 32 + 16 - 32, m.sprites[0].x);
+}
+
+UTEST(units, a_unit_of_several_squares_is_drawn_over_the_middle_of_them)
+{
+    MakeUnits m;
+    make_units(&m);
+    m.looks[3].squares = 3;
+    /* Its first square is (4, 5): the middle of the nine is that of
+     * (5, 6), where the ground is 20 high. */
+    for (int y = 6; y <= 7; y++) {
+        for (int x = 5; x <= 6; x++) {
+            m.heights[y * 10 + x] = 20;
+        }
+    }
+    Unit *unit = put(&m, 4, 5, 3);
+    ASSERT_EQ(1u, sprites_for(&m, 0, 0, 320, 320));
+    EXPECT_EQ(5 * 32 + 16 - 32, m.sprites[0].x);
+    EXPECT_EQ(6 * 32 + 16 - 40 - 20, m.sprites[0].y);
+    /* It is drawn after what stands beside its last square. */
+    EXPECT_EQ(sprite_order(6, 7), m.sprites[0].order);
+    /* And slides from the middle of where it was. */
+    walking_from(unit, 3, 5, 7);
+    ASSERT_EQ(1u, sprites_for(&m, 0, 0, 320, 320));
+    EXPECT_EQ(5 * 32 + 16 - 32 - 16, m.sprites[0].x);
+    /* It is picked there too. */
+    unit->ticks = 0;
+    EXPECT_EQ(0, picked_at(&m, 5 * 32 + 16, 6 * 32 + 16 - 20));
+    EXPECT_EQ(-1, picked_at(&m, 4 * 32 + 10, 5 * 32 + 10));
+}
+
+UTEST(units, one_that_flies_is_drawn_high_over_the_ground)
+{
+    MakeUnits m;
+    make_units(&m);
+    m.looks[3].high = 50;
+    put(&m, 4, 8, 3);
+    ASSERT_EQ(1u, sprites_for(&m, 0, 0, 320, 320));
+    EXPECT_EQ(4 * 32 + 16 - 32, m.sprites[0].x);
+    EXPECT_EQ(8 * 32 + 16 - 40 - 50, m.sprites[0].y);
+    EXPECT_EQ(0, picked_at(&m, 4 * 32 + 16, 8 * 32 + 16 - 50));
+    EXPECT_EQ(-1, picked_at(&m, 4 * 32 + 16, 8 * 32 + 16));
+}
+
+UTEST(units, over_two_steps_it_is_drawn_at_one_speed_with_no_stop_between)
+{
+    MakeUnits m;
+    make_units(&m);
+    Unit *unit = put(&m, 3, 5, 3);
+    /* Two steps of 16 ticks to the right, as the game would count
+     * them, drawn four times a tick: 64 pixels in 128 pictures, half
+     * a pixel each. */
+    int32_t start = 3 * 32 + 16 - 32;
+    int32_t last = start;
+    int32_t shown = 0;
+    for (int step = 0; step < 2; step++) {
+        unit->x += 256;
+        walking_from(unit, 3 + step, 5, 15);
+        for (int t = 0; t < 16; t++) {
+            unit->left = (uint16_t)(15 - t);
+            for (int part = 0; part < 4; part++) {
+                m.between = (uint32_t)part * UNIT_BETWEEN / 4;
+                ASSERT_EQ(1u, sprites_for(&m, 0, 0, 320, 320));
+                int32_t moved = m.sprites[0].x - last;
+                EXPECT_TRUE(moved == 0 || moved == 1);
+                last = m.sprites[0].x;
+                shown++;
+                /* Never more than a pixel off an even pace. */
+                EXPECT_LE(last, start + shown / 2);
+                EXPECT_GE(last, start + shown / 2 - 1);
+            }
+        }
+    }
+}
+
+UTEST(units, a_walk_to_a_corner_slides_both_ways_and_over_the_ground)
+{
+    MakeUnits m;
+    make_units(&m);
+    walking_from(put(&m, 5, 5, 3), 4, 4, 7);
+    /* Half way: 16 pixels back each way, at the point (160, 160),
+     * which is the corner of four squares; the ground there is 30
+     * high. */
+    m.heights[5 * 10 + 5] = 30;
+    ASSERT_EQ(1u, sprites_for(&m, 0, 0, 320, 320));
+    EXPECT_EQ(160 - 32, m.sprites[0].x);
+    EXPECT_EQ(160 - 40 - 30, m.sprites[0].y);
+}
+
+UTEST(units, a_unit_that_walks_shows_the_frames_of_its_walk)
+{
+    MakeUnits m;
+    make_units(&m);
+    /* Ten columns from the fourth, two of them for setting off, and
+     * eight frames of two ticks each. */
+    m.looks[3].move.column = 4;
+    m.looks[3].move.begin = 2;
+    m.looks[3].move.round.length = 16;
+    for (int i = 0; i < 16; i++) {
+        m.looks[3].move.round.frame[i] = (uint8_t)(i / 2);
+    }
+    Unit *unit = put(&m, 5, 5, 3);
+    walking_from(unit, 4, 5, 11);
+    /* It faces the first way: the fifth of the eight rows. */
+    ASSERT_EQ(1u, sprites_for(&m, 0, 0, 320, 320));
+    EXPECT_EQ((4u + 2u + 0u) * 64u, m.sprites[0].source_x);
+    EXPECT_EQ((1u + 4u) * 48u, m.sprites[0].source_y);
+    /* The frame goes by the ticks it has walked, and round. */
+    unit->walked = 4;
+    ASSERT_EQ(1u, sprites_for(&m, 0, 0, 320, 320));
+    EXPECT_EQ((4u + 2u + 1u) * 64u, m.sprites[0].source_x);
+    unit->walked = 17;
+    ASSERT_EQ(1u, sprites_for(&m, 0, 0, 320, 320));
+    EXPECT_EQ((4u + 2u + 0u) * 64u, m.sprites[0].source_x);
+    unit->facing = 64;
+    ASSERT_EQ(1u, sprites_for(&m, 0, 0, 320, 320));
+    EXPECT_EQ((1u + 6u) * 48u, m.sprites[0].source_y);
+    /* When it stands again it shows its standing frame. */
+    unit->left = 0;
+    unit->ticks = 0;
+    unit->facing = 0;
+    ASSERT_EQ(1u, sprites_for(&m, 0, 0, 320, 320));
+    EXPECT_EQ(8u * 64u, m.sprites[0].source_x);
+    EXPECT_EQ(0u, m.sprites[0].source_y);
+}
+
+UTEST(units, a_unit_is_picked_where_it_is_drawn_as_it_walks)
+{
+    MakeUnits m;
+    make_units(&m);
+    walking_from(put(&m, 5, 5, 3), 3, 5, 15);
+    /* Drawn on the square it came from, two to the left. */
+    EXPECT_EQ(0, picked_at(&m, 3 * 32 + 16, 5 * 32 + 16));
+    EXPECT_EQ(-1, picked_at(&m, 5 * 32 + 16, 5 * 32 + 16));
 }
 
 UTEST(units, a_unit_stands_with_its_anchor_on_its_place)

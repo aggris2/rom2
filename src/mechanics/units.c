@@ -4,6 +4,7 @@
 #include <string.h>
 
 #include "mechanics/idle.h"
+#include "mechanics/walk.h"
 
 /* The steps of a turn a map counts a unit's facing in. */
 #define MAP_FACINGS 16
@@ -79,14 +80,13 @@ static bool squares_free(const Units *units, const uint16_t *layer,
     return true;
 }
 
-/* Writes who holds the squares of a unit: `who` is its slot plus 1,
- * or 0 to free them. */
-static void hold_squares(Units *units, const Unit *unit, uint16_t who)
+/* Writes who holds the squares a unit covers with its first square
+ * on (x, y): `who` is its slot plus 1, or 0 to free them. */
+static void hold_at(Units *units, const Unit *unit, int32_t x, int32_t y,
+                    uint16_t who)
 {
     uint16_t *layer = layer_of(units, unit);
     int32_t size = size_of(unit);
-    int32_t x = unit->x / UNIT_PLACE_PARTS;
-    int32_t y = unit->y / UNIT_PLACE_PARTS;
     for (int32_t row = y; row < y + size; row++) {
         for (int32_t column = x; column < x + size; column++) {
             layer[(size_t)row * units->width + (size_t)column] = who;
@@ -118,8 +118,10 @@ bool units_add(Units *units, const Unit *unit, UnitId *out)
         units->count++;
     }
     units->living++;
+    into->unit.reaching = false;
     if (units->width != 0) {
-        hold_squares(units, unit, (uint16_t)(slot + 1));
+        hold_at(units, unit, unit->x / UNIT_PLACE_PARTS,
+            unit->y / UNIT_PLACE_PARTS, (uint16_t)(slot + 1));
     }
     if (out != NULL) {
         out->slot = (uint16_t)slot;
@@ -156,7 +158,12 @@ void units_remove(Units *units, UnitId id)
     }
     UnitSlot *slot = &units->slots[id.slot];
     if (units->width != 0) {
-        hold_squares(units, &slot->unit, 0);
+        const Unit *unit = &slot->unit;
+        hold_at(units, unit, unit->x / UNIT_PLACE_PARTS,
+            unit->y / UNIT_PLACE_PARTS, 0);
+        if (unit->reaching) {
+            hold_at(units, unit, unit->to_x, unit->to_y, 0);
+        }
     }
     slot->taken = false;
     /* The next unit here is another: an id of this one no longer
@@ -172,13 +179,58 @@ static bool computer_plays(const Units *units, const Unit *unit)
         || (units->people >> (unit->player - 1) & 1u) == 0;
 }
 
-void units_tick(Units *units, Random *random)
+bool units_can_step(const Units *units, UnitId id, int32_t x, int32_t y)
+{
+    const Unit *unit = units_get(units, id);
+    return unit != NULL && units->width != 0
+        && squares_free(units, layer_of(units, unit), size_of(unit), x, y,
+            (uint16_t)(id.slot + 1));
+}
+
+bool units_step(Units *units, UnitId id, int32_t x, int32_t y)
+{
+    Unit *unit = units_get(units, id);
+    if (unit == NULL || units->width == 0 || unit->reaching
+        || !squares_free(units, layer_of(units, unit), size_of(unit), x,
+            y, (uint16_t)(id.slot + 1))) {
+        return false;
+    }
+    unit->from_x = (int16_t)(unit->x / UNIT_PLACE_PARTS);
+    unit->from_y = (int16_t)(unit->y / UNIT_PLACE_PARTS);
+    unit->to_x = (int16_t)x;
+    unit->to_y = (int16_t)y;
+    unit->reaching = true;
+    hold_at(units, unit, x, y, (uint16_t)(id.slot + 1));
+    return true;
+}
+
+void units_arrive(Units *units, UnitId id)
+{
+    Unit *unit = units_get(units, id);
+    if (unit == NULL || !unit->reaching) {
+        return;
+    }
+    /* The old squares are let go, and the new held again: a large
+     * unit covers some of both. */
+    hold_at(units, unit, unit->x / UNIT_PLACE_PARTS,
+        unit->y / UNIT_PLACE_PARTS, 0);
+    hold_at(units, unit, unit->to_x, unit->to_y, (uint16_t)(id.slot + 1));
+    unit->x = unit->to_x * UNIT_PLACE_PARTS + UNIT_PLACE_PARTS / 2;
+    unit->y = unit->to_y * UNIT_PLACE_PARTS + UNIT_PLACE_PARTS / 2;
+    unit->reaching = false;
+}
+
+void units_tick(Units *units, const Terrain *terrain, Fields *fields,
+                Random *random)
 {
     for (uint32_t slot = 0; slot < units->count; slot++) {
-        if (!units->slots[slot].taken) {
+        UnitId id;
+        Unit *unit = units_at(units, slot, &id);
+        if (unit == NULL
+            || (terrain != NULL
+                && walk_tick(units, id, terrain, fields))) {
             continue;
         }
-        Unit *unit = &units->slots[slot].unit;
         if (computer_plays(units, unit)) {
             idle_tick(unit, random);
         } else {
@@ -209,6 +261,7 @@ static void fill_up(Unit *unit, const UnitKind *kinds)
     unit->mana_most = kind->mana;
     unit->size = kind->size;
     unit->mover = kind->mover;
+    unit->speed = kind->speed;
 }
 
 /* Whether a unit could stand with its first square on (x, y): the
@@ -362,6 +415,28 @@ bool units_standing(const Units *units, bool in_air, int32_t x, int32_t y,
     return true;
 }
 
+/* Whether a unit holds each square it would cover with its first
+ * square on (x, y). */
+static bool holds_at(const Units *units, const Unit *unit, uint32_t slot,
+                     int32_t x, int32_t y)
+{
+    const uint16_t *layer = layer_of(units, unit);
+    int32_t size = size_of(unit);
+    if (x < 0 || y < 0 || (uint32_t)(x + size) > units->width
+        || (uint32_t)(y + size) > units->height) {
+        return false;
+    }
+    for (int32_t row = y; row < y + size; row++) {
+        for (int32_t column = x; column < x + size; column++) {
+            if (layer[(size_t)row * units->width + (size_t)column]
+                != slot + 1) {
+                return false;
+            }
+        }
+    }
+    return true;
+}
+
 bool units_check(const Units *units)
 {
     size_t squares = (size_t)units->width * units->height;
@@ -370,30 +445,35 @@ bool units_check(const Units *units)
     if (units->width == 0) {
         return false;
     }
-    /* Every unit holds each square it covers. */
+    /* Every unit holds each square it is on, and each it reaches
+     * for. */
     for (uint32_t slot = 0; slot < units->count; slot++) {
         const Unit *unit = units_at(units, slot, NULL);
         if (unit == NULL) {
             continue;
         }
         int32_t size = size_of(unit);
+        int32_t x = unit->x / UNIT_PLACE_PARTS;
+        int32_t y = unit->y / UNIT_PLACE_PARTS;
         if (unit->x < 0 || unit->y < 0
-            || !squares_free(units, layer_of(units, unit), size,
-                unit->x / UNIT_PLACE_PARTS, unit->y / UNIT_PLACE_PARTS,
-                (uint16_t)(slot + 1))) {
+            || !holds_at(units, unit, slot, x, y)) {
             return false;
         }
-        const uint16_t *layer = layer_of(units, unit);
-        size_t first = (size_t)(unit->y / UNIT_PLACE_PARTS) * units->width
-            + (size_t)(unit->x / UNIT_PLACE_PARTS);
-        for (int32_t i = 0; i < size * size; i++) {
-            size_t at = first + (size_t)(i / size) * units->width
-                + (size_t)(i % size);
-            if (layer[at] != slot + 1) {
-                return false;
+        covered += (size_t)(size * size);
+        if (!unit->reaching) {
+            continue;
+        }
+        if (!holds_at(units, unit, slot, unit->to_x, unit->to_y)) {
+            return false;
+        }
+        /* Those of the new squares that are not also old ones. */
+        for (int32_t row = unit->to_y; row < unit->to_y + size; row++) {
+            for (int32_t column = unit->to_x; column < unit->to_x + size;
+                column++) {
+                covered += column < x || column >= x + size || row < y
+                    || row >= y + size ? 1u : 0u;
             }
         }
-        covered += (size_t)(size * size);
     }
     /* And no square is held beyond those. */
     for (size_t i = 0; i < squares; i++) {

@@ -112,14 +112,16 @@ add_library(rom2_core STATIC
     src/data/unit_animation.c
     src/data/unit_kind.c
     src/mechanics/clock.c
+    src/mechanics/field.c
     src/mechanics/terrain.c
     src/mechanics/idle.c
     src/mechanics/random.c
     src/mechanics/unit.c
     src/mechanics/units.c
+    src/mechanics/walk.c
     src/view/bars.c
     src/view/camera.c
-    src/view/closed.c
+    src/view/marks.c
     src/view/ground.c
     src/view/light.c
     src/view/objects.c
@@ -226,14 +228,16 @@ add_executable(rom2_tests
     tests/data/test_unit_animation.c
     tests/data/test_unit_kind.c
     tests/mechanics/test_clock.c
+    tests/mechanics/test_field.c
     tests/mechanics/test_terrain.c
     tests/mechanics/test_idle.c
     tests/mechanics/test_random.c
     tests/mechanics/test_unit.c
     tests/mechanics/test_units.c
+    tests/mechanics/test_walk.c
     tests/view/test_bars.c
     tests/view/test_camera.c
-    tests/view/test_closed.c
+    tests/view/test_marks.c
     tests/view/test_ground.c
     tests/view/test_light.c
     tests/view/test_objects.c
