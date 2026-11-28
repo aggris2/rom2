@@ -171,6 +171,8 @@ tests run it. A unit is named by its slot in the list and by how many units
 the slot had before it, so that a slot can be used again and an old name
 leads to nothing. `src/mechanics/random` is the game's dice, which follow
 from their seed alone, so that the same game plays out the same everywhere.
+`src/mechanics/relations` is how the players stand to each other, from the
+map: who is at war with whom, which is one way, as in the original.
 `unit` is the record of one unit and how it turns: at its kind's speed and
 by the shorter way, as in the original. `idle` is what a unit does that has
 nothing to do: it stands, and now and then, when the dice say so, it turns

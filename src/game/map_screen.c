@@ -14,6 +14,7 @@
 #include "game/sheets.h"
 #include "mechanics/clock.h"
 #include "mechanics/random.h"
+#include "mechanics/relations.h"
 #include "mechanics/terrain.h"
 #include "mechanics/units.h"
 #include "mechanics/walk.h"
@@ -76,10 +77,7 @@ struct MapScreen {
     SelectionDrag drag;
     uint16_t box_sheet;
     bool has_box_sheet;
-    /* For trying things out, and to go again: the units of every
-     * player are the player's own, to select with a box and to
-     * send. */
-    bool any_player;
+    Relations relations;        /* who is whose enemy */
     BarsLook bars;              /* the bars of health and mana */
     /* The ground as units meet it, and the kinds of structure it was
      * made with: each by its ID, all zeros for one not read. */
@@ -689,6 +687,7 @@ MapScreen *map_screen_open(Renderer *renderer, const char *content,
     /* Every game starts its dice the same until there is a reason not
      * to, such as a game the player starts anew. */
     random_start(&screen->random, 1);
+    relations_from_map(&screen->map, &screen->relations);
     if (!units_from_map(&screen->map, screen->kinds, &screen->terrain,
             &screen->live)) {
         fprintf(stderr, "rom2: out of memory\n");
@@ -842,17 +841,12 @@ bool map_screen_frame(MapScreen *screen, float seconds)
     return true;
 }
 
-/* Whether a unit does what the player tells it: one of his own. */
-static bool obeys(const MapScreen *screen, const Unit *unit)
-{
-    return screen->any_player || unit->player == UNITS_PLAYER_SELF;
-}
-
-/* A click of the left button at a point of the screen. On a unit it
- * selects that one alone, whoever it belongs to; with `toggle` it
- * selects one of the player's own besides the others, or lets go of
- * it. On the ground it sends there those of the selected that obey.
- * A click on an enemy is to be an attack, once units fight. */
+/* A click of the left button at a point of the screen. On a unit
+ * that is no enemy of the player it selects that one alone, whoever
+ * it belongs to; with `toggle` it selects one of the player's own
+ * besides the others, or lets go of it. On an enemy it does nothing
+ * yet: it is to be an attack, once units fight. On the ground it
+ * sends there those of the selected that are the player's own. */
 static void click(MapScreen *screen, const Camera *camera, int32_t x,
                   int32_t y, bool toggle)
 {
@@ -861,10 +855,15 @@ static void click(MapScreen *screen, const Camera *camera, int32_t x,
     int32_t row = 0;
     if (units_pick(&screen->map, &screen->live, screen->units,
             between_ticks(screen), camera, x, y, &picked)) {
+        int32_t whose = units_get(&screen->live, picked)->player;
+        if (relations_enemy(&screen->relations, UNITS_PLAYER_SELF,
+                whose)) {
+            return;
+        }
         if (!toggle) {
             selection_clear(&screen->selected);
             selection_put(&screen->selected, picked, true);
-        } else if (obeys(screen, units_get(&screen->live, picked))) {
+        } else if (whose == UNITS_PLAYER_SELF) {
             selection_put(&screen->selected, picked,
                 !selection_has(&screen->selected, picked));
         }
@@ -877,7 +876,7 @@ static void click(MapScreen *screen, const Camera *camera, int32_t x,
         UnitId id;
         const Unit *unit = units_at(&screen->live, slot, &id);
         if (unit != NULL && selection_has(&screen->selected, id)
-            && obeys(screen, unit)) {
+            && unit->player == UNITS_PLAYER_SELF) {
             walk_send(&screen->live, &screen->fields, &screen->terrain, id,
                 column, row);
         }
@@ -914,7 +913,7 @@ void map_screen_button(MapScreen *screen, Uint8 button, bool down)
     if (selection_drag_is_box(&screen->drag, &camera)) {
         selection_box(&screen->selected, &screen->map, &screen->live,
             screen->units, between_ticks(screen), &camera, &screen->drag,
-            screen->any_player ? 0 : UNITS_PLAYER_SELF, toggle);
+            UNITS_PLAYER_SELF, toggle);
     } else {
         click(screen, &camera, x, y, toggle);
     }
@@ -930,8 +929,6 @@ void map_screen_key(MapScreen *screen, SDL_Keycode key)
         screen->show_rate = !screen->show_rate;
     } else if (key == SDLK_B) {
         screen->all_bars = !screen->all_bars;
-    } else if (key == SDLK_T) {
-        screen->any_player = !screen->any_player;
     } else if (key == SDLK_E) {
         screen->show_held = !screen->show_held;
     } else if (key == SDLK_W) {

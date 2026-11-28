@@ -159,7 +159,7 @@ int main(int argc, char **argv)
             "a click on the ground sends them there. B hides the health\n"
             "of the units that are not selected, W marks the squares\n"
             "closed to what walks, then hovers, then flies, E those the\n"
-            "selected units stand on, T makes every unit yours, G shows\n"
+            "selected units stand on, G shows\n"
             "a grid, P pauses, F hides the count of frames a second, and\n"
             "Escape leaves.\n");
         return 2;

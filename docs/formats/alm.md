@@ -136,8 +136,9 @@ of 32 bytes, and 16 numbers of 16 bits, one for each other player. The
 bits: 1 is at war, 2 is allied, and 16 is seeing what the other sees. A
 player's number for itself is 18, allied and seeing, in 354 of the 359.
 This reading fits the names: in mission 10 the player `self` has 1 for
-`Enemy` and 0 for `Neutral`. It was not checked against the game. A
-mission's first player is named `self`.
+`Enemy` and 0 for `Neutral`. It was not checked against the game. ROM2
+reads bit 1: a player is at war with another whose number has it, and
+that is one way. A mission's first player is named `self`.
 
 Bit 1 of the flags is in every player of the 58 maps but the first, and
 in the first of mission 103 and of three loose maps. Bit 2 is set for
