@@ -40,6 +40,12 @@ void selection_put(Selection *selection, UnitId id, bool chosen);
 /* How many of the units of a list are selected. */
 uint32_t selection_count(const Selection *selection, const Units *units);
 
+/* Whether the selected units are `player`'s to command: there is
+ * one, and the first of them, the one in the lowest slot, is that
+ * player's. The original goes by the first alone, too. */
+bool selection_commands(const Selection *selection, const Units *units,
+                        int32_t player);
+
 /* The way the mouse went with its button held, in pixels of the
  * screen: from where it was pressed to where it is now. */
 typedef struct SelectionDrag {

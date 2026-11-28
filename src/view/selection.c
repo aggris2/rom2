@@ -52,6 +52,19 @@ uint32_t selection_count(const Selection *selection, const Units *units)
     return count;
 }
 
+bool selection_commands(const Selection *selection, const Units *units,
+                        int32_t player)
+{
+    for (uint32_t slot = 0; slot < units->count; slot++) {
+        UnitId id;
+        const Unit *unit = units_at(units, slot, &id);
+        if (unit != NULL && selection_has(selection, id)) {
+            return unit->player == player;
+        }
+    }
+    return false;
+}
+
 /* The sides of a drag: the right and the low one are past its last
  * pixel. */
 typedef struct Sides {

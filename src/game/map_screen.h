@@ -36,8 +36,9 @@ void map_screen_key(MapScreen *screen, SDL_Keycode key);
  * go, where the mouse is now. `button` is SDL's number for it.
  *
  * The left one, pressed and let go in one place, is a click: on a
- * unit that is no enemy it selects that unit alone, and on the ground
- * it sends the selected units of the player there. Held while the
+ * unit it selects that unit alone, and on the ground it sends the
+ * selected units of the player there. While units of the player are
+ * selected, a click on an enemy does not select it. Held while the
  * mouse moves it draws a box, which selects the player's units in it
  * when it is let go, and changes nothing if there are none. With
  * Shift a click or a box selects the player's units besides those

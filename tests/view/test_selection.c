@@ -98,6 +98,23 @@ UTEST(selection, the_unit_that_takes_the_slot_of_one_selected_is_not)
     EXPECT_TRUE(selection_has(&m.selection, next));
 }
 
+UTEST(selection, it_is_the_players_to_command_if_its_first_unit_is_his)
+{
+    static MakeSelection m;
+    make_selection(&m);
+    UnitId theirs = put(&m, 1, 1, 2);
+    UnitId mine = put(&m, 3, 1, 1);
+    /* Nobody is selected. */
+    EXPECT_FALSE(selection_commands(&m.selection, &m.live, 1));
+    selection_put(&m.selection, mine, true);
+    EXPECT_TRUE(selection_commands(&m.selection, &m.live, 1));
+    EXPECT_FALSE(selection_commands(&m.selection, &m.live, 2));
+    /* The one in the lower slot decides. */
+    selection_put(&m.selection, theirs, true);
+    EXPECT_FALSE(selection_commands(&m.selection, &m.live, 1));
+    EXPECT_TRUE(selection_commands(&m.selection, &m.live, 2));
+}
+
 UTEST(selection, a_drag_longer_than_a_64th_of_the_width_is_a_box)
 {
     Camera camera = {0, 0, 640, 480};

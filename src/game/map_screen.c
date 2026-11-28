@@ -874,35 +874,47 @@ bool map_screen_frame(MapScreen *screen, float seconds)
     return true;
 }
 
-/* A click of the left button at a point of the screen. On a unit
- * that is no enemy of the player it selects that one alone, whoever
- * it belongs to; with `toggle` it selects one of the player's own
- * besides the others, or lets go of it. On an enemy it does nothing
- * yet: it is to be an attack, once units fight. On the ground it
- * sends there those of the selected that are the player's own. */
+/* A click of the left button at a point of the screen, by the rule
+ * of the original. What it means goes by whether the selected units
+ * are the player's to command.
+ *
+ * If they are, a click on an enemy does nothing yet: it is to be an
+ * attack, once units fight. And a click on the ground sends there
+ * those of them that are the player's own. If they are not, or nobody
+ * is selected, a click on an enemy selects it as it does any other
+ * unit, and one on the ground does nothing.
+ *
+ * A click on a unit selects that one alone, whoever it belongs to;
+ * with `toggle` it selects one of the player's own besides the
+ * others, or lets go of it, if those are his to command or there are
+ * none. */
 static void click(MapScreen *screen, const Camera *camera, int32_t x,
                   int32_t y, bool toggle)
 {
     UnitId picked;
     int32_t column = 0;
     int32_t row = 0;
+    bool commands = selection_commands(&screen->selected, &screen->live,
+        UNITS_PLAYER_SELF);
+    bool nobody = selection_count(&screen->selected, &screen->live) == 0;
     if (units_pick(&screen->map, &screen->live, screen->units,
             between_ticks(screen), camera, x, y, &picked)) {
         int32_t whose = units_get(&screen->live, picked)->player;
-        if (relations_enemy(&screen->relations, UNITS_PLAYER_SELF,
-                whose)) {
+        if (commands && relations_enemy(&screen->relations,
+                UNITS_PLAYER_SELF, whose)) {
             return;
         }
         if (!toggle) {
             selection_clear(&screen->selected);
             selection_put(&screen->selected, picked, true);
-        } else if (whose == UNITS_PLAYER_SELF) {
+        } else if (whose == UNITS_PLAYER_SELF && (commands || nobody)) {
             selection_put(&screen->selected, picked,
                 !selection_has(&screen->selected, picked));
         }
         return;
     }
-    if (!ground_square_under(&screen->map, camera, x, y, &column, &row)) {
+    if (!commands
+        || !ground_square_under(&screen->map, camera, x, y, &column, &row)) {
         return;
     }
     for (uint32_t slot = 0; slot < screen->live.count; slot++) {

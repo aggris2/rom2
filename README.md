@@ -91,10 +91,11 @@ them, and its trees and rocks. Mission 10 here. A map's file can be named in
 place of the number, such as `content/maps/beach.alm`. The content is taken
 from the folder `content` where the game is started, or from the one named
 with `--content`. The mouse on the edge of the screen moves over the map,
-and a click on a unit that is no enemy selects it, which the right button
-lets go. A box drawn with the left button held selects your own units in it,
-and with Shift a click or a box adds to those selected or lets go of them. A
-click on the ground sends your selected units there. Every unit shows its
+and a click on a unit selects it, which the right button lets go. While
+your own units are selected, a click on an enemy does not select it. A box
+drawn with the left button held selects your own units in it, and with Shift
+a click or a box adds to those selected or lets go of them. A click on the
+ground sends your selected units there. Every unit shows its
 health, the selected ones plainly and the others faintly; B hides that of
 the others. W marks the squares that are closed to what walks, pressed again
 to what hovers, and again to what flies. E marks the squares the selected
