@@ -172,8 +172,7 @@ void units_remove(Units *units, UnitId id)
     units->living--;
 }
 
-/* Whether the computer plays the unit: no person plays its player. */
-static bool computer_plays(const Units *units, const Unit *unit)
+bool units_computer_plays(const Units *units, const Unit *unit)
 {
     return unit->player < 1 || unit->player > UNITS_PLAYERS
         || (units->people >> (unit->player - 1) & 1u) == 0;
@@ -242,7 +241,7 @@ void units_tick(Units *units, const Terrain *terrain, Fields *fields,
                 && walk_tick(units, id, terrain, fields))) {
             continue;
         }
-        if (computer_plays(units, unit)) {
+        if (units_computer_plays(units, unit)) {
             idle_tick(unit, random);
         } else {
             unit_turn(unit);

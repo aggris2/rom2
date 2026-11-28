@@ -95,7 +95,8 @@ and a click on a unit selects it, which the right button lets go. While
 your own units are selected, a click on an enemy does not select it. A box
 drawn with the left button held selects your own units in it, and with Shift
 a click or a box adds to those selected or lets go of them. A click on the
-ground sends your selected units there. Every unit shows its
+ground sends your selected units there. The computer's units come for an
+enemy they see and go back when he is gone. Every unit shows its
 health, the selected ones plainly and the others faintly; B hides that of
 the others. W marks the squares that are closed to what walks, pressed again
 to what hovers, and again to what flies. E marks the squares the selected

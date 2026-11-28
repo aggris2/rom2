@@ -53,6 +53,12 @@ typedef struct Unit {
     /* The group a map puts it in, which acts as one: 0 for a unit in
      * none. */
     int32_t group;
+    /* Guarding, see mechanics/guard.h: the number of its band from 1,
+     * or 0 for a unit that does not guard, and the square it guards
+     * from and goes back to, its first one. */
+    uint16_t band;
+    int16_t home_x;
+    int16_t home_y;
     /* Walking. A step goes from the square `from` to the square
      * `to`, and what is drawn slides from the one to the other, the
      * same part of the way in every tick. `ticks` is how many ticks

@@ -13,6 +13,7 @@
 #include "data/unit_kind.h"
 #include "game/sheets.h"
 #include "mechanics/clock.h"
+#include "mechanics/guard.h"
 #include "mechanics/random.h"
 #include "mechanics/relations.h"
 #include "mechanics/sight.h"
@@ -79,6 +80,7 @@ struct MapScreen {
     uint16_t box_sheet;
     bool has_box_sheet;
     Relations relations;        /* who is whose enemy */
+    Guard guard;                /* the bands of the computer's units */
     BarsLook bars;              /* the bars of health and mana */
     /* The ground as units meet it, and the kinds of structure it was
      * made with: each by its ID, all zeros for one not read. */
@@ -730,6 +732,14 @@ MapScreen *map_screen_open(Renderer *renderer, const char *content,
     screen->has_hero = units_enter(&screen->live, &screen->map,
         screen->kinds, &screen->terrain, &hero, &screen->random,
         &screen->hero);
+    /* The bands are made once the hero is in: his player's units do
+     * not guard. */
+    if (!guard_make(&screen->live, &screen->terrain, &screen->random,
+            &screen->guard)) {
+        fprintf(stderr, "rom2: out of memory\n");
+        map_screen_close(screen);
+        return NULL;
+    }
     start_camera(screen);
     clock_start(&screen->clock);
     return screen;
@@ -752,6 +762,8 @@ bool map_screen_frame(MapScreen *screen, float seconds)
      * and not the game's, and moves while the game is paused too. */
     for (uint32_t ticks = clock_advance(&screen->clock, seconds);
         ticks > 0; ticks--) {
+        guard_tick(&screen->guard, &screen->live, &screen->terrain,
+            &screen->fields, &screen->relations);
         units_tick(&screen->live, &screen->terrain, &screen->fields,
             &screen->random);
     }
@@ -999,6 +1011,7 @@ void map_screen_close(MapScreen *screen)
         return;
     }
     units_free(&screen->live);
+    guard_free(&screen->guard);
     fields_free(&screen->fields);
     selection_free(&screen->selected);
     terrain_free(&screen->terrain);

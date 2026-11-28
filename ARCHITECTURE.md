@@ -175,7 +175,10 @@ from their seed alone, so that the same game plays out the same everywhere.
 used up square by square from the eye, faster uphill, so hills hide what is
 behind them. `src/mechanics/relations` is how the players stand to each
 other, from the map: who is at war with whom, which is one way, as in the
-original.
+original. `src/mechanics/guard` is what the computer's units do when left
+alone: the units of a group of the map are a band, which once in 16 ticks
+goes for the enemies its units see near it, each unit for the nearest, and
+goes home when there are none.
 `unit` is the record of one unit and how it turns: at its kind's speed and
 by the shorter way, as in the original. `idle` is what a unit does that has
 nothing to do: it stands, and now and then, when the dice say so, it turns

@@ -75,6 +75,9 @@ typedef struct Units {
  * the maps call Self. */
 #define UNITS_PLAYER_SELF 1
 
+/* Whether the computer plays a unit: no person plays its player. */
+bool units_computer_plays(const Units *units, const Unit *unit);
+
 /* Makes an empty list for a map of `width` by `height` squares.
  * Returns false, and leaves `*out` alone, if memory runs out. */
 bool units_make(uint32_t width, uint32_t height, Units *out);

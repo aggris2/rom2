@@ -113,6 +113,7 @@ add_library(rom2_core STATIC
     src/data/unit_kind.c
     src/mechanics/clock.c
     src/mechanics/field.c
+    src/mechanics/guard.c
     src/mechanics/terrain.c
     src/mechanics/idle.c
     src/mechanics/random.c
@@ -232,6 +233,7 @@ add_executable(rom2_tests
     tests/data/test_unit_kind.c
     tests/mechanics/test_clock.c
     tests/mechanics/test_field.c
+    tests/mechanics/test_guard.c
     tests/mechanics/test_terrain.c
     tests/mechanics/test_idle.c
     tests/mechanics/test_random.c
