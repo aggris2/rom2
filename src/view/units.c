@@ -27,7 +27,7 @@ size_t units_most(const Units *units)
 
 size_t units_sprites(const Map *map, const Units *units,
                      const UnitLook *looks, const UnitKind *kinds,
-                     const Camera *camera, Sprite *out)
+                     uint64_t tick, const Camera *camera, Sprite *out)
 {
     size_t count = 0;
     for (uint32_t slot = 0; slot < units->count; slot++) {
@@ -51,8 +51,15 @@ size_t units_sprites(const Map *map, const Units *units,
         sprite->sheet = look->sheet;
         int32_t shown = unit->facing / (UNIT_TURN / UNIT_FACINGS);
         int32_t frame = (shown + UNIT_FACINGS / 2) % UNIT_FACINGS;
+        int32_t row = 0;
+        if (look->idle.round.length > 0) {
+            /* Two standing frames to each row of an animation. */
+            row = 1 + frame / (UNIT_FACINGS / UNIT_ANIMATION_FACINGS);
+            frame = look->idle.column
+                + (int32_t)sprite_round_frame(&look->idle.round, tick);
+        }
         sprite->source_x = (uint16_t)(frame * look->cell_width);
-        sprite->source_y = 0;
+        sprite->source_y = (uint16_t)(row * look->cell_height);
         sprite->width = look->cell_width;
         sprite->height = look->cell_height;
         sprite->x = (int16_t)left;

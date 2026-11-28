@@ -16,6 +16,7 @@ typedef struct MakeUnits {
     MapPlayer players[3];
     UnitLook looks[UNIT_TYPES];
     UnitKind kinds[UNIT_KIND_IDS];
+    uint64_t tick;
     Sprite sprites[4];
 } MakeUnits;
 
@@ -61,7 +62,7 @@ static size_t sprites_for(MakeUnits *m, int32_t left, int32_t top,
 {
     Camera camera = {left, top, width, height};
     size_t count = units_sprites(&m->map, &m->live, m->looks, m->kinds,
-        &camera, m->sprites);
+        m->tick, &camera, m->sprites);
     return count <= units_most(&m->live) ? count : 9999;
 }
 
@@ -129,6 +130,71 @@ UTEST(units, a_facing_between_two_pictures_shows_the_one_before)
     unit->facing = 6 * 16;
     ASSERT_EQ(1u, sprites_for(&m, 0, 0, 320, 320));
     EXPECT_EQ(14u * 64, m.sprites[0].source_x);
+}
+
+/* Gives type 3 an idle animation in the columns from 18: frame 0 for
+ * two ticks, then 1 and 2 for one each. */
+static void make_it_flap(MakeUnits *m)
+{
+    m->looks[3].idle.column = 18;
+    m->looks[3].idle.round.length = 4;
+    m->looks[3].idle.round.frame[0] = 0;
+    m->looks[3].idle.round.frame[1] = 0;
+    m->looks[3].idle.round.frame[2] = 1;
+    m->looks[3].idle.round.frame[3] = 2;
+}
+
+UTEST(units, a_unit_with_an_idle_animation_shows_its_frame_of_the_tick)
+{
+    MakeUnits m;
+    make_units(&m);
+    make_it_flap(&m);
+    put(&m, 4, 5, 3);
+    const uint16_t columns[8] = {18, 18, 19, 20, 18, 18, 19, 20};
+    for (uint64_t tick = 0; tick < 8; tick++) {
+        m.tick = tick;
+        ASSERT_EQ(1u, sprites_for(&m, 0, 0, 320, 320));
+        EXPECT_EQ(columns[tick] * 64, m.sprites[0].source_x);
+    }
+}
+
+UTEST(units, an_idle_animation_is_shown_from_the_row_of_the_way_faced)
+{
+    MakeUnits m;
+    make_units(&m);
+    make_it_flap(&m);
+    Unit *unit = put(&m, 4, 5, 3);
+    /* The first row is the standing frames, and the rows of an
+     * animation come after it. The first way faced is half a turn on:
+     * the fifth of the eight rows. */
+    ASSERT_EQ(1u, sprites_for(&m, 0, 0, 320, 320));
+    EXPECT_EQ(5u * 48, m.sprites[0].source_y);
+    /* Half a turn round is the first row of the animation. */
+    unit->facing = 128;
+    ASSERT_EQ(1u, sprites_for(&m, 0, 0, 320, 320));
+    EXPECT_EQ(1u * 48, m.sprites[0].source_y);
+    /* Two of the 16 standing ways share a row: an eighth of a turn
+     * is 32 steps. */
+    unit->facing = 128 + 31;
+    ASSERT_EQ(1u, sprites_for(&m, 0, 0, 320, 320));
+    EXPECT_EQ(1u * 48, m.sprites[0].source_y);
+    unit->facing = 128 + 32;
+    ASSERT_EQ(1u, sprites_for(&m, 0, 0, 320, 320));
+    EXPECT_EQ(2u * 48, m.sprites[0].source_y);
+    unit->facing = 127;
+    ASSERT_EQ(1u, sprites_for(&m, 0, 0, 320, 320));
+    EXPECT_EQ(8u * 48, m.sprites[0].source_y);
+}
+
+UTEST(units, a_unit_without_an_idle_animation_stands_still_at_any_tick)
+{
+    MakeUnits m;
+    make_units(&m);
+    put(&m, 4, 5, 3);
+    m.tick = 12345;
+    ASSERT_EQ(1u, sprites_for(&m, 0, 0, 320, 320));
+    EXPECT_EQ(8u * 64, m.sprites[0].source_x);
+    EXPECT_EQ(0u, m.sprites[0].source_y);
 }
 
 UTEST(units, a_unit_that_is_gone_is_not_drawn)

@@ -42,6 +42,18 @@ typedef struct SpriteRound {
  * passed, from whenever. */
 uint32_t sprite_round_frame(const SpriteRound *round, uint64_t turn);
 
+/* Reads a round from the two lists of a table, `frames` and `ticks`:
+ * which frame to show, and for how many ticks. A table with neither
+ * list gives a round of no length.
+ *
+ * Returns false, and leaves `*out` alone, if the table has one list
+ * and not the other, they differ in length or are empty, a frame is
+ * not from 0 to `columns` - 1 or not below 256, a frame is shown for
+ * less than a tick, or the round lasts more than
+ * SPRITE_SHEET_MAX_ROUND ticks. */
+bool sprite_round_read(const TomlTable *table, int32_t columns,
+                       SpriteRound *out);
+
 typedef struct SpriteSheet {
     char file[SPRITE_SHEET_NAME_SIZE];  /* beside the definition */
     /* The picture of the soft edges, of the same size, or empty if the
@@ -70,12 +82,9 @@ typedef struct SpriteSheet {
  * or an anchor, and one that does not say how many columns it has has
  * one.
  *
- * A sheet that moves says so with two lists of one length, `frames`
- * and `ticks`: which frame to show, and for how many ticks. The sheet
- * is refused too if it has one list and not the other, they differ in
- * length or are empty, a frame is not one of its columns or not below
- * 256, a frame is shown for less than a tick, or a round lasts more
- * than SPRITE_SHEET_MAX_ROUND ticks. */
+ * A sheet that moves says so with the two lists of a round, `frames`
+ * and `ticks`, and is refused too if sprite_round_read() refuses
+ * them. */
 bool sprite_sheet_read(const TomlTable *top, SpriteSheet *out);
 
 /* Joins the figure of a sheet and its soft edges into the two numbers

@@ -35,22 +35,21 @@ uint32_t sprite_round_frame(const SpriteRound *round, uint64_t turn)
     return round->length == 0 ? 0 : round->frame[turn % round->length];
 }
 
-/* Reads the `frames` and `ticks` of a sheet with `columns` columns
- * into the frame of each tick of a round. A sheet with neither has a
- * round of no length. */
-static bool read_round(const TomlTable *sprite, int32_t columns,
-                       SpriteRound *round)
+bool sprite_round_read(const TomlTable *table, int32_t columns,
+                       SpriteRound *out)
 {
     const int32_t *frames = NULL;
     const int32_t *ticks = NULL;
     size_t frame_count = 0;
     size_t tick_count = 0;
-    memset(round, 0, sizeof *round);
-    if (!toml_has(sprite, "frames") && !toml_has(sprite, "ticks")) {
+    SpriteRound round;
+    memset(&round, 0, sizeof round);
+    if (!toml_has(table, "frames") && !toml_has(table, "ticks")) {
+        *out = round;
         return true;
     }
-    if (!toml_get_int_list(sprite, "frames", &frames, &frame_count)
-        || !toml_get_int_list(sprite, "ticks", &ticks, &tick_count)
+    if (!toml_get_int_list(table, "frames", &frames, &frame_count)
+        || !toml_get_int_list(table, "ticks", &ticks, &tick_count)
         || frame_count != tick_count || frame_count == 0) {
         return false;
     }
@@ -62,10 +61,11 @@ static bool read_round(const TomlTable *sprite, int32_t columns,
             return false;
         }
         for (int32_t tick = 0; tick < ticks[i]; tick++) {
-            round->frame[length++] = (uint8_t)frames[i];
+            round.frame[length++] = (uint8_t)frames[i];
         }
     }
-    round->length = (uint16_t)length;
+    round.length = (uint16_t)length;
+    *out = round;
     return true;
 }
 
@@ -95,7 +95,7 @@ bool sprite_sheet_read(const TomlTable *top, SpriteSheet *out)
         || (toml_has(sprite, "columns")
             && (!toml_get_int(sprite, "columns", &columns) || columns < 1
                 || columns > MOST))
-        || !read_round(sprite, columns, &round)) {
+        || !sprite_round_read(sprite, columns, &round)) {
         return false;
     }
     memset(out, 0, sizeof *out);

@@ -9,6 +9,7 @@
 #include <stdint.h>
 
 #include "data/map.h"
+#include "data/unit_animation.h"
 #include "data/unit_kind.h"
 #include "mechanics/units.h"
 #include "view/camera.h"
@@ -36,6 +37,9 @@ typedef struct UnitLook {
      * human's cloth shows whose it is. If not, it has one for each
      * colouring of its kinds. */
     bool by_player;
+    /* What it does as it stands, if it does not stand still: a bat
+     * beats its wings. Of no length for a unit that stands still. */
+    UnitAnimation idle;
 } UnitLook;
 
 /* The most sprites units_sprites() writes for a list of units: room
@@ -44,7 +48,8 @@ size_t units_most(const Units *units);
 
 /* Writes a sprite for each unit the camera can see and returns how
  * many it wrote. `map` is the map they are on, for its ground and its
- * players. `looks` has UNIT_TYPES entries, one for each ID.
+ * players. `looks` has UNIT_TYPES entries, one for each ID. `tick` is
+ * how many ticks of the game have passed.
  * `kinds` has UNIT_KIND_IDS entries, the kind with each ID, all zeros
  * for one that is not known.
  *
@@ -57,6 +62,12 @@ size_t units_most(const Units *units);
  * counts from: the frame of a facing is the one half a turn further
  * on, so a unit that faces the first way shows the ninth frame.
  *
+ * A unit with an idle animation does not show a standing frame. It
+ * shows the frame of that animation for the tick, from the row of the
+ * way it faces: an animation has UNIT_ANIMATION_FACINGS of them, and
+ * their rows come after the row of the standing frames, starting half
+ * a turn on as those do. All such units move as one.
+ *
  * A unit whose sheet goes by the player is drawn in the palette that
  * its player's colour numbers, and any other in the palette of its
  * kind's face. One whose player the map does not have, or whose kind
@@ -66,6 +77,6 @@ size_t units_most(const Units *units);
  * its turn: see sprites_sort(). */
 size_t units_sprites(const Map *map, const Units *units,
                      const UnitLook *looks, const UnitKind *kinds,
-                     const Camera *camera, Sprite *out);
+                     uint64_t tick, const Camera *camera, Sprite *out);
 
 #endif

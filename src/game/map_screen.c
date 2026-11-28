@@ -226,6 +226,10 @@ static void add_unit(MapScreen *screen, int id, const char *path,
         const char *by = NULL;
         look->by_player = toml_get_text(toml_get_table(top, "sprite"),
             "palette_by", &by) && strcmp(by, "player") == 0;
+        if (!unit_animation_read(top, "idle", &look->idle)) {
+            fprintf(stderr, "rom2: %s: its idle animation is not usable\n",
+                path);
+        }
     }
     size_t count = toml_get_table_count(top, "kind");
     for (size_t i = 0; i < count; i++) {
@@ -422,7 +426,7 @@ bool map_screen_frame(MapScreen *screen, float seconds)
         screen->structures, tick, &camera,
         screen->sprites + frame.sprite_count);
     frame.sprite_count += units_sprites(&screen->map, &screen->live,
-        screen->units, screen->kinds, &camera,
+        screen->units, screen->kinds, tick, &camera,
         screen->sprites + frame.sprite_count);
     sprites_sort(screen->sprites, frame.sprite_count,
         screen->sprites + screen->sprite_room);

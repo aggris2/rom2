@@ -111,7 +111,10 @@ definition: the squares it stands on, how high its picture is, and its
 sprite sheet.
 
 `src/data/unit_kind` reads a kind of unit from a unit's definition: so far
-its ID and which colouring it has.
+its ID, which colouring it has and how fast it turns.
+`src/data/unit_animation` reads one animation of a unit, such as the beating
+of a bat's wings: which columns of the sheet's rows it takes, and the frame
+it shows in each tick.
 
 `src/mechanics/clock` turns time that has passed into ticks, the steps the
 game happens in: 16 in a second at the speed a game starts on, and from 8 to

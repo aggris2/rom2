@@ -106,6 +106,7 @@ add_library(rom2_core STATIC
     src/data/map.c
     src/data/sprite_sheet.c
     src/data/structure_kind.c
+    src/data/unit_animation.c
     src/data/unit_kind.c
     src/mechanics/clock.c
     src/mechanics/idle.c
@@ -210,6 +211,7 @@ add_executable(rom2_tests
     tests/base/test_toml.c
     tests/data/test_sprite_sheet.c
     tests/data/test_structure_kind.c
+    tests/data/test_unit_animation.c
     tests/data/test_unit_kind.c
     tests/mechanics/test_clock.c
     tests/mechanics/test_idle.c
