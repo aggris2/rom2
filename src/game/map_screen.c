@@ -55,6 +55,14 @@ struct MapScreen {
     Units live;                 /* the units of the game */
     UnitId hero;                /* the player's own, if has_hero */
     bool has_hero;
+    /* Where the camera looks when the map opens, a point of the map
+     * in pixels, and whether it still does: until the player first
+     * moves it. The window has not its last size when the map is
+     * read, so the camera is put there anew for each frame until
+     * then. */
+    int32_t opens_on_x;
+    int32_t opens_on_y;
+    bool opening;
     UnitId selected;            /* the unit clicked on, if has_selected */
     bool has_selected;
     BarsLook bars;              /* the bars of health and mana */
@@ -507,6 +515,17 @@ static Camera camera_now(MapScreen *screen)
     return camera;
 }
 
+/* Puts the middle of the screen, at the size it has now, on the point
+ * the map opens on. */
+static void look_at_opening(MapScreen *screen)
+{
+    Camera camera;
+    renderer_size(screen->renderer, &camera.width, &camera.height);
+    camera_look_at(&camera, screen->opens_on_x, screen->opens_on_y);
+    screen->left = (float)camera.left;
+    screen->top = (float)camera.top;
+}
+
 /* Starts the camera on the hero, or on the middle of a map that he
  * could not enter. */
 static void start_camera(MapScreen *screen)
@@ -520,12 +539,11 @@ static void start_camera(MapScreen *screen)
         x = hero->x * MAP_SQUARE / UNIT_PLACE_PARTS;
         y = hero->y * MAP_SQUARE / UNIT_PLACE_PARTS;
     }
-    Camera camera;
-    renderer_size(screen->renderer, &camera.width, &camera.height);
     /* The unit stands on the ground, which is raised up the screen. */
-    camera_look_at(&camera, x, y - ground_height_at(map, x, y));
-    screen->left = (float)camera.left;
-    screen->top = (float)camera.top;
+    screen->opens_on_x = x;
+    screen->opens_on_y = y - ground_height_at(map, x, y);
+    screen->opening = true;
+    look_at_opening(screen);
 }
 
 MapScreen *map_screen_open(Renderer *renderer, const char *content,
@@ -605,6 +623,11 @@ bool map_screen_frame(MapScreen *screen, float seconds)
     bool mouse = mouse_place(screen, &mouse_x, &mouse_y);
     if (mouse) {
         pointer_scroll(mouse_x, mouse_y, width, height, &across, &down);
+    }
+    if (across != 0 || down != 0) {
+        screen->opening = false;
+    } else if (screen->opening) {
+        look_at_opening(screen);
     }
     move_camera(screen, seconds, across, down);
     Camera camera = camera_now(screen);
