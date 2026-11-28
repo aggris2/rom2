@@ -211,6 +211,32 @@ void fields_drop(Fields *fields, uint16_t number)
     }
 }
 
+void fields_no_users(Fields *fields)
+{
+    memset(fields->users, 0, sizeof fields->users);
+}
+
+void fields_user(Fields *fields, uint16_t number)
+{
+    if (number < FIELDS_MOST) {
+        fields->users[number]++;
+    }
+}
+
+bool fields_respread(Fields *fields, const Terrain *terrain)
+{
+    bool all = true;
+    for (int32_t i = 0; i < FIELDS_MOST; i++) {
+        Field *field = &fields->field[i];
+        if (fields->users[i] > 0 && !field_spread(fields, field, terrain,
+                field->closed_to, field->size, field->goal_x,
+                field->goal_y)) {
+            all = false;
+        }
+    }
+    return all;
+}
+
 const Field *fields_get(const Fields *fields, uint16_t number)
 {
     return number < FIELDS_MOST && fields->users[number] > 0

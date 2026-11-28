@@ -282,6 +282,54 @@ UTEST(fields, a_field_nobody_uses_is_made_anew_for_the_next_goal)
     fields_free(&m.fields);
 }
 
+UTEST(fields, the_users_can_be_counted_anew)
+{
+    static MakeField m;
+    make_field(&m);
+    uint16_t first = 99;
+    uint16_t second = 99;
+    ASSERT_TRUE(fields_take(&m.fields, &m.terrain, TERRAIN_NO_WALK, 1, 5, 5,
+        &first));
+    ASSERT_TRUE(fields_take(&m.fields, &m.terrain, TERRAIN_NO_WALK, 1, 2, 2,
+        &second));
+    fields_no_users(&m.fields);
+    EXPECT_TRUE(fields_get(&m.fields, first) == NULL);
+    fields_user(&m.fields, second);
+    fields_user(&m.fields, second);
+    fields_user(&m.fields, 9999);
+    EXPECT_EQ(2u, m.fields.users[second]);
+    EXPECT_TRUE(fields_get(&m.fields, first) == NULL);
+    EXPECT_TRUE(fields_get(&m.fields, second) != NULL);
+    fields_free(&m.fields);
+}
+
+UTEST(fields, the_ones_in_use_are_made_anew_when_the_ground_changes)
+{
+    static MakeField m;
+    make_field(&m);
+    uint16_t used = 99;
+    uint16_t unused = 99;
+    ASSERT_TRUE(fields_take(&m.fields, &m.terrain, TERRAIN_NO_WALK, 1, 5, 5,
+        &used));
+    ASSERT_TRUE(fields_take(&m.fields, &m.terrain, TERRAIN_NO_WALK, 1, 2, 2,
+        &unused));
+    fields_drop(&m.fields, unused);
+    /* A wall rises to the right of the goal. */
+    close_at(&m, 6, 5, TERRAIN_NO_WALK);
+    EXPECT_EQ(16u, field_far(fields_get(&m.fields, used), 6, 5));
+    EXPECT_TRUE(fields_respread(&m.fields, &m.terrain));
+    EXPECT_EQ(FIELD_FAR, field_far(fields_get(&m.fields, used), 6, 5));
+    EXPECT_EQ(24u + 24u, field_far(fields_get(&m.fields, used), 7, 5));
+    /* The one nobody uses is left as it was. */
+    EXPECT_EQ(2, m.fields.field[unused].goal_x);
+    EXPECT_NE(FIELD_FAR, m.fields.field[unused].far[5 * WIDE + 6]);
+    /* And it falls again. */
+    close_at(&m, 6, 5, 0);
+    EXPECT_TRUE(fields_respread(&m.fields, &m.terrain));
+    EXPECT_EQ(16u, field_far(fields_get(&m.fields, used), 6, 5));
+    fields_free(&m.fields);
+}
+
 UTEST(fields, when_all_are_in_use_no_more_is_given)
 {
     static MakeField m;

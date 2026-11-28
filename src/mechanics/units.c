@@ -223,6 +223,17 @@ void units_arrive(Units *units, UnitId id)
 void units_tick(Units *units, const Terrain *terrain, Fields *fields,
                 Random *random)
 {
+    /* The fields are in use by the units that are going by them now,
+     * and by no unit that has gone since the last tick. */
+    if (fields != NULL) {
+        fields_no_users(fields);
+        for (uint32_t slot = 0; slot < units->count; slot++) {
+            const Unit *unit = units_at(units, slot, NULL);
+            if (unit != NULL && unit->going) {
+                fields_user(fields, unit->field);
+            }
+        }
+    }
     for (uint32_t slot = 0; slot < units->count; slot++) {
         UnitId id;
         Unit *unit = units_at(units, slot, &id);

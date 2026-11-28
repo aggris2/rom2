@@ -72,12 +72,21 @@ bool walk_open(const Terrain *terrain, const Unit *unit, int32_t x,
 #define WALK_PATIENCE 160
 #define WALK_GOAL_NEAR 8
 
+/* How many times a unit whose way is taken by units that stay goes
+ * for another square near its goal, before it stands where it is. */
+#define WALK_TRIES_BESIDE 3
+
 /* Sends a unit to the square (x, y). It goes by the field of that
  * goal, which it shares with every other unit sent there: each time
  * it stands, it steps to the square beside it that is nearest to the
- * goal of those that are open to it and that nobody stands on. With
- * none such it waits, and after WALK_PATIENCE ticks of that, or if
- * there is no way at all, it gives up and stands. A goal that is
+ * goal of those that are open to it and that nobody holds. With none
+ * such it waits if a unit that holds a nearer square is on its way
+ * somewhere itself, and after WALK_PATIENCE ticks of that gives up.
+ * If those units all stay where they are, it goes for the free
+ * square nearest to its goal, if that is nearer than it is itself,
+ * and else stands; it does that WALK_TRIES_BESIDE times at most. So
+ * units sent to one square gather round it. It
+ * stands at once too if there is no way at all. A goal that is
  * closed to the unit becomes the nearest open square within
  * WALK_GOAL_NEAR. A unit of several squares goes to stand with its
  * middle on the goal, as near as whole squares allow.
@@ -89,8 +98,8 @@ bool walk_send(Units *units, Fields *fields, const Terrain *terrain,
                UnitId id, int32_t x, int32_t y);
 
 /* Makes a unit forget where it was going: it ends the step it is on
- * and stands. To be called for a unit that is taken away, too, or its
- * field stays counted as in use. */
+ * and stands. A unit that is taken away needs no such call: the game
+ * counts who uses each field anew every tick. */
 void walk_stop(Units *units, Fields *fields, UnitId id);
 
 /* Tells a unit to take one step `way`. It begins when the unit has

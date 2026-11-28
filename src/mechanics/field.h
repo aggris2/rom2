@@ -90,6 +90,19 @@ bool fields_take(Fields *fields, const Terrain *terrain, uint8_t closed_to,
  * not a field in use. */
 void fields_drop(Fields *fields, uint16_t number);
 
+/* Counts the users of every field anew: fields_no_users() says none
+ * has any, and fields_user() then counts one for a field. The game
+ * does this from its units each tick, so that a field can never stay
+ * in use for a unit that is gone. A number that is no field is not
+ * counted. */
+void fields_no_users(Fields *fields);
+void fields_user(Fields *fields, uint16_t number);
+
+/* Makes every field that is in use anew for the terrain as it is
+ * now: for when a structure has risen or fallen. Returns false if
+ * memory ran out for one, which then keeps its old distances. */
+bool fields_respread(Fields *fields, const Terrain *terrain);
+
 /* The field with a number that fields_take() gave, or NULL. */
 const Field *fields_get(const Fields *fields, uint16_t number);
 

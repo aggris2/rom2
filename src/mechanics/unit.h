@@ -82,6 +82,13 @@ typedef struct Unit {
     bool going;
     uint16_t field;
     uint16_t waited;
+    /* The square it was sent to. Its field may be that of another: it
+     * goes for a free square near its goal when it finds the squares
+     * before it taken by units that stay, and `beside` is how many
+     * times it has done so since it was sent. */
+    int16_t goal_x;
+    int16_t goal_y;
+    uint8_t beside;
 } Unit;
 
 /* The whole of a step, in the parts a stride is counted in: see

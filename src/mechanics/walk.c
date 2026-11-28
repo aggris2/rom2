@@ -147,28 +147,30 @@ void walk_stop(Units *units, Fields *fields, UnitId id)
     unit->waited = 0;
 }
 
-bool walk_send(Units *units, Fields *fields, const Terrain *terrain,
-               UnitId id, int32_t x, int32_t y)
+/* Sends a unit to stand with its first square on (x, y), or on the
+ * nearest square around it that is open to it and, with `unheld`,
+ * that no other unit holds: ring after ring out to WALK_GOAL_NEAR, in
+ * a ring row after row. With `nearer_than` at 0 or more, only a
+ * square in a ring nearer to (x, y) than that will do. */
+static bool send(Units *units, Fields *fields, const Terrain *terrain,
+                 UnitId id, int32_t x, int32_t y, bool unheld,
+                 int32_t nearer_than)
 {
     Unit *unit = units_get(units, id);
     uint16_t field = 0;
     bool found = false;
-    if (unit == NULL) {
-        return false;
-    }
-    /* Its first square is up and left of its middle. */
-    x -= ((unit->size == 0 ? 1 : unit->size) - 1) / 2;
-    y -= ((unit->size == 0 ? 1 : unit->size) - 1) / 2;
-    /* The goal itself, or the nearest square around it that is open:
-     * ring after ring, in a ring row after row. */
-    for (int32_t ring = 0; ring <= WALK_GOAL_NEAR && !found; ring++) {
+    int32_t last = nearer_than >= 0 && nearer_than <= WALK_GOAL_NEAR
+        ? nearer_than - 1 : WALK_GOAL_NEAR;
+    for (int32_t ring = 0; ring <= last && !found; ring++) {
         for (int32_t down = -ring; down <= ring && !found; down++) {
             for (int32_t across = -ring; across <= ring && !found;
                 across++) {
                 bool on_ring = down == -ring || down == ring
                     || across == -ring || across == ring;
                 if (on_ring && ground_open(terrain, unit, x + across,
-                        y + down)) {
+                        y + down)
+                    && (!unheld || units_can_step(units, id, x + across,
+                            y + down))) {
                     x += across;
                     y += down;
                     found = true;
@@ -187,6 +189,49 @@ bool walk_send(Units *units, Fields *fields, const Terrain *terrain,
     return true;
 }
 
+bool walk_send(Units *units, Fields *fields, const Terrain *terrain,
+               UnitId id, int32_t x, int32_t y)
+{
+    Unit *unit = units_get(units, id);
+    if (unit == NULL) {
+        return false;
+    }
+    /* Its first square is up and left of its middle. */
+    x -= ((unit->size == 0 ? 1 : unit->size) - 1) / 2;
+    y -= ((unit->size == 0 ? 1 : unit->size) - 1) / 2;
+    if (!send(units, fields, terrain, id, x, y, false, -1)) {
+        return false;
+    }
+    unit->goal_x = (int16_t)x;
+    unit->goal_y = (int16_t)y;
+    unit->beside = 0;
+    return true;
+}
+
+/* Whether any unit that holds a square the unit would cover with its
+ * first square on (x, y) is on its way somewhere: walking, about to,
+ * or going to a goal of its own. One that is not will stay. */
+static bool held_by_one_on_its_way(const Units *units, UnitId id,
+                                   const Unit *unit, int32_t x, int32_t y)
+{
+    int32_t size = unit->size == 0 ? 1 : unit->size;
+    for (int32_t row = y; row < y + size; row++) {
+        for (int32_t column = x; column < x + size; column++) {
+            UnitId holder;
+            if (!units_standing(units, unit->mover == UNIT_FLIES, column,
+                    row, &holder) || holder.slot == id.slot) {
+                continue;
+            }
+            const Unit *other = units_get(units, holder);
+            if (other != NULL && (other->going || other->told
+                    || other->left > 0)) {
+                return true;
+            }
+        }
+    }
+    return false;
+}
+
 /* Picks the next step of a unit that is going somewhere and stands:
  * tells it the way, or counts a tick of waiting, or ends its going.
  * Returns whether it is still going. */
@@ -198,6 +243,7 @@ static bool next_step(Units *units, Fields *fields, const Terrain *terrain,
     int32_t y = unit->y / UNIT_PLACE_PARTS;
     uint32_t here = field == NULL ? FIELD_FAR : field_far(field, x, y);
     uint32_t nearest = here;
+    bool worth_waiting = false;
     /* There, or no way there at all. */
     if (here == 0 || here == FIELD_FAR) {
         walk_stop(units, fields, id);
@@ -207,8 +253,14 @@ static bool next_step(Units *units, Fields *fields, const Terrain *terrain,
         int32_t to_x = x + walk_across(way);
         int32_t to_y = y + walk_down(way);
         uint32_t far = field_far(field, to_x, to_y);
-        if (far < nearest && walk_open(terrain, unit, x, y, way)
-            && units_can_step(units, id, to_x, to_y)) {
+        if (far >= here || !walk_open(terrain, unit, x, y, way)) {
+            continue;
+        }
+        if (!units_can_step(units, id, to_x, to_y)) {
+            /* A nearer square that a unit holds: it may leave. */
+            worth_waiting = worth_waiting
+                || held_by_one_on_its_way(units, id, unit, to_x, to_y);
+        } else if (far < nearest) {
             nearest = far;
             unit->way = way;
         }
@@ -218,11 +270,27 @@ static bool next_step(Units *units, Fields *fields, const Terrain *terrain,
         unit->waited = 0;
         return true;
     }
-    if (++unit->waited > WALK_PATIENCE) {
-        walk_stop(units, fields, id);
-        return false;
+    if (worth_waiting && ++unit->waited <= WALK_PATIENCE) {
+        return true;
     }
-    return true;
+    /* It has waited long enough, or every nearer square is held by a
+     * unit that stays. Then it goes for a free square nearer to its
+     * goal than it is now, if there is one, a few times at most; else
+     * this is as near as it gets. */
+    int32_t across = x - unit->goal_x;
+    int32_t down = y - unit->goal_y;
+    int32_t ring = (across < 0 ? -across : across)
+        > (down < 0 ? -down : down) ? (across < 0 ? -across : across)
+        : (down < 0 ? -down : down);
+    uint8_t tries = unit->beside;
+    if (!worth_waiting && tries < WALK_TRIES_BESIDE
+        && send(units, fields, terrain, id, unit->goal_x, unit->goal_y,
+            true, ring)) {
+        unit->beside = (uint8_t)(tries + 1);
+        return true;
+    }
+    walk_stop(units, fields, id);
+    return false;
 }
 
 uint16_t walk_ticks(uint8_t stride)

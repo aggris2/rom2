@@ -650,22 +650,26 @@ UTEST(walk, a_unit_steps_round_one_that_stands_in_its_way)
     fields_free(&m.fields);
 }
 
-UTEST(walk, shut_in_by_units_it_waits_and_then_gives_up)
+/* Walls above and below row 10: a passage one square wide. */
+static void make_passage(MakeWalk *m)
+{
+    for (int x = 1; x < SIDE - 1; x++) {
+        m->closed[9 * SIDE + x] = TERRAIN_NO_WALK;
+        m->closed[11 * SIDE + x] = TERRAIN_NO_WALK;
+    }
+}
+
+UTEST(walk, behind_a_unit_that_stays_it_stops_at_once_as_near_as_it_gets)
 {
     static MakeWalk m;
     ASSERT_TRUE(make_walk(&m));
-    /* A passage one square wide with a unit standing in it. */
-    for (int x = 1; x < SIDE - 1; x++) {
-        m.closed[9 * SIDE + x] = TERRAIN_NO_WALK;
-        m.closed[11 * SIDE + x] = TERRAIN_NO_WALK;
-    }
+    make_passage(&m);
     UnitId id = put(&m, 10, 10);
     UnitId other = put(&m, 14, 10);
     int ticks = go(&m, id, 20, 10, 5000);
-    /* Up to it, and no further. */
+    /* Up to it, and no waiting there. */
     EXPECT_EQ(13 + 100 * 10, square_of(&m, id));
-    EXPECT_GT(ticks, WALK_PATIENCE);
-    EXPECT_LT(ticks, WALK_PATIENCE + 3 * 16 + 10);
+    EXPECT_LT(ticks, 3 * 15 + 15);
     EXPECT_FALSE(units_get(&m.units, id)->going);
     EXPECT_EQ(0, fields_in_use(&m));
     /* When the other is gone, the way is free. */
@@ -676,28 +680,124 @@ UTEST(walk, shut_in_by_units_it_waits_and_then_gives_up)
     fields_free(&m.fields);
 }
 
-UTEST(walk, a_unit_that_waits_goes_on_when_the_one_ahead_moves_off)
+UTEST(walk, a_unit_taken_away_on_its_way_leaves_no_field_in_use)
 {
     static MakeWalk m;
     ASSERT_TRUE(make_walk(&m));
-    for (int x = 1; x < SIDE - 1; x++) {
-        m.closed[9 * SIDE + x] = TERRAIN_NO_WALK;
-        m.closed[11 * SIDE + x] = TERRAIN_NO_WALK;
+    UnitId id = put(&m, 10, 10);
+    UnitId other = put(&m, 10, 12);
+    ASSERT_TRUE(walk_send(&m.units, &m.fields, &m.terrain, id, 30, 30));
+    ASSERT_TRUE(walk_send(&m.units, &m.fields, &m.terrain, other, 30, 12));
+    tick(&m, 5);
+    EXPECT_EQ(2, fields_in_use(&m));
+    units_remove(&m.units, id);
+    /* Counted anew with the next tick. */
+    tick(&m, 1);
+    EXPECT_EQ(1, fields_in_use(&m));
+    EXPECT_TRUE(units_check(&m.units));
+    tick(&m, 1000);
+    EXPECT_EQ(30 + 100 * 12, square_of(&m, other));
+    EXPECT_EQ(0, fields_in_use(&m));
+    units_free(&m.units);
+    fields_free(&m.fields);
+}
+
+UTEST(walk, a_unit_on_its_way_goes_round_a_wall_that_rises_before_it)
+{
+    static MakeWalk m;
+    ASSERT_TRUE(make_walk(&m));
+    UnitId id = put(&m, 10, 10);
+    ASSERT_TRUE(walk_send(&m.units, &m.fields, &m.terrain, id, 30, 10));
+    tick(&m, 40);
+    /* A wall across its way, with a gap far below. */
+    for (int y = 1; y < 30; y++) {
+        m.closed[y * SIDE + 20] = TERRAIN_NO_WALK;
     }
+    ASSERT_TRUE(fields_respread(&m.fields, &m.terrain));
+    tick(&m, 3000);
+    EXPECT_EQ(30 + 100 * 10, square_of(&m, id));
+    EXPECT_TRUE(units_check(&m.units));
+    units_free(&m.units);
+    fields_free(&m.fields);
+}
+
+UTEST(walk, units_sent_to_one_square_gather_round_it)
+{
+    static MakeWalk m;
+    ASSERT_TRUE(make_walk(&m));
+    UnitId ids[9];
+    for (int i = 0; i < 9; i++) {
+        ids[i] = put(&m, 10 + i * 2, 10);
+        ASSERT_TRUE(walk_send(&m.units, &m.fields, &m.terrain, ids[i], 20,
+            25));
+    }
+    tick(&m, 1500);
+    /* One is on it and the others on the squares beside it: none
+     * waited out its patience further off. */
+    int around = 0;
+    for (int i = 0; i < 9; i++) {
+        const Unit *unit = units_get(&m.units, ids[i]);
+        int32_t across = unit->x / 256 - 20;
+        int32_t down = unit->y / 256 - 25;
+        EXPECT_FALSE(unit->going);
+        around += across >= -1 && across <= 1 && down >= -1 && down <= 1
+            ? 1 : 0;
+    }
+    EXPECT_EQ(9, around);
+    EXPECT_EQ(0, held_by(&m, 20, 25) < 0 ? 1 : 0);
+    EXPECT_EQ(0, fields_in_use(&m));
+    EXPECT_TRUE(units_check(&m.units));
+    units_free(&m.units);
+    fields_free(&m.fields);
+}
+
+UTEST(walk, a_unit_behind_a_slower_one_waits_for_each_square_and_goes_on)
+{
+    static MakeWalk m;
+    ASSERT_TRUE(make_walk(&m));
+    make_passage(&m);
     UnitId behind = put(&m, 10, 10);
     UnitId ahead = put(&m, 12, 10);
+    units_get(&m.units, ahead)->speed = 8;
+    ASSERT_TRUE(walk_send(&m.units, &m.fields, &m.terrain, ahead, 30, 10));
     ASSERT_TRUE(walk_send(&m.units, &m.fields, &m.terrain, behind, 20,
         10));
-    tick(&m, 60);
-    EXPECT_EQ(11 + 100 * 10, square_of(&m, behind));
-    EXPECT_TRUE(units_get(&m.units, behind)->going);
-    /* Now the one ahead is sent on, further than the other goes. */
-    ASSERT_TRUE(walk_send(&m.units, &m.fields, &m.terrain, ahead, 30, 10));
-    tick(&m, 600);
+    bool sound = true;
+    for (int t = 0; t < 1200; t++) {
+        tick(&m, 1);
+        sound = sound && units_check(&m.units)
+            && units_get(&m.units, behind)->x
+                < units_get(&m.units, ahead)->x;
+    }
+    EXPECT_TRUE(sound);
     EXPECT_EQ(30 + 100 * 10, square_of(&m, ahead));
     EXPECT_EQ(20 + 100 * 10, square_of(&m, behind));
     EXPECT_EQ(0, fields_in_use(&m));
-    EXPECT_TRUE(units_check(&m.units));
+    units_free(&m.units);
+    fields_free(&m.fields);
+}
+
+UTEST(walk, it_does_not_wait_for_ever_for_one_that_never_leaves)
+{
+    static MakeWalk m;
+    ASSERT_TRUE(make_walk(&m));
+    make_passage(&m);
+    UnitId id = put(&m, 12, 10);
+    UnitId other = put(&m, 14, 10);
+    ASSERT_TRUE(walk_send(&m.units, &m.fields, &m.terrain, id, 20, 10));
+    int ticks = 0;
+    while (units_get(&m.units, id)->going && ticks < 5000) {
+        /* The one ahead walks on the spot: always in the middle of a
+         * step, and never off its square. */
+        units_get(&m.units, other)->ticks = 10;
+        units_get(&m.units, other)->left = 5;
+        tick(&m, 1);
+        ticks++;
+    }
+    EXPECT_EQ(13 + 100 * 10, square_of(&m, id));
+    EXPECT_GT(ticks, WALK_PATIENCE);
+    EXPECT_LT(ticks, WALK_PATIENCE + 15 + 10);
+    EXPECT_EQ(0, fields_in_use(&m));
     units_free(&m.units);
     fields_free(&m.fields);
 }
