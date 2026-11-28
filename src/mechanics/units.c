@@ -93,6 +93,54 @@ void units_tick(Units *units, Random *random)
     }
 }
 
+/* How fast a unit of a kind turns. */
+static uint8_t turn_speed_of(const UnitKind *kinds, int32_t kind)
+{
+    uint8_t speed = kind < 0 || kind >= UNIT_KIND_IDS
+        ? 0 : kinds[kind].rotation_speed;
+    return speed != 0 ? speed : UNITS_TURN_SPEED_UNKNOWN;
+}
+
+/* Whether a unit stands on a square. */
+static bool stands_on(const Units *units, int32_t x, int32_t y)
+{
+    for (uint32_t slot = 0; slot < units->count; slot++) {
+        const Unit *unit = units_at(units, slot, NULL);
+        if (unit != NULL && unit->x / UNIT_PLACE_PARTS == x
+            && unit->y / UNIT_PLACE_PARTS == y) {
+            return true;
+        }
+    }
+    return false;
+}
+
+bool units_enter(Units *units, const Map *map, const UnitKind *kinds,
+                 const UnitsHero *who, Random *random, UnitId *out)
+{
+    if (map->drop_count == 0) {
+        return false;
+    }
+    uint32_t picked = random_below(random, map->drop_count);
+    const MapDrop *drop = &map->drops[picked];
+    for (uint32_t i = 0; i < map->drop_count; i++) {
+        const MapDrop *next = &map->drops[(picked + i) % map->drop_count];
+        if (!stands_on(units, next->x, next->y)) {
+            drop = next;
+            break;
+        }
+    }
+    Unit hero;
+    memset(&hero, 0, sizeof hero);
+    hero.type = who->type;
+    hero.dress = who->dress;
+    hero.kind = UNITS_HERO_KIND;
+    hero.player = who->player;
+    hero.x = drop->x * UNIT_PLACE_PARTS + UNIT_PLACE_PARTS / 2;
+    hero.y = drop->y * UNIT_PLACE_PARTS + UNIT_PLACE_PARTS / 2;
+    hero.turn_speed = turn_speed_of(kinds, hero.kind);
+    return units_add(units, &hero, out);
+}
+
 bool units_from_map(const Map *map, const UnitKind *kinds, Units *out)
 {
     Units units;
@@ -111,9 +159,7 @@ bool units_from_map(const Map *map, const UnitKind *kinds, Units *out)
             ? 0 : from->angle;
         unit.facing = (uint8_t)(angle * (UNIT_TURN / MAP_FACINGS));
         unit.facing_wanted = unit.facing;
-        uint8_t speed = from->kind < 0 || from->kind >= UNIT_KIND_IDS
-            ? 0 : kinds[from->kind].rotation_speed;
-        unit.turn_speed = speed != 0 ? speed : UNITS_TURN_SPEED_UNKNOWN;
+        unit.turn_speed = turn_speed_of(kinds, from->kind);
         if (!units_add(&units, &unit, NULL)) {
             units_free(&units);
             return false;

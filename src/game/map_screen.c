@@ -29,6 +29,14 @@
  * ground glides and does not stutter. */
 #define SCROLL_SPEED 1500.0f
 
+/* The player at this screen: the first of a map, counted from 1. */
+#define PLAYER_SELF 1
+
+/* How the hero looks until there is a character to say what he holds
+ * and wears: a swordsman in armour. */
+#define HERO_TYPE 3
+#define HERO_DRESS UNIT_DRESS_HERO_ARMOUR
+
 /* The frames a second are written this far from the corner of the
  * screen, in pixels, and in no more characters than this. */
 #define RATE_MARGIN 4
@@ -47,6 +55,8 @@ struct MapScreen {
     bool grid;                  /* whether the grid is shown */
     Clock clock;                /* the ticks of the game */
     Units live;                 /* the units of the game */
+    UnitId hero;                /* the player's own, if has_hero */
+    bool has_hero;
     Random random;              /* its dice */
     PointerLook pointers[POINTER_KINDS];    /* how each pointer looks */
     FontLook small_font;        /* for what is written small */
@@ -60,7 +70,7 @@ struct MapScreen {
     uint8_t *light;             /* the light at each corner of the map */
     ObjectLook objects[OBJECT_KINDS];   /* how each kind of object looks */
     StructureLook structures[STRUCTURE_KINDS];  /* and of structure */
-    UnitLook units[UNIT_TYPES];                 /* and type of unit */
+    UnitLook units[UNIT_LOOKS];     /* and type of unit, in each dress */
     UnitKind kinds[UNIT_KIND_IDS];  /* each kind of unit, by its ID */
     GroundSquare *ground;       /* room for a frame's ground */
     size_t ground_room;
@@ -228,11 +238,12 @@ static void add_structure(MapScreen *screen, int id, const char *path,
     }
 }
 
-static void add_unit(MapScreen *screen, int id, const char *path,
-                     const TomlTable *top)
+/* Makes a look of a unit from a definition with its sheet: a unit's,
+ * or a hero's, which is laid out as a unit's is. */
+static void add_unit_look(MapScreen *screen, UnitLook *look,
+                          const char *path, const TomlTable *top)
 {
     SpriteSheet layout;
-    UnitLook *look = &screen->units[id];
     if (add_sheet(screen, path, top, &layout, &look->sheet)) {
         look->known = true;
         look->cell_width = layout.cell_width;
@@ -248,6 +259,14 @@ static void add_unit(MapScreen *screen, int id, const char *path,
                 path);
         }
     }
+}
+
+static void add_unit(MapScreen *screen, int id, const char *path,
+                     const TomlTable *top)
+{
+    add_unit_look(screen,
+        &screen->units[unit_look_at((uint16_t)id, UNIT_DRESS_PLAIN)],
+        path, top);
     size_t count = toml_get_table_count(top, "kind");
     for (size_t i = 0; i < count; i++) {
         UnitKind kind;
@@ -256,6 +275,49 @@ static void add_unit(MapScreen *screen, int id, const char *path,
         } else {
             fprintf(stderr, "rom2: %s: kind %zu is not usable\n", path, i);
         }
+    }
+}
+
+/* Reads the hero's look for a type and a dress. The content has a
+ * folder for each way he can be armed, with one in it for each dress,
+ * and the definition there names the type it is laid out as. He is
+ * not drawn if none is found. */
+static void add_hero(MapScreen *screen, const char *content,
+                     uint16_t type, uint8_t dress)
+{
+    char folder[1024];
+    char *names = NULL;
+    size_t count = 0;
+    int written = snprintf(folder, sizeof folder, "%s/heroes", content);
+    if (written < 0 || (size_t)written >= sizeof folder
+        || !file_list_folder(folder, &names, &count)) {
+        fprintf(stderr, "rom2: cannot list %s\n", folder);
+        return;
+    }
+    const char *name = names;
+    bool found = false;
+    for (size_t i = 0; i < count && !found; i++, name += strlen(name) + 1) {
+        char path[1024];
+        TomlTable *top = NULL;
+        int32_t unit = -1;
+        written = snprintf(path, sizeof path, "%s/%s/%s/hero.toml", folder,
+            name, dress == UNIT_DRESS_HERO_ARMOUR ? "armour" : "light");
+        /* A name with a dot is a file beside the folders. */
+        if (strchr(name, '.') != NULL || written < 0
+            || (size_t)written >= sizeof path
+            || !sheets_read_definition(path, &top)) {
+            continue;
+        }
+        if (toml_get_int(top, "unit", &unit) && unit == (int32_t)type) {
+            add_unit_look(screen,
+                &screen->units[unit_look_at(type, dress)], path, top);
+            found = true;
+        }
+        toml_free(top);
+    }
+    free(names);
+    if (!found) {
+        fprintf(stderr, "rom2: %s has no hero as unit %d\n", folder, type);
     }
 }
 
@@ -283,6 +345,8 @@ static bool add_looks(MapScreen *screen, const char *content)
             units[map->units[i].type] = true;
         }
     }
+    /* The hero's kind is listed with the unarmed fighter's, type 1. */
+    units[1] = true;
     const Kinds of_objects = {"objects", "object.toml", add_object};
     const Kinds of_structures
         = {"structures", "structure.toml", add_structure};
@@ -430,20 +494,18 @@ static Camera camera_now(MapScreen *screen)
     return camera;
 }
 
-/* Starts the camera on the first unit of the first player, or on the
- * middle of a map that has none. */
+/* Starts the camera on the hero, or on the middle of a map that he
+ * could not enter. */
 static void start_camera(MapScreen *screen)
 {
     const Map *map = &screen->map;
     int32_t x = (int32_t)map->info.width * MAP_SQUARE / 2;
     int32_t y = (int32_t)map->info.height * MAP_SQUARE / 2;
-    for (uint32_t i = 0; i < map->unit_count; i++) {
-        if (map->units[i].player == 1) {
-            /* A unit's place is in 256ths of a square. */
-            x = map->units[i].x * MAP_SQUARE / 256;
-            y = map->units[i].y * MAP_SQUARE / 256;
-            break;
-        }
+    const Unit *hero = screen->has_hero
+        ? units_get(&screen->live, screen->hero) : NULL;
+    if (hero != NULL) {
+        x = hero->x * MAP_SQUARE / UNIT_PLACE_PARTS;
+        y = hero->y * MAP_SQUARE / UNIT_PLACE_PARTS;
     }
     Camera camera;
     renderer_size(screen->renderer, &camera.width, &camera.height);
@@ -489,6 +551,10 @@ MapScreen *map_screen_open(Renderer *renderer, const char *content,
         map_screen_close(screen);
         return NULL;
     }
+    add_hero(screen, content, HERO_TYPE, HERO_DRESS);
+    const UnitsHero hero = {PLAYER_SELF, HERO_TYPE, HERO_DRESS};
+    screen->has_hero = units_enter(&screen->live, &screen->map,
+        screen->kinds, &hero, &screen->random, &screen->hero);
     start_camera(screen);
     clock_start(&screen->clock);
     return screen;

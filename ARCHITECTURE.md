@@ -133,10 +133,13 @@ animation for the tick, which its sprite sheet lists.
 
 `src/mechanics/units` holds the units of a game that is being played, made
 from a map's records when the game starts: from then on the map is only the
-ground they stand on. A unit is named by its slot in the list and by how
-many units the slot had before it, so that a slot can be used again and an
-old name leads to nothing. `src/mechanics/random` is the game's dice, which
-follow from their seed alone, so that the same game plays out the same
+ground they stand on. The hero is not among those records: he enters on
+the square the map's script names for it, and is drawn from pictures of his
+own, those of the type of unit he is armed as, in armour or without. A
+unit is named by its slot in the list and by how many units the slot had
+before it, so that a slot can be used again and an old name leads to
+nothing. `src/mechanics/random` is the game's dice, which follow from their
+seed alone, so that the same game plays out the same
 everywhere. `unit` is the record of one unit and how it turns: at its kind's
 speed and by the shorter way, as in the original. `idle` is what a unit does
 that has nothing to do: it stands, and now and then, when the dice say so,
@@ -156,9 +159,10 @@ a sprite for each tree or rock the camera can see, standing on the ground at
 its height. `structures` writes each building as strips a square high, one
 for each row of its base, because something may stand behind a building's
 front and before its back; a bridge, whose size the map gives, it lays
-out of its nine pieces, a sprite for each square. `units` writes a sprite for each unit, the
-standing frame of the way it faces, in the colour of its player if it is a
-human and of its kind if it is a monster. `pointer` is the cursor the mouse
+out of its nine pieces, a sprite for each square. `units` writes a sprite
+for each unit, the standing frame of the way it faces, in the colour of its
+player if it is a human and of its kind if it is a monster. `pointer` is
+the cursor the mouse
 moves: on the edge of the screen it scrolls the map and shows an arrow that
 points the way, and its sprite has the last turn of all. `text` writes a
 text as the glyphs of a font, spaced as the original spaces them, over the

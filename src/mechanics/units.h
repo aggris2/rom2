@@ -55,6 +55,30 @@ typedef struct Units {
  * Returns false, and leaves `*out` alone, if memory runs out. */
 bool units_from_map(const Map *map, const UnitKind *kinds, Units *out);
 
+/* The kind a hero has the numbers of, until he has his own: that of
+ * an unarmed fighter. */
+#define UNITS_HERO_KIND 1
+
+/* A hero who enters a map: whose he is, and how he looks, which
+ * follows what he holds and wears. */
+typedef struct UnitsHero {
+    int32_t player;         /* counted from 1 */
+    uint16_t type;          /* the type of unit he is armed as */
+    uint8_t dress;          /* UNIT_DRESS_HERO_LIGHT or _ARMOUR */
+} UnitsHero;
+
+/* Puts a hero on the map, in the middle of a square where a player
+ * enters it. The dice pick one of them, as in the original; if a unit
+ * stands on it he takes the next in the map's order that is free, and
+ * the picked one if a unit stands on each. He faces the first way and
+ * turns as fast as his kind. `out` may be NULL.
+ *
+ * Returns false, and changes nothing, the dice too, if the map has no
+ * such square. Returns false also if there are UNITS_MOST units
+ * already or memory runs out. */
+bool units_enter(Units *units, const Map *map, const UnitKind *kinds,
+                 const UnitsHero *hero, Random *random, UnitId *out);
+
 /* One tick of every unit: so far each stands and may look around,
  * having nothing else to do. The units take their turn in the order of their
  * slots. */

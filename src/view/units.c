@@ -20,6 +20,11 @@ static uint16_t palette_of(const Map *map, const Unit *unit,
     return colour < 0 || colour > UINT16_MAX ? 0 : (uint16_t)colour;
 }
 
+size_t unit_look_at(uint16_t type, uint8_t dress)
+{
+    return (size_t)dress * UNIT_TYPES + type;
+}
+
 size_t units_most(const Units *units)
 {
     return units->living;
@@ -33,10 +38,14 @@ size_t units_sprites(const Map *map, const Units *units,
     for (uint32_t slot = 0; slot < units->count; slot++) {
         const Unit *unit = units_at(units, slot, NULL);
         if (unit == NULL || unit->type >= UNIT_TYPES
-            || !looks[unit->type].known || unit->x < 0 || unit->y < 0) {
+            || unit->dress >= UNIT_DRESSES || unit->x < 0 || unit->y < 0) {
             continue;
         }
-        const UnitLook *look = &looks[unit->type];
+        const UnitLook *look
+            = &looks[unit_look_at(unit->type, unit->dress)];
+        if (!look->known) {
+            continue;
+        }
         int32_t place_x = unit->x * MAP_SQUARE / UNIT_PLACE_PARTS;
         int32_t place_y = unit->y * MAP_SQUARE / UNIT_PLACE_PARTS;
         int32_t left = place_x - look->anchor_x - camera->left;

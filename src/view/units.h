@@ -23,9 +23,13 @@
  * of a unit's sheet has a frame for each. */
 #define UNIT_FACINGS 16
 
-/* How one type of unit looks: its sheet on the card, and how a frame
- * is cut out of it. A type whose picture could not be loaded is not
- * `known`, and is not drawn. */
+/* The looks there can be: one for each type in each dress. That of a
+ * type in a dress is at unit_look_at(). */
+#define UNIT_LOOKS (UNIT_TYPES * UNIT_DRESSES)
+
+/* How one type of unit looks in one dress: its sheet on the card, and
+ * how a frame is cut out of it. One whose picture could not be loaded
+ * is not `known`, and is not drawn. */
 typedef struct UnitLook {
     bool known;
     uint16_t sheet;
@@ -42,14 +46,19 @@ typedef struct UnitLook {
     UnitAnimation idle;
 } UnitLook;
 
+/* Where in a list of UNIT_LOOKS the look of a type in a dress is.
+ * `type` is less than UNIT_TYPES and `dress` than UNIT_DRESSES. */
+size_t unit_look_at(uint16_t type, uint8_t dress);
+
 /* The most sprites units_sprites() writes for a list of units: room
  * for this many is enough. */
 size_t units_most(const Units *units);
 
 /* Writes a sprite for each unit the camera can see and returns how
  * many it wrote. `map` is the map they are on, for its ground and its
- * players. `looks` has UNIT_TYPES entries, one for each ID. `tick` is
- * how many ticks of the game have passed.
+ * players. `looks` has UNIT_LOOKS entries: a unit is drawn in the look
+ * of its type and its dress. `tick` is how many ticks of the game have
+ * passed.
  * `kinds` has UNIT_KIND_IDS entries, the kind with each ID, all zeros
  * for one that is not known.
  *

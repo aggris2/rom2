@@ -18,8 +18,19 @@
  * so that the step after the last is the first. */
 #define UNIT_TURN 256
 
+/* Which pictures show a unit. A hero, a player's own character, is
+ * laid out as the type of unit he is armed as, but has pictures of his
+ * own for it: one set in armour and one without. */
+typedef enum UnitDress {
+    UNIT_DRESS_PLAIN,       /* the pictures of its type: all but heroes */
+    UNIT_DRESS_HERO_LIGHT,
+    UNIT_DRESS_HERO_ARMOUR,
+    UNIT_DRESSES
+} UnitDress;
+
 typedef struct Unit {
     uint16_t type;          /* its ID in units.reg: how it looks */
+    uint8_t dress;          /* a UnitDress: which pictures of the type */
     int32_t kind;           /* the id of its kind: its numbers */
     int32_t player;         /* counted from 1, as a map counts */
     int32_t x;              /* in UNIT_PLACE_PARTS of a square */

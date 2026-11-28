@@ -6,15 +6,15 @@
 #include "view/light.h"
 
 /* A map of 10 by 10 squares, flat, with room for a few units, and one
- * type: type 3 is a swordsman in cells of 64 by 48 with his anchor
- * between his feet. */
+ * type in the plain dress: type 3 is a swordsman in cells of 64 by 48
+ * with his anchor between his feet. */
 typedef struct MakeUnits {
     Map map;
     uint8_t heights[100];
     Units live;
     UnitSlot slots[4];
     MapPlayer players[3];
-    UnitLook looks[UNIT_TYPES];
+    UnitLook looks[UNIT_LOOKS];
     UnitKind kinds[UNIT_KIND_IDS];
     uint64_t tick;
     Sprite sprites[4];
@@ -64,6 +64,34 @@ static size_t sprites_for(MakeUnits *m, int32_t left, int32_t top,
     size_t count = units_sprites(&m->map, &m->live, m->looks, m->kinds,
         m->tick, &camera, m->sprites);
     return count <= units_most(&m->live) ? count : 9999;
+}
+
+UTEST(units, a_hero_is_drawn_in_the_look_of_his_type_and_his_dress)
+{
+    MakeUnits m;
+    make_units(&m);
+    UnitLook *armour = &m.looks[unit_look_at(3, UNIT_DRESS_HERO_ARMOUR)];
+    *armour = m.looks[3];
+    armour->sheet = 77;
+    armour->cell_width = 88;
+    armour->anchor_x = 44;
+    put(&m, 4, 5, 3)->dress = UNIT_DRESS_HERO_ARMOUR;
+    put(&m, 6, 5, 3);
+    ASSERT_EQ(2u, sprites_for(&m, 0, 0, 320, 320));
+    EXPECT_EQ(77u, m.sprites[0].sheet);
+    EXPECT_EQ(88u, m.sprites[0].width);
+    EXPECT_EQ(4 * 32 + 16 - 44, m.sprites[0].x);
+    EXPECT_EQ(30u, m.sprites[1].sheet);
+    EXPECT_EQ(64u, m.sprites[1].width);
+}
+
+UTEST(units, a_dress_without_a_look_or_that_there_is_not_is_not_drawn)
+{
+    MakeUnits m;
+    make_units(&m);
+    put(&m, 4, 5, 3)->dress = UNIT_DRESS_HERO_LIGHT;
+    put(&m, 6, 5, 3)->dress = UNIT_DRESSES;
+    EXPECT_EQ(0u, sprites_for(&m, 0, 0, 320, 320));
 }
 
 UTEST(units, a_unit_stands_with_its_anchor_on_its_place)

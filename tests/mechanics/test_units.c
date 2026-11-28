@@ -182,6 +182,140 @@ UTEST(units, a_map_gives_the_units_a_game_starts_with)
     units_free(&units);
 }
 
+/* A map with nothing but these squares where a player enters. */
+static Map map_with_drops(MapDrop *drops, uint32_t count)
+{
+    Map map;
+    memset(&map, 0, sizeof map);
+    map.drops = drops;
+    map.drop_count = count;
+    return map;
+}
+
+UTEST(units, a_hero_enters_in_the_middle_of_the_square_for_it)
+{
+    MapDrop drops[1] = {{11, 41}};
+    Map map = map_with_drops(drops, 1);
+    kinds[UNITS_HERO_KIND].rotation_speed = 18;
+    Units units = {0};
+    UnitId id = {9999, 9999};
+    UnitsHero who = {1, 3, UNIT_DRESS_HERO_ARMOUR};
+    Random random;
+    random_start(&random, 1);
+    ASSERT_TRUE(units_enter(&units, &map, some_kinds(), &who, &random,
+        &id));
+    ASSERT_EQ(1u, units.living);
+    const Unit *hero = units_get(&units, id);
+    ASSERT_TRUE(hero != NULL);
+    EXPECT_EQ(3u, hero->type);
+    EXPECT_EQ((unsigned)UNIT_DRESS_HERO_ARMOUR, hero->dress);
+    EXPECT_EQ(UNITS_HERO_KIND, hero->kind);
+    EXPECT_EQ(1, hero->player);
+    EXPECT_EQ(11 * 256 + 128, hero->x);
+    EXPECT_EQ(41 * 256 + 128, hero->y);
+    EXPECT_EQ(0u, hero->facing);
+    EXPECT_EQ(0u, hero->facing_wanted);
+    EXPECT_FALSE(hero->turning);
+    EXPECT_EQ(18u, hero->turn_speed);
+    kinds[UNITS_HERO_KIND].rotation_speed = 0;
+    units_free(&units);
+}
+
+UTEST(units, the_dice_pick_the_square_a_hero_enters_on)
+{
+    MapDrop drops[3] = {{2, 2}, {5, 6}, {8, 8}};
+    Map map = map_with_drops(drops, 3);
+    UnitsHero who = {1, 3, UNIT_DRESS_HERO_LIGHT};
+    bool entered[3] = {false, false, false};
+    for (uint32_t i = 1; i <= 40; i++) {
+        /* Seeds far from each other: the first throws from a small
+         * seed are all small. */
+        Random random;
+        random_start(&random, i * 2654435761u);
+        /* What the same dice would say. */
+        Random same = random;
+        uint32_t picked = random_below(&same, 3);
+        Units units = {0};
+        UnitId id;
+        ASSERT_TRUE(units_enter(&units, &map, some_kinds(), &who, &random,
+            &id));
+        EXPECT_EQ(drops[picked].x * 256 + 128, units_get(&units, id)->x);
+        EXPECT_EQ(drops[picked].y * 256 + 128, units_get(&units, id)->y);
+        /* One throw, and no more. */
+        EXPECT_EQ(random_next(&same), random_next(&random));
+        entered[picked] = true;
+        units_free(&units);
+    }
+    EXPECT_TRUE(entered[0] && entered[1] && entered[2]);
+}
+
+UTEST(units, a_hero_takes_the_next_square_if_a_unit_stands_on_his)
+{
+    MapDrop drops[3] = {{2, 2}, {5, 6}, {8, 8}};
+    Map map = map_with_drops(drops, 3);
+    UnitsHero who = {1, 3, UNIT_DRESS_HERO_LIGHT};
+    Random random;
+    random_start(&random, 1);
+    Random same = random;
+    uint32_t picked = random_below(&same, 3);
+    Units units = {0};
+    Unit other = unit_of(7);
+    /* Anywhere on the square is on it. */
+    other.x = drops[picked].x * 256 + 250;
+    other.y = drops[picked].y * 256 + 3;
+    units_add(&units, &other, NULL);
+    UnitId id;
+    ASSERT_TRUE(units_enter(&units, &map, some_kinds(), &who, &random,
+        &id));
+    /* The next in the map's order, and round to the first. */
+    const MapDrop *next = &drops[(picked + 1) % 3];
+    EXPECT_EQ(next->x * 256 + 128, units_get(&units, id)->x);
+    EXPECT_EQ(next->y * 256 + 128, units_get(&units, id)->y);
+    units_free(&units);
+}
+
+UTEST(units, a_hero_takes_the_picked_square_if_a_unit_stands_on_each)
+{
+    MapDrop drops[2] = {{2, 2}, {5, 6}};
+    Map map = map_with_drops(drops, 2);
+    UnitsHero who = {1, 3, UNIT_DRESS_HERO_LIGHT};
+    Random random;
+    random_start(&random, 1);
+    Random same = random;
+    uint32_t picked = random_below(&same, 2);
+    Units units = {0};
+    for (int i = 0; i < 2; i++) {
+        Unit other = unit_of(7);
+        other.x = drops[i].x * 256 + 128;
+        other.y = drops[i].y * 256 + 128;
+        units_add(&units, &other, NULL);
+    }
+    UnitId id;
+    ASSERT_TRUE(units_enter(&units, &map, some_kinds(), &who, &random,
+        &id));
+    EXPECT_EQ(drops[picked].x * 256 + 128, units_get(&units, id)->x);
+    EXPECT_EQ(3u, units.living);
+    units_free(&units);
+}
+
+UTEST(units, no_hero_enters_a_map_without_a_square_for_it)
+{
+    Map map = map_with_drops(NULL, 0);
+    Units units = {0};
+    UnitId id = {9999, 9999};
+    UnitsHero who = {1, 3, UNIT_DRESS_HERO_LIGHT};
+    Random random;
+    random_start(&random, 1);
+    Random same = random;
+    EXPECT_FALSE(units_enter(&units, &map, some_kinds(), &who, &random,
+        &id));
+    EXPECT_EQ(0u, units.living);
+    EXPECT_EQ(9999u, id.slot);
+    /* The dice were not thrown. */
+    EXPECT_EQ(random_next(&same), random_next(&random));
+    units_free(&units);
+}
+
 UTEST(units, a_tick_is_a_tick_of_every_unit_there_is)
 {
     Units units = {0};
