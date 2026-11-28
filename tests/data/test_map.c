@@ -29,6 +29,7 @@ typedef struct MakeMap {
     uint32_t more_players;
     uint32_t more_structures;
     uint32_t more_units;
+    uint32_t more_actions;
     ByteBuffer file;
 } MakeMap;
 
@@ -113,6 +114,36 @@ static void put_structure(ByteBuffer *b, uint32_t x, uint32_t y,
     put_u16(b, number);
 }
 
+/* An action of the script: of `type`, with these first two values. */
+static void put_action(ByteBuffer *b, const char *name, uint32_t type,
+                       uint32_t first, uint32_t second)
+{
+    put_text(b, name, 64);
+    buffer_u32_le(b, type);
+    buffer_u32_le(b, 1);
+    buffer_u32_le(b, 0);
+    buffer_u32_le(b, first);
+    buffer_u32_le(b, second);
+    put_text(b, "", 796 - 84);
+}
+
+/* The script: four actions, no conditions and no triggers. Two of the
+ * actions say where a player enters the map; one more does too, but
+ * names a square the map does not have. */
+static void put_script(MakeMap *m)
+{
+    ByteBuffer b = {0};
+    buffer_u32_le(&b, 4 + m->more_actions);
+    put_action(&b, "Say", 3, 1, 1);
+    put_action(&b, "Drop", 65538, 2, 1);
+    put_action(&b, "Far", 65538, m->width, 0);
+    put_action(&b, "Drop 2", 65538, 0, 0);
+    buffer_u32_le(&b, 0);
+    buffer_u32_le(&b, 0);
+    put_section(m, 7, (uint32_t)b.size, &b);
+    buffer_free(&b);
+}
+
 static void put_others(MakeMap *m)
 {
     ByteBuffer b = {0};
@@ -177,6 +208,7 @@ static void put_others(MakeMap *m)
     buffer_u32_le(&b, 6);
     put_section(m, 6, (uint32_t)b.size, &b);
     buffer_free(&b);
+    put_script(m);
 }
 
 static void finish(MakeMap *m)
@@ -194,7 +226,7 @@ static void finish(MakeMap *m)
         put_others(m);
     }
     /* Count the sections that were put. */
-    uint32_t count = 8;
+    uint32_t count = 9;
     count -= m->leave_out >= 0 ? 1u : 0u;
     count += m->twice >= 0 ? 1u : 0u;
     m->file.data[12] = (uint8_t)count;
@@ -320,6 +352,30 @@ UTEST(map, reads_a_unit)
     map_free(&map);
 }
 
+UTEST(map, reads_where_a_player_enters_from_the_script)
+{
+    MakeMap m = make_map();
+    Map map;
+    ASSERT_TRUE(reads(&m, &map));
+    /* In the script's order, and without the one outside the map. */
+    ASSERT_EQ(2u, map.drop_count);
+    EXPECT_EQ(2, map.drops[0].x);
+    EXPECT_EQ(1, map.drops[0].y);
+    EXPECT_EQ(0, map.drops[1].x);
+    EXPECT_EQ(0, map.drops[1].y);
+    map_free(&map);
+}
+
+UTEST(map, a_map_without_a_script_has_no_such_square)
+{
+    MakeMap m = make_map();
+    m.leave_out = 7;
+    Map map;
+    ASSERT_TRUE(reads(&m, &map));
+    EXPECT_EQ(0u, map.drop_count);
+    map_free(&map);
+}
+
 UTEST(map, a_map_with_nothing_on_it_may_leave_those_sections_out)
 {
     MakeMap m = make_map();
@@ -339,6 +395,13 @@ static bool refuses(MakeMap *m)
     Map before = map;
     bool ok = reads(m, &map);
     return !ok && memcmp(&map, &before, sizeof map) == 0;
+}
+
+UTEST(map, refuses_a_script_that_holds_fewer_actions_than_it_says)
+{
+    MakeMap m = make_map();
+    m.more_actions = 1;
+    EXPECT_TRUE(refuses(&m));
 }
 
 UTEST(map, refuses_what_is_not_a_map)
@@ -412,7 +475,7 @@ UTEST(map, refuses_a_map_that_lacks_its_ground_heights_or_objects)
 
 UTEST(map, refuses_a_section_given_twice)
 {
-    for (int id = 0; id <= 6; id++) {
+    for (int id = 0; id <= 7; id++) {
         MakeMap m = make_map();
         m.twice = id;
         EXPECT_TRUE(refuses(&m));

@@ -4,8 +4,9 @@
  * who plays on it. The file is a header and sections, each with a
  * number that says what it holds. This reads the sections for the map
  * as a whole, the ground, the heights, the objects, the structures, the
- * players and the units. The others, the script of the map and what
- * goes with it, are passed over for now.
+ * players and the units, and of the script of the map where a player
+ * enters it. The rest of the script and what goes with it are passed
+ * over for now.
  *
  * The layout is described in docs/formats/alm.md.
  */
@@ -96,6 +97,12 @@ typedef struct MapUnit {
     int32_t group;
 } MapUnit;
 
+/* A square where a player enters the map: a hero is put on one. */
+typedef struct MapDrop {
+    int32_t x;             /* in squares */
+    int32_t y;
+} MapDrop;
+
 /* A map, read. The lists are owned. */
 typedef struct Map {
     uint32_t version;
@@ -112,6 +119,9 @@ typedef struct Map {
     uint32_t player_count;
     MapUnit *units;
     uint32_t unit_count;
+    /* In the order of the script. One outside the map is left out. */
+    MapDrop *drops;
+    uint32_t drop_count;
 } Map;
 
 /* Reads a map held in memory.
@@ -120,7 +130,8 @@ typedef struct Map {
  * are cut short, a section is not as large as the map's own numbers
  * say, the map has no size or is larger than MAP_MAX_SIDE, it has more
  * players than MAP_MAX_PLAYERS, it lacks its ground, heights or
- * objects, or memory runs out. */
+ * objects, its script says it has more actions than it holds, or
+ * memory runs out. */
 bool map_read(const uint8_t *data, size_t size, Map *out);
 
 /* Frees the lists of a map and sets it to zero. */

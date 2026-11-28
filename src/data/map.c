@@ -19,12 +19,18 @@ enum {
     SECTION_OBJECTS = 3,
     SECTION_STRUCTURES = 4,
     SECTION_PLAYERS = 5,
-    SECTION_UNITS = 6
+    SECTION_UNITS = 6,
+    SECTION_SCRIPT = 7
 };
 
 /* The one structure whose record is 8 bytes longer, with its size: the
  * bridge of variable size. Newer maps also mark it with a bit. */
 #define TYPE_BRIDGE 33u
+
+/* An action of the script, and the type of one that says where a
+ * player enters the map. */
+#define ACTION_SIZE 796u
+#define ACTION_DROP 65538u
 #define TYPE_HAS_SIZE 0x01000000u
 
 /* Copies a text of `size` bytes, which may or may not have a closing
@@ -205,6 +211,42 @@ static bool read_units(Reader *r, uint32_t count, Map *map)
     return true;
 }
 
+/* The script begins with its actions. Of them this keeps the squares
+ * where a player enters the map, and reads no further. */
+static bool read_script(Reader *r, Map *map)
+{
+    if (map->drops != NULL) {
+        return false;
+    }
+    uint32_t count = reader_u32(r);
+    if (!reader_ok(r) || count > reader_remaining(r) / ACTION_SIZE) {
+        return false;
+    }
+    MapDrop *list = calloc(count > 0 ? count : 1, sizeof *list);
+    if (list == NULL) {
+        return false;
+    }
+    for (uint32_t i = 0; i < count; i++) {
+        /* Its name, its type, its index and whether it runs once, and
+         * then its values: the first two of this one are the square. */
+        reader_skip(r, 64);
+        uint32_t type = reader_u32(r);
+        reader_skip(r, 8);
+        int32_t x = reader_i32(r);
+        int32_t y = reader_i32(r);
+        reader_skip(r, ACTION_SIZE - 84);
+        if (type == ACTION_DROP && x >= 0 && y >= 0
+            && (uint32_t)x < map->info.width
+            && (uint32_t)y < map->info.height) {
+            list[map->drop_count].x = x;
+            list[map->drop_count].y = y;
+            map->drop_count++;
+        }
+    }
+    map->drops = list;
+    return true;
+}
+
 bool map_read(const uint8_t *data, size_t size, Map *out)
 {
     Reader r = reader_init(data, size);
@@ -251,7 +293,7 @@ bool map_read(const uint8_t *data, size_t size, Map *out)
         if (id == SECTION_INFO) {
             ok = read_info(&body, &map.info, &counts);
             has_info = ok;
-        } else if (id > SECTION_UNITS) {
+        } else if (id > SECTION_SCRIPT) {
             /* A section this does not read. */
         } else if (!has_info) {
             /* The others cannot be read before the map's size and
@@ -269,6 +311,8 @@ bool map_read(const uint8_t *data, size_t size, Map *out)
             ok = read_players(&body, counts.players, &map);
         } else if (id == SECTION_UNITS) {
             ok = read_units(&body, counts.units, &map);
+        } else if (id == SECTION_SCRIPT) {
+            ok = read_script(&body, &map);
         }
     }
     /* A map without structures, players or units may leave out their
@@ -294,5 +338,6 @@ void map_free(Map *map)
     free(map->structures);
     free(map->players);
     free(map->units);
+    free(map->drops);
     memset(map, 0, sizeof *map);
 }

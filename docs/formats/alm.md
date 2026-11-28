@@ -196,6 +196,13 @@ its file lists. Type 65538 is in both: as an action it is
 `Drop Location`, where a player enters the map, and its first two
 values are the square.
 
+Every one of the 58 maps has a `Drop Location`: the 46 missions one
+each, and of the 12 loose maps one has 2 and one 3. In 56 of the maps
+the first player has no unit at all, so the hero is not a unit of the
+map: he is put on that square when the map starts. The two others are
+missions 53 and 73, where the first player's units are the hero's
+company.
+
 A trigger is:
 
 | Offset | Field | Notes |
