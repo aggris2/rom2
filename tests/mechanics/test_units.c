@@ -227,11 +227,9 @@ UTEST(units, the_dice_pick_the_square_a_hero_enters_on)
     Map map = map_with_drops(drops, 3);
     UnitsHero who = {1, 3, UNIT_DRESS_HERO_LIGHT};
     bool entered[3] = {false, false, false};
-    for (uint32_t i = 1; i <= 40; i++) {
-        /* Seeds far from each other: the first throws from a small
-         * seed are all small. */
+    for (uint32_t seed = 1; seed <= 40; seed++) {
         Random random;
-        random_start(&random, i * 2654435761u);
+        random_start(&random, seed);
         /* What the same dice would say. */
         Random same = random;
         uint32_t picked = random_below(&same, 3);

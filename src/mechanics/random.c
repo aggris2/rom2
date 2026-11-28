@@ -5,7 +5,17 @@
 
 void random_start(Random *random, uint32_t seed)
 {
-    random->state = seed != 0 ? seed : SEED_FOR_NONE;
+    /* The run below starts slowly from a small number: from 1 its
+     * first numbers are small too. So the seed is stirred first, with
+     * the last step of MurmurHash3, which makes of each number another
+     * and of numbers next to each other ones far apart. */
+    uint32_t x = seed;
+    x ^= x >> 16;
+    x *= 0x85ebca6bu;
+    x ^= x >> 13;
+    x *= 0xc2b2ae35u;
+    x ^= x >> 16;
+    random->state = x != 0 ? x : SEED_FOR_NONE;
 }
 
 uint32_t random_next(Random *random)
