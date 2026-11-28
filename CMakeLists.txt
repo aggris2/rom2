@@ -103,6 +103,8 @@ add_library(rom2_core STATIC
     src/base/png.c
     src/base/reader.c
     src/base/toml.c
+    src/data/cursor.c
+    src/data/font.c
     src/data/map.c
     src/data/sprite_sheet.c
     src/data/structure_kind.c
@@ -117,8 +119,10 @@ add_library(rom2_core STATIC
     src/view/ground.c
     src/view/light.c
     src/view/objects.c
+    src/view/pointer.c
     src/view/sprite.c
     src/view/structures.c
+    src/view/text.c
     src/view/units.c
 )
 target_include_directories(rom2_core PUBLIC src)
@@ -136,6 +140,7 @@ add_library(rom2_formats STATIC
     tools/import/databin.c
     tools/import/frames.c
     tools/import/item.c
+    tools/import/cursor.c
     tools/import/name.c
     tools/import/object.c
     tools/import/pal.c
@@ -209,6 +214,8 @@ add_executable(rom2_tests
     tests/base/test_png.c
     tests/base/test_reader.c
     tests/base/test_toml.c
+    tests/data/test_cursor.c
+    tests/data/test_font.c
     tests/data/test_sprite_sheet.c
     tests/data/test_structure_kind.c
     tests/data/test_unit_animation.c
@@ -222,10 +229,13 @@ add_executable(rom2_tests
     tests/view/test_ground.c
     tests/view/test_light.c
     tests/view/test_objects.c
+    tests/view/test_pointer.c
     tests/view/test_sprite.c
     tests/view/test_structures.c
+    tests/view/test_text.c
     tests/view/test_units.c
     tests/import/test_bmp.c
+    tests/import/test_cursor.c
     tests/import/test_databin.c
     tests/import/test_item.c
     tests/import/test_name.c

@@ -87,9 +87,15 @@ The importer writes a sprite as three files named after it, here for
 
 | File | What it is |
 |---|---|
-| `sprites.toml` | how many frames, the size of a cell, how many in a row |
+| `sprites.toml` | how many frames, the size of a cell, how many in a row, and for a cursor its `tip` |
 | `sprites_sheet.png` | the frames in a grid, row by row, as indices with the sprite's palette |
 | `sprites_alpha.png` | for a `.16a`: how solid each pixel is |
+
+A cursor's `tip` is the pixel of a frame that points, the one that goes
+where the mouse is: `[4, 4]` for the default arrow. No file of the
+original has it. The 28 pairs are in the game's own program, and are
+written here so that the game need not carry them. The older `.256`
+cursors, which the game does not show, have none.
 
 The folders are those of the pictures, with `cursors/` and `backpack/`
 going to `interface/cursors/` and `interface/backpack/`. The sheet has

@@ -148,8 +148,9 @@ int main(int argc, char **argv)
             "\n"
             "Shows a map: mission 10 if none is named. The content is\n"
             "taken from the folder `content` if no other is named. The\n"
-            "arrow keys or W, A, S and D move over the map, and Escape\n"
-            "leaves.\n");
+            "mouse on the edge of the screen moves over the map, G shows\n"
+            "a grid, P pauses, F hides the count of frames a second, and\n"
+            "Escape leaves.\n");
         return 2;
     }
     if (map == NULL) {

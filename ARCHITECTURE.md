@@ -116,6 +116,14 @@ its ID, which colouring it has and how fast it turns.
 of a bat's wings: which columns of the sheet's rows it takes, and the frame
 it shows in each tick.
 
+`src/data/cursor` reads a cursor's definition: its two pictures, the size of
+a frame, and its tip, the pixel that goes where the mouse is. The tips are
+not in any file of the original, so the importer writes them from a table of
+its own.
+
+`src/data/font` reads a font's definition: its picture of glyphs in cells,
+which character the first one is, and the width of each.
+
 `src/mechanics/clock` turns time that has passed into ticks, the steps the
 game happens in: 16 in a second at the speed a game starts on, and from 8 to
 32 at the others, as in the original. It is told how much time has passed
@@ -138,20 +146,25 @@ unit.
 `src/view` turns what there is into what is drawn. `frame.h` is what the
 renderer is handed once a frame: the ground, and the sprites that lie on it.
 `sprite.h` is the record for one sprite, a part of a sheet at a place on the
-screen. `camera` says which part of a map is on the screen and keeps it inside
-the map. `light` works out how bright the ground is at each corner of a
-square, from its slopes and the angle of the sun. `ground` writes a record for
-each square the camera sees, its four corners raised by the heights of the map
-and with that light: a square on a slope is not a rectangle, so the ground has
-a record of its own and is not made of sprites. `objects` writes a sprite for
-each tree or rock the camera can see, standing on the ground at its height.
-`structures` writes each building as strips a square high, one for each row of
-its base, because something may stand behind a building's front and before its
-back. `units` writes a sprite for each unit, the standing frame of the way it
-faces, in the colour of its player if it is a human and of its kind if it is a
-monster. Every sprite says where it stands, and `sprite` sorts the list into
-the order it is drawn: row after row from the top, and in a row from the
-right. None of it knows the graphics card, so all of it has unit tests.
+screen. `camera` says which part of a map is on the screen and keeps it
+inside the map. `light` works out how bright the ground is at each corner of
+a square, from its slopes and the angle of the sun. `ground` writes a record
+for each square the camera sees, its four corners raised by the heights of
+the map and with that light: a square on a slope is not a rectangle, so the
+ground has a record of its own and is not made of sprites. `objects` writes
+a sprite for each tree or rock the camera can see, standing on the ground at
+its height. `structures` writes each building as strips a square high, one
+for each row of its base, because something may stand behind a building's
+front and before its back. `units` writes a sprite for each unit, the
+standing frame of the way it faces, in the colour of its player if it is a
+human and of its kind if it is a monster. `pointer` is the cursor the mouse
+moves: on the edge of the screen it scrolls the map and shows an arrow that
+points the way, and its sprite has the last turn of all. `text` writes a
+text as the glyphs of a font, spaced as the original spaces them, over the
+map and under the pointer. Every sprite says where it stands, and `sprite`
+sorts the list into the order it is drawn: row after row from the top, and
+in a row from the right. None of it knows the graphics card, so all of it
+has unit tests.
 
 `src/game` is the program `rom2`, and the only code that uses SDL. `main.c`
 is the window and the loop. `map_screen` is being in a map, the one place of

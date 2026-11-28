@@ -121,7 +121,8 @@ void tree_write_in(const ResArchive *archive, const char *inside,
  * a sheet of its frames, for the steps that take such sprites as they
  * are. A sprite becomes three files named after it:
  *
- *     <name>.toml        how many frames it has and how they lie
+ *     <name>.toml        how many frames it has and how they lie, and
+ *                        for a cursor its `tip`: see import/cursor.h
  *     <name>_sheet.png   its frames in a grid, as indices with the
  *                        sprite's palette
  *     <name>_alpha.png   for a .16a, how solid each pixel is

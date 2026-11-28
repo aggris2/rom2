@@ -7,6 +7,7 @@
 #include "base/file.h"
 #include "base/png.h"
 #include "base/toml.h"
+#include "import/cursor.h"
 #include "import/plain_sheet.h"
 
 bool step_reg_open(const char *step, const ResArchive *archive,
@@ -310,11 +311,15 @@ bool sprite_files_write(const Sprite256 *sprite,
         || (png_write_grey(&out, width, height, sheet.solid)
             && write_as(base, "_alpha.png", &out)));
     out.size = 0;
+    /* A cursor says which pixel of it points: see import/cursor.h. */
+    int32_t tip[2];
+    bool has_tip = cursor_tip(base, tip);
     ok = ok && toml_text(&out, "sheet", sheet_name)
         && (!is_16a || toml_text(&out, "alpha", alpha_name))
         && toml_int(&out, "frames", (int32_t)sheet.frames)
         && toml_int(&out, "columns", (int32_t)sheet.columns)
         && toml_int_list(&out, "cell", cell, 2)
+        && (!has_tip || toml_int_list(&out, "tip", tip, 2))
         && (sheet.one_size
             || (toml_comment(&out, "The frames are not all as large as "
                     "a cell. Each lies in the top left corner of its "

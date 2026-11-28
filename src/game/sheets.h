@@ -7,6 +7,8 @@
 #include <stdint.h>
 
 #include "base/toml.h"
+#include "data/cursor.h"
+#include "data/font.h"
 #include "data/sprite_sheet.h"
 #include "game/renderer.h"
 
@@ -31,5 +33,21 @@ bool sheets_read_definition(const char *path, TomlTable **top);
  * it cannot. */
 bool sheets_load_sprites(Renderer *renderer, const char *definition,
                          const SpriteSheet *layout, uint16_t *sheet);
+
+/* Reads the pictures of the cursor whose definition is at
+ * `definition`, given what the definition says: its sheet and, beside
+ * it, how solid each pixel is. Puts the two on the card as one sheet.
+ * `*sheet` gets its number. Returns false, with a message printed, if
+ * it cannot. */
+bool sheets_load_cursor(Renderer *renderer, const char *definition,
+                        const Cursor *cursor, uint16_t *sheet);
+
+/* Reads the picture of the font whose definition is at `definition`,
+ * given what the definition says, and puts it on the card as a sheet
+ * whose glyphs are of `colour`. A font of one colour only: one whose
+ * picture has colours of its own is refused. `*sheet` gets its number.
+ * Returns false, with a message printed, if it cannot. */
+bool sheets_load_font(Renderer *renderer, const char *definition,
+                      const Font *font, Rgb colour, uint16_t *sheet);
 
 #endif

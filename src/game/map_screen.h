@@ -1,9 +1,10 @@
 /* Being in a map: the one place of the game there is so far.
  *
  * It shows the ground of a map, with its hills and the light on them,
- * and what stands on it. The arrow keys or W, A, S and D move the
- * camera over it, G shows and hides a grid of its squares, and P
- * pauses the game and lets it go on.
+ * and what stands on it. The mouse on the edge of the screen moves the
+ * camera over it. G shows and hides a grid of its squares, P pauses
+ * the game and lets it go on, and F shows and hides how many frames a
+ * second are drawn.
  */
 #ifndef ROM2_GAME_MAP_SCREEN_H
 #define ROM2_GAME_MAP_SCREEN_H

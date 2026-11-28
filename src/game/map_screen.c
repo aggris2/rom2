@@ -18,14 +18,21 @@
 #include "view/ground.h"
 #include "view/light.h"
 #include "view/objects.h"
+#include "view/pointer.h"
 #include "view/structures.h"
+#include "view/text.h"
 #include "view/units.h"
 
-/* How fast the keys move the camera, in pixels a second. In a frame
- * it moves a whole number of pixels, the nearest to this speed: the
- * same number every frame, so that the ground glides and does not
- * stutter. */
-#define SCROLL_SPEED 900.0f
+/* How fast the mouse on the edge of the screen moves the camera, in
+ * pixels a second. In a frame it moves a whole number of pixels, the
+ * nearest to this speed: the same number every frame, so that the
+ * ground glides and does not stutter. */
+#define SCROLL_SPEED 1500.0f
+
+/* The frames a second are written this far from the corner of the
+ * screen, in pixels, and in no more characters than this. */
+#define RATE_MARGIN 4
+#define RATE_ROOM 10
 
 struct MapScreen {
     Renderer *renderer;
@@ -41,6 +48,15 @@ struct MapScreen {
     Clock clock;                /* the ticks of the game */
     Units live;                 /* the units of the game */
     Random random;              /* its dice */
+    PointerLook pointers[POINTER_KINDS];    /* how each pointer looks */
+    FontLook small_font;        /* for what is written small */
+    /* How many frames a second are drawn: the number shown, and the
+     * frames counted since it was last worked out, at `counted_from`
+     * on SDL's clock. */
+    bool show_rate;
+    uint32_t rate;
+    uint32_t frames;
+    Uint64 counted_from;
     uint8_t *light;             /* the light at each corner of the map */
     ObjectLook objects[OBJECT_KINDS];   /* how each kind of object looks */
     StructureLook structures[STRUCTURE_KINDS];  /* and of structure */
@@ -276,6 +292,122 @@ static bool add_looks(MapScreen *screen, const char *content)
         && add_kinds(screen, content, &of_units, units, UNIT_TYPES);
 }
 
+/* Reads the pictures of the pointers. One that cannot be read is left
+ * unknown, with a message, and is not drawn: the game goes on with the
+ * system's own pointer. */
+static void add_pointers(MapScreen *screen, const char *content)
+{
+    /* The eight arrows as the original numbers them, then the plain
+     * one: the order of PointerKind. */
+    static const char *const names[POINTER_KINDS] = {
+        "arrow0", "arrow1", "arrow2", "arrow3", "arrow4", "arrow5",
+        "arrow6", "arrow7", "default"
+    };
+    for (int kind = 0; kind < POINTER_KINDS; kind++) {
+        char path[1024];
+        TomlTable *top = NULL;
+        Cursor cursor;
+        PointerLook *look = &screen->pointers[kind];
+        int written = snprintf(path, sizeof path,
+            "%s/interface/cursors/%s/sprites.toml", content, names[kind]);
+        if (written < 0 || (size_t)written >= sizeof path
+            || !sheets_read_definition(path, &top)) {
+            continue;
+        }
+        if (!cursor_read(top, &cursor)) {
+            fprintf(stderr, "rom2: %s is not a usable cursor\n", path);
+        } else if (sheets_load_cursor(screen->renderer, path, &cursor,
+                &look->sheet)) {
+            look->known = true;
+            look->width = cursor.cell_width;
+            look->height = cursor.cell_height;
+            look->tip_x = cursor.tip_x;
+            look->tip_y = cursor.tip_y;
+        }
+        toml_free(top);
+    }
+    /* The game shows its own pointer, if it has the plain one. */
+    if (screen->pointers[POINTER_PLAIN].known) {
+        SDL_HideCursor();
+    }
+}
+
+/* Reads the small font, the original's font2, in white. If it cannot
+ * be read it is left unknown, with a message, and nothing is written
+ * in it. */
+static void add_small_font(MapScreen *screen, const char *content)
+{
+    char path[1024];
+    TomlTable *top = NULL;
+    Font font;
+    const Rgb white = {255, 255, 255};
+    FontLook *look = &screen->small_font;
+    int written = snprintf(path, sizeof path, "%s/fonts/font2/font.toml",
+        content);
+    if (written < 0 || (size_t)written >= sizeof path
+        || !sheets_read_definition(path, &top)) {
+        return;
+    }
+    if (!font_read(top, &font)) {
+        fprintf(stderr, "rom2: %s is not a usable font\n", path);
+    } else if (sheets_load_font(screen->renderer, path, &font, white,
+            &look->sheet)) {
+        look->known = true;
+        look->cell_width = font.cell_width;
+        look->cell_height = font.cell_height;
+        look->columns = font.columns;
+        look->first_character = font.first_character;
+        look->count = font.count;
+        memcpy(look->widths, font.widths, sizeof look->widths);
+    }
+    toml_free(top);
+}
+
+/* Counts a frame, and twice a second works out how many are drawn in
+ * a second. */
+static void count_frame(MapScreen *screen)
+{
+    const Uint64 second = 1000000000u;
+    Uint64 now = SDL_GetTicksNS();
+    screen->frames++;
+    if (screen->counted_from == 0) {
+        screen->counted_from = now;
+        screen->frames = 0;
+    } else if (now - screen->counted_from >= second / 2) {
+        screen->rate = (uint32_t)((screen->frames * second
+            + (now - screen->counted_from) / 2)
+            / (now - screen->counted_from));
+        screen->frames = 0;
+        screen->counted_from = now;
+    }
+}
+
+/* Where the mouse is on what is drawn into, in pixels. Returns false
+ * if it is not over the window. */
+static bool mouse_place(const MapScreen *screen, int32_t *x, int32_t *y)
+{
+    SDL_Window *window = SDL_GetMouseFocus();
+    float at_x = 0.0f;
+    float at_y = 0.0f;
+    int window_width = 0;
+    int window_height = 0;
+    int width = 0;
+    int height = 0;
+    if (window == NULL) {
+        return false;
+    }
+    SDL_GetMouseState(&at_x, &at_y);
+    SDL_GetWindowSize(window, &window_width, &window_height);
+    renderer_size(screen->renderer, &width, &height);
+    if (window_width <= 0 || window_height <= 0) {
+        return false;
+    }
+    /* A window may count in other units than its pixels. */
+    *x = (int32_t)(at_x * (float)width / (float)window_width);
+    *y = (int32_t)(at_y * (float)height / (float)window_height);
+    return true;
+}
+
 /* The camera as it is now: where the screen has been moved to, at the
  * size the window has, and inside the map. */
 static Camera camera_now(MapScreen *screen)
@@ -341,6 +473,9 @@ MapScreen *map_screen_open(Renderer *renderer, const char *content,
         return NULL;
     }
     light_ground(&screen->map, screen->light);
+    add_pointers(screen, content);
+    add_small_font(screen, content);
+    screen->show_rate = true;
     if (!add_tiles(screen, content) || !add_looks(screen, content)) {
         map_screen_close(screen);
         return NULL;
@@ -358,24 +493,15 @@ MapScreen *map_screen_open(Renderer *renderer, const char *content,
     return screen;
 }
 
-/* Moves the camera by the keys that are held down. */
-static void move_camera(MapScreen *screen, float seconds)
+/* Moves the camera the way the mouse on the edge of the screen scrolls
+ * it, `across` and `down`. */
+static void move_camera(MapScreen *screen, float seconds, int32_t across,
+                        int32_t down)
 {
-    const bool *keys = SDL_GetKeyboardState(NULL);
     float step = SDL_roundf(SCROLL_SPEED * seconds);
     step = step < 1.0f ? 1.0f : step;
-    if (keys[SDL_SCANCODE_LEFT] || keys[SDL_SCANCODE_A]) {
-        screen->left -= step;
-    }
-    if (keys[SDL_SCANCODE_RIGHT] || keys[SDL_SCANCODE_D]) {
-        screen->left += step;
-    }
-    if (keys[SDL_SCANCODE_UP] || keys[SDL_SCANCODE_W]) {
-        screen->top -= step;
-    }
-    if (keys[SDL_SCANCODE_DOWN] || keys[SDL_SCANCODE_S]) {
-        screen->top += step;
-    }
+    screen->left += (float)across * step;
+    screen->top += (float)down * step;
 }
 
 bool map_screen_frame(MapScreen *screen, float seconds)
@@ -386,7 +512,19 @@ bool map_screen_frame(MapScreen *screen, float seconds)
         ticks > 0; ticks--) {
         units_tick(&screen->live, &screen->random);
     }
-    move_camera(screen, seconds);
+    /* The mouse: on the edge of the screen it scrolls the map. */
+    int32_t mouse_x = 0;
+    int32_t mouse_y = 0;
+    int32_t across = 0;
+    int32_t down = 0;
+    int width = 0;
+    int height = 0;
+    renderer_size(screen->renderer, &width, &height);
+    bool mouse = mouse_place(screen, &mouse_x, &mouse_y);
+    if (mouse) {
+        pointer_scroll(mouse_x, mouse_y, width, height, &across, &down);
+    }
+    move_camera(screen, seconds, across, down);
     Camera camera = camera_now(screen);
     size_t most = ground_most(&camera);
     if (most > screen->ground_room) {
@@ -401,7 +539,7 @@ bool map_screen_frame(MapScreen *screen, float seconds)
     }
     most = objects_most(&camera, screen->objects)
         + structures_most(&screen->map, screen->structures)
-        + units_most(&screen->live);
+        + units_most(&screen->live) + 1 + RATE_ROOM;
     if (most > screen->sprite_room) {
         Sprite *sprites = realloc(screen->sprites,
             2 * most * sizeof *sprites);
@@ -428,6 +566,26 @@ bool map_screen_frame(MapScreen *screen, float seconds)
     frame.sprite_count += units_sprites(&screen->map, &screen->live,
         screen->units, screen->kinds, tick, &camera,
         screen->sprites + frame.sprite_count);
+    /* How many frames a second are drawn, in the top left corner. */
+    count_frame(screen);
+    if (screen->show_rate && screen->rate > 0) {
+        char text[RATE_ROOM + 1];
+        snprintf(text, sizeof text, "%u", (unsigned)screen->rate);
+        frame.sprite_count += text_sprites(&screen->small_font, text,
+            RATE_MARGIN, RATE_MARGIN, screen->sprites + frame.sprite_count,
+            RATE_ROOM);
+    }
+    /* The pointer: an arrow while it scrolls the map, if there is
+     * one. */
+    const PointerLook *pointer
+        = &screen->pointers[pointer_kind(across, down)];
+    if (!pointer->known) {
+        pointer = &screen->pointers[POINTER_PLAIN];
+    }
+    if (mouse && pointer->known) {
+        screen->sprites[frame.sprite_count++]
+            = pointer_sprite(pointer, mouse_x, mouse_y);
+    }
     sprites_sort(screen->sprites, frame.sprite_count,
         screen->sprites + screen->sprite_room);
     if (!renderer_draw(screen->renderer, &frame)) {
@@ -443,6 +601,8 @@ void map_screen_key(MapScreen *screen, SDL_Keycode key)
         screen->grid = !screen->grid;
     } else if (key == SDLK_P) {
         screen->clock.paused = !screen->clock.paused;
+    } else if (key == SDLK_F) {
+        screen->show_rate = !screen->show_rate;
     }
 }
 

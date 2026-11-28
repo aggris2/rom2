@@ -164,3 +164,71 @@ bool sheets_load_sprites(Renderer *renderer, const char *definition,
     }
     return ok;
 }
+
+bool sheets_load_cursor(Renderer *renderer, const char *definition,
+                        const Cursor *cursor, uint16_t *sheet)
+{
+    char path[1024];
+    Png colours;
+    Png solid;
+    if (!path_beside(definition, cursor->sheet, path, sizeof path)
+        || !read_png(path, &colours)) {
+        return false;
+    }
+    if (!path_beside(definition, cursor->alpha, path, sizeof path)
+        || !read_png(path, &solid)) {
+        png_free(&colours);
+        return false;
+    }
+    bool ok = colours.kind == PNG_INDEXED && solid.kind == PNG_GREY
+        && colours.width == solid.width && colours.height == solid.height;
+    if (!ok) {
+        fprintf(stderr, "rom2: the pictures of %s do not go together\n",
+            definition);
+    } else if (!renderer_add_sheet(renderer, colours.width, colours.height,
+            colours.pixels, solid.pixels, colours.palette, 1, sheet)) {
+        fprintf(stderr, "rom2: cannot use the sheet of %s: %s\n",
+            definition, SDL_GetError());
+        ok = false;
+    }
+    png_free(&colours);
+    png_free(&solid);
+    return ok;
+}
+
+bool sheets_load_font(Renderer *renderer, const char *definition,
+                      const Font *font, Rgb colour, uint16_t *sheet)
+{
+    char path[1024];
+    Png solid;
+    if (font->coloured) {
+        fprintf(stderr, "rom2: %s is a font in colours\n", definition);
+        return false;
+    }
+    if (!path_beside(definition, font->glyphs, path, sizeof path)
+        || !read_png(path, &solid)) {
+        return false;
+    }
+    /* The picture says how solid each pixel is. Every pixel is of the
+     * one colour, the second of a palette of two. */
+    size_t count = (size_t)solid.width * solid.height;
+    uint8_t *colours = malloc(count > 0 ? count : 1);
+    Rgb palette[256];
+    memset(palette, 0, sizeof palette);
+    palette[1] = colour;
+    bool ok = solid.kind == PNG_GREY && colours != NULL;
+    if (!ok) {
+        fprintf(stderr, "rom2: cannot use the picture of %s\n", definition);
+    } else {
+        memset(colours, 1, count);
+        ok = renderer_add_sheet(renderer, solid.width, solid.height,
+            colours, solid.pixels, palette, 1, sheet);
+        if (!ok) {
+            fprintf(stderr, "rom2: cannot use the sheet of %s: %s\n",
+                definition, SDL_GetError());
+        }
+    }
+    free(colours);
+    png_free(&solid);
+    return ok;
+}
