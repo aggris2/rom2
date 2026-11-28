@@ -41,6 +41,9 @@ typedef struct UnitLook {
      * human's cloth shows whose it is. If not, it has one for each
      * colouring of its kinds. */
     bool by_player;
+    /* The part of its picture a click takes it by, from its anchor.
+     * One with a box of no size cannot be picked. */
+    SpriteBox selection;
     /* What it does as it stands, if it does not stand still: a bat
      * beats its wings. Of no length for a unit that stands still. */
     UnitAnimation idle;
@@ -49,6 +52,15 @@ typedef struct UnitLook {
 /* Where in a list of UNIT_LOOKS the look of a type in a dress is.
  * `type` is less than UNIT_TYPES and `dress` than UNIT_DRESSES. */
 size_t unit_look_at(uint16_t type, uint8_t dress);
+
+/* Finds the unit under a point of the screen: one whose selection box,
+ * where it is drawn, holds the point. Of several it is the one that
+ * stands lowest on the screen, which is in front of the others, and
+ * of those at one height the one in the later slot.
+ *
+ * Returns false, and leaves `*out` alone, if there is none. */
+bool units_pick(const Map *map, const Units *units, const UnitLook *looks,
+                const Camera *camera, int32_t x, int32_t y, UnitId *out);
 
 /* The most sprites units_sprites() writes for a list of units: room
  * for this many is enough. */

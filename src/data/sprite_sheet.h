@@ -54,6 +54,15 @@ uint32_t sprite_round_frame(const SpriteRound *round, uint64_t turn);
 bool sprite_round_read(const TomlTable *table, int32_t columns,
                        SpriteRound *out);
 
+/* A box of a cell, from the cell's anchor: `right` and `bottom` are
+ * the first pixels past it. */
+typedef struct SpriteBox {
+    int16_t left;
+    int16_t top;
+    int16_t right;
+    int16_t bottom;
+} SpriteBox;
+
 typedef struct SpriteSheet {
     char file[SPRITE_SHEET_NAME_SIZE];  /* beside the definition */
     /* The picture of the soft edges, of the same size, or empty if the
@@ -69,6 +78,9 @@ typedef struct SpriteSheet {
     int16_t anchor_y;
     uint16_t columns;                   /* frames in a row of the sheet */
     SpriteRound round;
+    /* The part of a frame a click takes the thing by, and over which
+     * its health is shown. All zeros for a sheet that names none. */
+    SpriteBox selection;
 } SpriteSheet;
 
 /* Reads the [sprite] table of a definition, given the table of its
@@ -78,9 +90,11 @@ typedef struct SpriteSheet {
  * it lacks the sheet or the cell, the name of the sheet, of its edges
  * or of its palettes is empty, too long or not a plain file name, a
  * cell has no size or one over 4096, or the anchor is further than
- * 4096 from the cell's corner. A sheet need not have edges, palettes
- * or an anchor, and one that does not say how many columns it has has
- * one.
+ * 4096 from the cell's corner, or its `selection` is not four numbers,
+ * left, top, right and bottom, each within 4096 of the anchor and the
+ * first two not past the last two. A sheet need not have edges,
+ * palettes, an anchor or a selection, and one that does not say how
+ * many columns it has has one.
  *
  * A sheet that moves says so with the two lists of a round, `frames`
  * and `ticks`, and is refused too if sprite_round_read() refuses

@@ -69,6 +69,31 @@ bool sprite_round_read(const TomlTable *table, int32_t columns,
     return true;
 }
 
+/* Reads the box of the selection, if the table has one. */
+static bool read_selection(const TomlTable *sprite, SpriteBox *out)
+{
+    const int32_t *sides = NULL;
+    size_t count = 0;
+    memset(out, 0, sizeof *out);
+    if (!toml_has(sprite, "selection")) {
+        return true;
+    }
+    if (!toml_get_int_list(sprite, "selection", &sides, &count)
+        || count != 4 || sides[0] > sides[2] || sides[1] > sides[3]) {
+        return false;
+    }
+    for (size_t i = 0; i < count; i++) {
+        if (sides[i] < -MOST || sides[i] > MOST) {
+            return false;
+        }
+    }
+    out->left = (int16_t)sides[0];
+    out->top = (int16_t)sides[1];
+    out->right = (int16_t)sides[2];
+    out->bottom = (int16_t)sides[3];
+    return true;
+}
+
 bool sprite_sheet_read(const TomlTable *top, SpriteSheet *out)
 {
     const TomlTable *sprite = toml_get_table(top, "sprite");
@@ -81,6 +106,7 @@ bool sprite_sheet_read(const TomlTable *top, SpriteSheet *out)
     int32_t anchor_y = 0;
     int32_t columns = 1;
     SpriteRound round;
+    SpriteBox selection;
     if (sprite == NULL || !toml_get_text(sprite, "sheet", &sheet)
         || !is_plain_file_name(sheet)
         || (toml_has(sprite, "edges")
@@ -95,7 +121,8 @@ bool sprite_sheet_read(const TomlTable *top, SpriteSheet *out)
         || (toml_has(sprite, "columns")
             && (!toml_get_int(sprite, "columns", &columns) || columns < 1
                 || columns > MOST))
-        || !sprite_round_read(sprite, columns, &round)) {
+        || !sprite_round_read(sprite, columns, &round)
+        || !read_selection(sprite, &selection)) {
         return false;
     }
     memset(out, 0, sizeof *out);
@@ -112,6 +139,7 @@ bool sprite_sheet_read(const TomlTable *top, SpriteSheet *out)
     out->anchor_y = (int16_t)anchor_y;
     out->columns = (uint16_t)columns;
     out->round = round;
+    out->selection = selection;
     return true;
 }
 

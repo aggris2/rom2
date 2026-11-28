@@ -32,6 +32,10 @@ bool map_screen_frame(MapScreen *screen, float seconds);
 /* A key was pressed down. */
 void map_screen_key(MapScreen *screen, SDL_Keycode key);
 
+/* The left button of the mouse was pressed down, where the mouse is
+ * now: on a unit, it selects that unit. */
+void map_screen_click(MapScreen *screen);
+
 /* Gives everything back. NULL is allowed. */
 void map_screen_close(MapScreen *screen);
 

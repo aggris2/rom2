@@ -40,6 +40,7 @@ static void make_units(MakeUnits *m)
     m->looks[3].cell_height = 48;
     m->looks[3].anchor_x = 32;
     m->looks[3].anchor_y = 40;
+    m->looks[3].selection = (SpriteBox){-16, -30, 16, 12};
 }
 
 /* Puts a unit of type `type` in the middle of the square (x, y): its
@@ -92,6 +93,80 @@ UTEST(units, a_dress_without_a_look_or_that_there_is_not_is_not_drawn)
     put(&m, 4, 5, 3)->dress = UNIT_DRESS_HERO_LIGHT;
     put(&m, 6, 5, 3)->dress = UNIT_DRESSES;
     EXPECT_EQ(0u, sprites_for(&m, 0, 0, 320, 320));
+}
+
+/* The slot of the unit under a point of a screen that shows the map
+ * from its corner, or -1 if there is none. */
+static int picked_at(MakeUnits *m, int32_t x, int32_t y)
+{
+    Camera camera = {0, 0, 320, 320};
+    UnitId id = {9999, 9999};
+    if (!units_pick(&m->map, &m->live, m->looks, &camera, x, y, &id)) {
+        return id.slot == 9999 ? -1 : -2;
+    }
+    return id.slot;
+}
+
+UTEST(units, a_point_in_the_selection_box_of_a_unit_picks_it)
+{
+    MakeUnits m;
+    make_units(&m);
+    /* He stands at (144, 176): his box is 128 to 159 across and 146
+     * to 187 down. */
+    put(&m, 4, 5, 3);
+    EXPECT_EQ(0, picked_at(&m, 144, 176));
+    EXPECT_EQ(0, picked_at(&m, 128, 146));
+    EXPECT_EQ(0, picked_at(&m, 159, 187));
+    EXPECT_EQ(-1, picked_at(&m, 127, 176));
+    EXPECT_EQ(-1, picked_at(&m, 160, 176));
+    EXPECT_EQ(-1, picked_at(&m, 144, 145));
+    EXPECT_EQ(-1, picked_at(&m, 144, 188));
+}
+
+UTEST(units, the_box_is_where_the_unit_is_drawn)
+{
+    MakeUnits m;
+    make_units(&m);
+    put(&m, 4, 5, 3);
+    /* The ground under him raises him 20, and the camera has moved. */
+    for (int i = 0; i < 100; i++) {
+        m.heights[i] = 20;
+    }
+    Camera camera = {100, 50, 200, 200};
+    UnitId id;
+    EXPECT_TRUE(units_pick(&m.map, &m.live, m.looks, &camera, 44, 106,
+        &id));
+    EXPECT_FALSE(units_pick(&m.map, &m.live, m.looks, &camera, 44,
+        106 + 12, &id));
+    EXPECT_TRUE(units_pick(&m.map, &m.live, m.looks, &camera, 44,
+        106 - 30, &id));
+}
+
+UTEST(units, of_units_under_one_point_the_one_in_front_is_picked)
+{
+    MakeUnits m;
+    make_units(&m);
+    put(&m, 4, 5, 3);
+    put(&m, 4, 6, 3);
+    put(&m, 4, 4, 3);
+    /* All three boxes hold this point: the second stands lowest. */
+    EXPECT_EQ(1, picked_at(&m, 144, 180));
+    /* Above the second one's box the first is in front. */
+    EXPECT_EQ(0, picked_at(&m, 144, 170));
+    /* Of two on one spot, the later. */
+    put(&m, 4, 6, 3);
+    EXPECT_EQ(3, picked_at(&m, 144, 180));
+}
+
+UTEST(units, a_unit_that_is_not_drawn_or_has_no_box_is_not_picked)
+{
+    MakeUnits m;
+    make_units(&m);
+    put(&m, 4, 5, 9);
+    EXPECT_EQ(-1, picked_at(&m, 144, 176));
+    m.looks[9] = m.looks[3];
+    m.looks[9].selection = (SpriteBox){0, 0, 0, 0};
+    EXPECT_EQ(-1, picked_at(&m, 144, 176));
 }
 
 UTEST(units, a_unit_stands_with_its_anchor_on_its_place)

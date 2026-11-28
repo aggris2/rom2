@@ -30,6 +30,47 @@ size_t units_most(const Units *units)
     return units->living;
 }
 
+/* The look a unit is drawn in, or NULL if it is not drawn. */
+static const UnitLook *look_of(const Unit *unit, const UnitLook *looks)
+{
+    if (unit->type >= UNIT_TYPES || unit->dress >= UNIT_DRESSES
+        || unit->x < 0 || unit->y < 0) {
+        return NULL;
+    }
+    const UnitLook *look = &looks[unit_look_at(unit->type, unit->dress)];
+    return look->known ? look : NULL;
+}
+
+bool units_pick(const Map *map, const Units *units, const UnitLook *looks,
+                const Camera *camera, int32_t x, int32_t y, UnitId *out)
+{
+    bool found = false;
+    int32_t lowest = 0;
+    for (uint32_t slot = 0; slot < units->count; slot++) {
+        UnitId id;
+        const Unit *unit = units_at(units, slot, &id);
+        const UnitLook *look = unit == NULL ? NULL : look_of(unit, looks);
+        if (look == NULL) {
+            continue;
+        }
+        int32_t place_x = unit->x * MAP_SQUARE / UNIT_PLACE_PARTS;
+        int32_t place_y = unit->y * MAP_SQUARE / UNIT_PLACE_PARTS;
+        int32_t at_x = place_x - camera->left;
+        int32_t at_y = place_y - camera->top
+            - ground_height_at(map, place_x, place_y);
+        const SpriteBox *box = &look->selection;
+        if (x < at_x + box->left || x >= at_x + box->right
+            || y < at_y + box->top || y >= at_y + box->bottom
+            || (found && at_y < lowest)) {
+            continue;
+        }
+        found = true;
+        lowest = at_y;
+        *out = id;
+    }
+    return found;
+}
+
 size_t units_sprites(const Map *map, const Units *units,
                      const UnitLook *looks, const UnitKind *kinds,
                      uint64_t tick, const Camera *camera, Sprite *out)
@@ -37,13 +78,8 @@ size_t units_sprites(const Map *map, const Units *units,
     size_t count = 0;
     for (uint32_t slot = 0; slot < units->count; slot++) {
         const Unit *unit = units_at(units, slot, NULL);
-        if (unit == NULL || unit->type >= UNIT_TYPES
-            || unit->dress >= UNIT_DRESSES || unit->x < 0 || unit->y < 0) {
-            continue;
-        }
-        const UnitLook *look
-            = &looks[unit_look_at(unit->type, unit->dress)];
-        if (!look->known) {
+        const UnitLook *look = unit == NULL ? NULL : look_of(unit, looks);
+        if (look == NULL) {
             continue;
         }
         int32_t place_x = unit->x * MAP_SQUARE / UNIT_PLACE_PARTS;

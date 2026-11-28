@@ -161,15 +161,15 @@ for each row of its base, because something may stand behind a building's
 front and before its back; a bridge, whose size the map gives, it lays
 out of its nine pieces, a sprite for each square. `units` writes a sprite
 for each unit, the standing frame of the way it faces, in the colour of its
-player if it is a human and of its kind if it is a monster. `pointer` is
-the cursor the mouse
-moves: on the edge of the screen it scrolls the map and shows an arrow that
-points the way, and its sprite has the last turn of all. `text` writes a
-text as the glyphs of a font, spaced as the original spaces them, over the
-map and under the pointer. Every sprite says where it stands, and `sprite`
-sorts the list into the order it is drawn: row after row from the top, and
-in a row from the right. None of it knows the graphics card, so all of it
-has unit tests.
+player if it is a human and of its kind if it is a monster, and finds the
+unit under a point of the screen by the selection box of its sheet.
+`pointer` is the cursor the mouse moves: on the edge of the screen it
+scrolls the map and shows an arrow that points the way, and its sprite has
+the last turn of all. `text` writes a text as the glyphs of a font, spaced
+as the original spaces them, over the map and under the pointer. Every
+sprite says where it stands, and `sprite` sorts the list into the order it
+is drawn: row after row from the top, and in a row from the right. None of
+it knows the graphics card, so all of it has unit tests.
 
 `src/game` is the program `rom2`, and the only code that uses SDL. `main.c`
 is the window and the loop. `map_screen` is being in a map, the one place of

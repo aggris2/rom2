@@ -160,6 +160,39 @@ UTEST(sprite_sheet, a_sheet_without_an_anchor_has_it_at_its_corner)
     EXPECT_EQ(0, def.anchor_y);
 }
 
+#define PLAIN "[sprite]\nsheet = \"s.png\"\ncell = [8, 8]\n"
+
+UTEST(sprite_sheet, reads_the_box_of_the_selection_if_it_has_one)
+{
+    SpriteSheet def;
+    ASSERT_TRUE(reads(PLAIN "selection = [-16, -30, 16, 12]\n", &def));
+    EXPECT_EQ(-16, def.selection.left);
+    EXPECT_EQ(-30, def.selection.top);
+    EXPECT_EQ(16, def.selection.right);
+    EXPECT_EQ(12, def.selection.bottom);
+    ASSERT_TRUE(reads(PLAIN, &def));
+    EXPECT_EQ(0, def.selection.left);
+    EXPECT_EQ(0, def.selection.top);
+    EXPECT_EQ(0, def.selection.right);
+    EXPECT_EQ(0, def.selection.bottom);
+}
+
+UTEST(sprite_sheet, refuses_a_selection_that_is_no_box)
+{
+    EXPECT_TRUE(refuses(PLAIN "selection = [-16, -30, 16]\n"));
+    EXPECT_TRUE(refuses(PLAIN "selection = [-16, -30, 16, 12, 1]\n"));
+    EXPECT_TRUE(refuses(PLAIN "selection = \"all\"\n"));
+    /* Its right before its left, or its bottom above its top. */
+    EXPECT_TRUE(refuses(PLAIN "selection = [16, -30, -16, 12]\n"));
+    EXPECT_TRUE(refuses(PLAIN "selection = [-16, 12, 16, -30]\n"));
+    /* Further from the anchor than a cell can be large. */
+    EXPECT_TRUE(refuses(PLAIN "selection = [-4097, 0, 0, 0]\n"));
+    EXPECT_TRUE(refuses(PLAIN "selection = [0, 0, 0, 4097]\n"));
+    SpriteSheet def;
+    EXPECT_TRUE(reads(PLAIN "selection = [-4096, -4096, 4096, 4096]\n",
+        &def));
+}
+
 UTEST(sprite_sheet, refuses_a_part_of_the_wrong_kind_or_length)
 {
     EXPECT_TRUE(refuses(

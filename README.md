@@ -90,11 +90,11 @@ So far the game shows a map: its ground, with the hills and the light on
 them, and its trees and rocks. Mission 10 here. A map's file can be named in
 place of the number, such as `content/maps/beach.alm`. The content is taken
 from the folder `content` where the game is started, or from the one named
-with `--content`. The mouse on the edge of the screen moves over the map.
-G shows a grid of the map's squares, P pauses the game, and F shows or
-hides how many frames a second are drawn. The window
-covers the whole screen; Alt+Enter switches to a plain window and back,
-and `--window` starts in one. Escape closes it.
+with `--content`. The mouse on the edge of the screen moves over the map,
+and a click on a unit selects it. G shows a grid of the map's squares, P
+pauses the game, and F shows or hides how many frames a second are drawn.
+The window covers the whole screen; Alt+Enter switches to a plain window and
+back, and `--window` starts in one. Escape closes it.
 
 ## Licence
 

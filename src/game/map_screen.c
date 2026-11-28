@@ -29,6 +29,11 @@
  * ground glides and does not stutter. */
 #define SCROLL_SPEED 1500.0f
 
+/* The room for a unit's name, with its closing zero, and how far
+ * below the top of the screen the selected unit's is written. */
+#define NAME_ROOM 32
+#define NAME_TOP 16
+
 /* The player at this screen: the first of a map, counted from 1. */
 #define PLAYER_SELF 1
 
@@ -57,6 +62,10 @@ struct MapScreen {
     Units live;                 /* the units of the game */
     UnitId hero;                /* the player's own, if has_hero */
     bool has_hero;
+    UnitId selected;            /* the unit clicked on, if has_selected */
+    bool has_selected;
+    /* What each look is called, to say which unit is selected. */
+    char unit_names[UNIT_LOOKS][NAME_ROOM];
     Random random;              /* its dice */
     PointerLook pointers[POINTER_KINDS];    /* how each pointer looks */
     FontLook small_font;        /* for what is written small */
@@ -244,7 +253,15 @@ static void add_unit_look(MapScreen *screen, UnitLook *look,
                           const char *path, const TomlTable *top)
 {
     SpriteSheet layout;
+    const char *name = NULL;
+    /* A unit has a name, and a hero's definition the look he is in. */
+    if (toml_get_text(top, "name", &name)
+        || toml_get_text(top, "look", &name)) {
+        snprintf(screen->unit_names[look - screen->units], NAME_ROOM, "%s",
+            name);
+    }
     if (add_sheet(screen, path, top, &layout, &look->sheet)) {
+        look->selection = layout.selection;
         look->known = true;
         look->cell_width = layout.cell_width;
         look->cell_height = layout.cell_height;
@@ -606,7 +623,7 @@ bool map_screen_frame(MapScreen *screen, float seconds)
     }
     most = objects_most(&camera, screen->objects)
         + structures_most(&screen->map, screen->structures)
-        + units_most(&screen->live) + 1 + RATE_ROOM;
+        + units_most(&screen->live) + 1 + RATE_ROOM + NAME_ROOM;
     if (most > screen->sprite_room) {
         Sprite *sprites = realloc(screen->sprites,
             2 * most * sizeof *sprites);
@@ -642,6 +659,17 @@ bool map_screen_frame(MapScreen *screen, float seconds)
             RATE_MARGIN, RATE_MARGIN, screen->sprites + frame.sprite_count,
             RATE_ROOM);
     }
+    /* Which unit is selected, under that: its name, until there is
+     * more to show of it. */
+    const Unit *selected = screen->has_selected
+        ? units_get(&screen->live, screen->selected) : NULL;
+    if (selected != NULL) {
+        frame.sprite_count += text_sprites(&screen->small_font,
+            screen->unit_names[unit_look_at(selected->type,
+                selected->dress)],
+            RATE_MARGIN, NAME_TOP, screen->sprites + frame.sprite_count,
+            NAME_ROOM);
+    }
     /* The pointer: an arrow while it scrolls the map, if there is
      * one. */
     const PointerLook *pointer
@@ -660,6 +688,18 @@ bool map_screen_frame(MapScreen *screen, float seconds)
         return false;
     }
     return true;
+}
+
+void map_screen_click(MapScreen *screen)
+{
+    int32_t x = 0;
+    int32_t y = 0;
+    if (!mouse_place(screen, &x, &y)) {
+        return;
+    }
+    Camera camera = camera_now(screen);
+    screen->has_selected = units_pick(&screen->map, &screen->live,
+        screen->units, &camera, x, y, &screen->selected);
 }
 
 void map_screen_key(MapScreen *screen, SDL_Keycode key)
