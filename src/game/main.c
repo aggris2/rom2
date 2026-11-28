@@ -53,8 +53,10 @@ static bool handle_events(SDL_Window *window, MapScreen *screen)
         if (event.type == SDL_EVENT_QUIT) {
             return false;
         }
-        if (event.type == SDL_EVENT_MOUSE_BUTTON_DOWN) {
-            map_screen_button(screen, event.button.button);
+        if (event.type == SDL_EVENT_MOUSE_BUTTON_DOWN
+            || event.type == SDL_EVENT_MOUSE_BUTTON_UP) {
+            map_screen_button(screen, event.button.button,
+                event.button.down);
         }
         if (event.type != SDL_EVENT_KEY_DOWN || event.key.repeat) {
             continue;
@@ -151,12 +153,13 @@ int main(int argc, char **argv)
             "\n"
             "Shows a map: mission 10 if none is named. The content is\n"
             "taken from the folder `content` if no other is named. The\n"
-            "mouse on the edge of the screen moves over the map and a\n"
-            "click selects a unit, which the right button lets go, and on\n"
-            "the ground sends it there. B hides the health of\n"
-            "the units that are not selected, W marks the\n"
-            "squares closed to what walks, then hovers, then flies, E those\n"
-            "the selected unit stands on, G shows\n"
+            "mouse on the edge of the screen moves over the map. A click\n"
+            "selects a unit and a box drawn with the mouse your units in\n"
+            "it, Shift adds to them, the right button lets go of them and\n"
+            "a click on the ground sends them there. B hides the health\n"
+            "of the units that are not selected, W marks the squares\n"
+            "closed to what walks, then hovers, then flies, E those the\n"
+            "selected units stand on, T makes every unit yours, G shows\n"
             "a grid, P pauses, F hides the count of frames a second, and\n"
             "Escape leaves.\n");
         return 2;

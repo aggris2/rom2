@@ -14,8 +14,8 @@ typedef struct MakeBars {
     UnitSlot slots[3];
     UnitLook looks[UNIT_LOOKS];
     BarsLook bars;
-    UnitId selected;
-    bool has_selected;
+    Selection selected;
+    uint32_t chosen[UNITS_MOST + 1];
     bool all;
     Sprite sprites[80];
 } MakeBars;
@@ -32,6 +32,7 @@ static void make_bars(MakeBars *m)
     m->looks[3].selection = (SpriteBox){-16, -30, 16, 12};
     m->bars.known = true;
     m->bars.sheet = 9;
+    m->selected.chosen = m->chosen;
 }
 
 /* Puts a unit in the middle of the square (x, y) with this health of
@@ -51,8 +52,7 @@ static Unit *put(MakeBars *m, int x, int y, int32_t health)
 
 static void select_slot(MakeBars *m, uint16_t slot)
 {
-    m->has_selected = true;
-    m->selected = (UnitId){slot, 0};
+    selection_put(&m->selected, (UnitId){slot, 0}, true);
 }
 
 /* The sprites for a screen that shows the map from its corner, or
@@ -61,8 +61,7 @@ static size_t sprites_for(MakeBars *m)
 {
     Camera camera = {0, 0, 320, 320};
     size_t count = bars_sprites(&m->map, &m->live, m->looks, &m->bars,
-        m->has_selected ? &m->selected : NULL, m->all, 0, &camera,
-        m->sprites);
+        &m->selected, m->all, 0, &camera, m->sprites);
     return count <= bars_most(&m->live) ? count : 9999;
 }
 
@@ -189,7 +188,8 @@ UTEST(bars, without_all_only_the_selected_unit_shows_its_bars)
     ASSERT_EQ(10u, sprites_for(&m));
     EXPECT_EQ(6 * 32 + 16 - 16 + 4, m.sprites[0].x);
     /* An id of a unit that was in the slot before is not this one. */
-    m.selected = (UnitId){1, 3};
+    selection_clear(&m.selected);
+    selection_put(&m.selected, (UnitId){1, 3}, true);
     EXPECT_EQ(0u, sprites_for(&m));
 }
 
@@ -210,7 +210,7 @@ UTEST(bars, with_all_the_others_are_faint_and_have_no_ground)
     EXPECT_EQ(9u, m.sprites[10].width);
     EXPECT_EQ(2u * BAR_LINES, m.sprites[14].source_y);
     /* With none selected all are faint. */
-    m.has_selected = false;
+    selection_clear(&m.selected);
     EXPECT_EQ(12u, sprites_for(&m));
 }
 

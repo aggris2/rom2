@@ -126,6 +126,7 @@ add_library(rom2_core STATIC
     src/view/light.c
     src/view/objects.c
     src/view/pointer.c
+    src/view/selection.c
     src/view/sprite.c
     src/view/structures.c
     src/view/text.c
@@ -242,6 +243,7 @@ add_executable(rom2_tests
     tests/view/test_light.c
     tests/view/test_objects.c
     tests/view/test_pointer.c
+    tests/view/test_selection.c
     tests/view/test_sprite.c
     tests/view/test_structures.c
     tests/view/test_text.c

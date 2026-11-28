@@ -58,4 +58,10 @@ bool sheets_load_font(Renderer *renderer, const char *definition,
 bool sheets_load_bars(Renderer *renderer, const char *ball,
                       uint16_t *sheet);
 
+/* Makes the sheet the box of a selection is drawn from, white all
+ * over as view/selection.h says, and puts it on the card. `*sheet`
+ * gets its number. Returns false, with a message printed, if it
+ * cannot. */
+bool sheets_load_box(Renderer *renderer, uint16_t *sheet);
+
 #endif

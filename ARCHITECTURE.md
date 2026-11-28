@@ -136,7 +136,7 @@ square how slow it is to cross, from the kinds of ground that meet on it,
 and whether it is closed to what walks, hovers or flies, by its ground, the
 tree or rock on it and the structures. `src/view/marks` turns it into marks
 that the ground is drawn with, for a look at the closed squares, and marks
-the squares the selected unit holds.
+the squares the selected units hold.
 
 `src/mechanics/walk` is a step from a square to one beside it. A unit turns
 to face the way, and then the step is looked at and taken in one tick: if
@@ -196,9 +196,12 @@ out of its nine pieces, a sprite for each square. `units` writes a sprite
 for each unit, the standing frame of the way it faces, in the colour of its
 player if it is a human and of its kind if it is a monster, and finds the
 unit under a point of the screen by the selection box of its sheet.
+`selection` keeps which units the player has selected and selects with a
+box the mouse draws: the player's own units whose selection boxes it
+covers, as the original does, and it writes the white outline of the box.
 `bars` writes the bars of health and mana over the units, out of a small
-sheet of lines the game makes: over the selected unit, or over all with the
-others faint. `pointer` is the cursor the mouse moves: on the edge of the
+sheet of lines the game makes: over the selected units, or over all with
+the others faint. `pointer` is the cursor the mouse moves: on the edge of the
 screen it scrolls the map and shows an arrow that points the way, and its
 sprite has the last turn of all. `text` writes a text as the glyphs of a
 font, spaced as the original spaces them, over the map and under the

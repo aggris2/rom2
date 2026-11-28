@@ -4,7 +4,8 @@
  * and what stands on it. The mouse on the edge of the screen moves the
  * camera over it. G shows and hides a grid of its squares, P pauses
  * the game and lets it go on, and F shows and hides how many frames a
- * second are drawn.
+ * second are drawn. T is for trying things out and is to go again:
+ * it makes the units of every player the player's own.
  */
 #ifndef ROM2_GAME_MAP_SCREEN_H
 #define ROM2_GAME_MAP_SCREEN_H
@@ -32,11 +33,17 @@ bool map_screen_frame(MapScreen *screen, float seconds);
 /* A key was pressed down. */
 void map_screen_key(MapScreen *screen, SDL_Keycode key);
 
-/* A button of the mouse was pressed down, where the mouse is now.
- * `button` is SDL's number for it. The left one on a unit selects
- * that unit, and elsewhere changes nothing; the right one lets go of
- * the unit that is selected. */
-void map_screen_button(MapScreen *screen, Uint8 button);
+/* A button of the mouse was pressed down, or with `down` false let
+ * go, where the mouse is now. `button` is SDL's number for it.
+ *
+ * The left one, pressed and let go in one place, is a click: on a
+ * unit it selects that unit alone, and on the ground it sends the
+ * selected units of the player there. Held while the mouse moves it
+ * draws a box, which selects the player's units in it when it is let
+ * go, and changes nothing if there are none. With Shift a click or a
+ * box selects the player's units besides those there are, or lets go
+ * of them. The right one lets go of all. */
+void map_screen_button(MapScreen *screen, Uint8 button, bool down);
 
 /* Gives everything back. NULL is allowed. */
 void map_screen_close(MapScreen *screen);

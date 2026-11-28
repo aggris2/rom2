@@ -91,15 +91,18 @@ them, and its trees and rocks. Mission 10 here. A map's file can be named in
 place of the number, such as `content/maps/beach.alm`. The content is taken
 from the folder `content` where the game is started, or from the one named
 with `--content`. The mouse on the edge of the screen moves over the map,
-and a click on a unit selects it, which the right button lets go. A click on
-the ground sends the selected unit there. Every unit shows its health, the
-selected one plainly and the others faintly; B hides that of the others. W
+and a click on a unit selects it, which the right button lets go. A box
+drawn with the left button held selects your own units in it, and with Shift
+a click or a box adds to those selected or lets go of them. A click on the
+ground sends your selected units there. Every unit shows its health, the
+selected ones plainly and the others faintly; B hides that of the others. W
 marks the squares that are closed to what walks, pressed again to what
-hovers, and again to what flies. E marks the squares the selected unit
-stands on. G shows a grid of the map's squares, P pauses the game, and F
-shows or hides how many frames a second are drawn. The window covers the
-whole screen; Alt+Enter switches to a plain window and back, and `--window`
-starts in one. Escape closes it.
+hovers, and again to what flies. E marks the squares the selected units
+stand on. T is there for trying things out and will go again: it makes the
+units of every player yours to box and to send. G shows a grid of the map's
+squares, P pauses the game, and F shows or hides how many frames a second
+are drawn. The window covers the whole screen; Alt+Enter switches to a plain
+window and back, and `--window` starts in one. Escape closes it.
 
 ## Licence
 

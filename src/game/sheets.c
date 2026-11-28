@@ -9,6 +9,7 @@
 #include "base/file.h"
 #include "base/png.h"
 #include "base/toml.h"
+#include "view/selection.h"
 
 /* Reads a PNG file, with a message if it cannot. */
 static bool read_png(const char *path, Png *png)
@@ -277,6 +278,25 @@ bool sheets_load_bars(Renderer *renderer, const char *ball,
     if (!renderer_add_sheet(renderer, WIDTH, HEIGHT, colours, solid,
             palette, 1, sheet)) {
         fprintf(stderr, "rom2: cannot use the sheet of the bars: %s\n",
+            SDL_GetError());
+        return false;
+    }
+    return true;
+}
+
+bool sheets_load_box(Renderer *renderer, uint16_t *sheet)
+{
+    enum { SIDE = SELECTION_SHEET_SIDE };
+    static uint8_t colours[SIDE * SIDE];
+    static uint8_t solid[SIDE * SIDE];
+    Rgb palette[256];
+    memset(colours, 0, sizeof colours);
+    memset(solid, SPRITE_SHEET_SOLID, sizeof solid);
+    memset(palette, 0, sizeof palette);
+    palette[0] = (Rgb){255, 255, 255};
+    if (!renderer_add_sheet(renderer, SIDE, SIDE, colours, solid, palette,
+            1, sheet)) {
+        fprintf(stderr, "rom2: cannot use the sheet of the box: %s\n",
             SDL_GetError());
         return false;
     }

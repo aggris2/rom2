@@ -34,9 +34,10 @@ typedef struct Sprite {
 #define SPRITE_ORDER_FLAT 0u
 
 /* The turns of what is not on the map but over it: the bars of the
- * units, writing, and over that the pointer. They come after every
- * turn sprite_order() gives. */
-#define SPRITE_ORDER_BARS (UINT32_MAX - 2u)
+ * units, the box the mouse selects with, writing, and over that the
+ * pointer. They come after every turn sprite_order() gives. */
+#define SPRITE_ORDER_BARS (UINT32_MAX - 3u)
+#define SPRITE_ORDER_BOX (UINT32_MAX - 2u)
 #define SPRITE_ORDER_TEXT (UINT32_MAX - 1u)
 #define SPRITE_ORDER_POINTER UINT32_MAX
 

@@ -24,6 +24,7 @@
 #include "view/marks.h"
 #include "view/objects.h"
 #include "view/pointer.h"
+#include "view/selection.h"
 #include "view/structures.h"
 #include "view/text.h"
 #include "view/units.h"
@@ -67,8 +68,18 @@ struct MapScreen {
     int32_t opens_on_x;
     int32_t opens_on_y;
     bool opening;
-    UnitId selected;            /* the unit clicked on, if has_selected */
-    bool has_selected;
+    Selection selected;         /* the units the player has selected */
+    /* The box the mouse draws while its left button is held, if it is
+     * `dragging`, and the sheet the box is drawn from, if there is
+     * one. */
+    bool dragging;
+    SelectionDrag drag;
+    uint16_t box_sheet;
+    bool has_box_sheet;
+    /* For trying things out, and to go again: the units of every
+     * player are the player's own, to select with a box and to
+     * send. */
+    bool any_player;
     BarsLook bars;              /* the bars of health and mana */
     /* The ground as units meet it, and the kinds of structure it was
      * made with: each by its ID, all zeros for one not read. */
@@ -77,12 +88,12 @@ struct MapScreen {
     StructureKind structure_kinds[STRUCTURE_KINDS];
     /* The marks the ground is drawn with: those of the closed
      * squares, none at all where they are not shown, and the list
-     * that is handed over, which has the selected unit's squares on
+     * that is handed over, which has the selected units' squares on
      * top of one of the two. */
     uint8_t *closed_marks;
     uint8_t *no_marks;
     uint8_t *marks;
-    bool show_held;             /* the selected unit's squares are marked */
+    bool show_held;             /* the selected units' squares are marked */
     /* Whose closed squares are marked: 0 for none, or TERRAIN_NO_WALK,
      * TERRAIN_NO_HOVER or TERRAIN_NO_FLY. */
     uint8_t show_closed;
@@ -576,6 +587,21 @@ static uint32_t between_ticks(const MapScreen *screen)
         ? UNIT_BETWEEN - 1u : (uint32_t)between;
 }
 
+/* Marks the squares the selected units hold, or with `held` false
+ * gives them back the marks they have without. */
+static void mark_selected(MapScreen *screen, bool held)
+{
+    const uint8_t *under = screen->show_closed != 0 ? screen->closed_marks
+        : screen->no_marks;
+    for (uint32_t slot = 0; slot < screen->live.count; slot++) {
+        UnitId id;
+        if (units_at(&screen->live, slot, &id) != NULL
+            && selection_has(&screen->selected, id)) {
+            marks_held(&screen->live, id, held, under, screen->marks);
+        }
+    }
+}
+
 /* The camera as it is now: where the screen has been moved to, at the
  * size the window has, and inside the map. */
 static Camera camera_now(MapScreen *screen)
@@ -643,7 +669,7 @@ MapScreen *map_screen_open(Renderer *renderer, const char *content,
     }
     screen->light = malloc((size_t)screen->map.info.width
         * screen->map.info.height);
-    if (screen->light == NULL) {
+    if (screen->light == NULL || !selection_make(&screen->selected)) {
         fprintf(stderr, "rom2: out of memory\n");
         map_screen_close(screen);
         return NULL;
@@ -652,6 +678,7 @@ MapScreen *map_screen_open(Renderer *renderer, const char *content,
     add_pointers(screen, content);
     add_small_font(screen, content);
     add_bars(screen, content);
+    screen->has_box_sheet = sheets_load_box(renderer, &screen->box_sheet);
     screen->all_bars = true;
     screen->show_rate = true;
     if (!add_tiles(screen, content) || !add_looks(screen, content)
@@ -730,8 +757,8 @@ bool map_screen_frame(MapScreen *screen, float seconds)
     }
     most = objects_most(&camera, screen->objects)
         + structures_most(&screen->map, screen->structures)
-        + units_most(&screen->live) + bars_most(&screen->live) + 1
-        + RATE_ROOM;
+        + units_most(&screen->live) + bars_most(&screen->live)
+        + selection_outline_most(&camera) + 1 + RATE_ROOM;
     if (most > screen->sprite_room) {
         Sprite *sprites = realloc(screen->sprites,
             2 * most * sizeof *sprites);
@@ -747,20 +774,16 @@ bool map_screen_frame(MapScreen *screen, float seconds)
     frame.ground_sheet = screen->tiles;
     frame.ground = screen->ground;
     uint64_t tick = screen->clock.tick;
-    /* The squares the selected unit holds are marked for this frame,
+    /* The squares the selected units hold are marked for this frame,
      * and given back after it. */
-    const uint8_t *under = screen->show_closed != 0 ? screen->closed_marks
-        : screen->no_marks;
-    if (screen->show_held && screen->has_selected) {
-        marks_held(&screen->live, screen->selected, true, under,
-            screen->marks);
+    if (screen->show_held) {
+        mark_selected(screen, true);
     }
     frame.ground_count = ground_squares(&screen->map, screen->light,
         screen->marks, tick, &camera, screen->tiles_width,
         screen->tiles_height, screen->ground);
-    if (screen->show_held && screen->has_selected) {
-        marks_held(&screen->live, screen->selected, false, under,
-            screen->marks);
+    if (screen->show_held) {
+        mark_selected(screen, false);
     }
     frame.sprites = screen->sprites;
     frame.sprite_count = objects_sprites(&screen->map, screen->objects,
@@ -777,9 +800,19 @@ bool map_screen_frame(MapScreen *screen, float seconds)
         screen->units, screen->kinds, has_hovered ? &hovered : NULL, tick,
         between, &camera, screen->sprites + frame.sprite_count);
     frame.sprite_count += bars_sprites(&screen->map, &screen->live,
-        screen->units, &screen->bars,
-        screen->has_selected ? &screen->selected : NULL, screen->all_bars,
+        screen->units, &screen->bars, &screen->selected, screen->all_bars,
         between, &camera, screen->sprites + frame.sprite_count);
+    /* The box the mouse is drawing goes with it. */
+    if (screen->dragging && mouse) {
+        screen->drag.to_x = mouse_x;
+        screen->drag.to_y = mouse_y;
+    }
+    if (screen->dragging && screen->has_box_sheet
+        && (screen->drag.from_x != screen->drag.to_x
+            || screen->drag.from_y != screen->drag.to_y)) {
+        frame.sprite_count += selection_outline(screen->box_sheet,
+            &screen->drag, &camera, screen->sprites + frame.sprite_count);
+    }
     /* How many frames a second are drawn, in the top left corner. */
     count_frame(screen);
     if (screen->show_rate && screen->rate > 0) {
@@ -809,31 +842,81 @@ bool map_screen_frame(MapScreen *screen, float seconds)
     return true;
 }
 
-void map_screen_button(MapScreen *screen, Uint8 button)
+/* Whether a unit does what the player tells it: one of his own. */
+static bool obeys(const MapScreen *screen, const Unit *unit)
 {
-    int32_t x = 0;
-    int32_t y = 0;
-    if (button == SDL_BUTTON_RIGHT) {
-        screen->has_selected = false;
-    }
-    if (button != SDL_BUTTON_LEFT || !mouse_place(screen, &x, &y)) {
-        return;
-    }
-    Camera camera = camera_now(screen);
+    return screen->any_player || unit->player == UNITS_PLAYER_SELF;
+}
+
+/* A click of the left button at a point of the screen. On a unit it
+ * selects that one alone, whoever it belongs to; with `toggle` it
+ * selects one of the player's own besides the others, or lets go of
+ * it. On the ground it sends there those of the selected that obey.
+ * A click on an enemy is to be an attack, once units fight. */
+static void click(MapScreen *screen, const Camera *camera, int32_t x,
+                  int32_t y, bool toggle)
+{
     UnitId picked;
     int32_t column = 0;
     int32_t row = 0;
     if (units_pick(&screen->map, &screen->live, screen->units,
-            between_ticks(screen), &camera, x, y, &picked)) {
-        screen->selected = picked;
-        screen->has_selected = true;
+            between_ticks(screen), camera, x, y, &picked)) {
+        if (!toggle) {
+            selection_clear(&screen->selected);
+            selection_put(&screen->selected, picked, true);
+        } else if (obeys(screen, units_get(&screen->live, picked))) {
+            selection_put(&screen->selected, picked,
+                !selection_has(&screen->selected, picked));
+        }
         return;
     }
-    /* On the ground: the selected unit goes there. */
-    if (screen->has_selected && ground_square_under(&screen->map, &camera,
-            x, y, &column, &row)) {
-        walk_send(&screen->live, &screen->fields, &screen->terrain,
-            screen->selected, column, row);
+    if (!ground_square_under(&screen->map, camera, x, y, &column, &row)) {
+        return;
+    }
+    for (uint32_t slot = 0; slot < screen->live.count; slot++) {
+        UnitId id;
+        const Unit *unit = units_at(&screen->live, slot, &id);
+        if (unit != NULL && selection_has(&screen->selected, id)
+            && obeys(screen, unit)) {
+            walk_send(&screen->live, &screen->fields, &screen->terrain, id,
+                column, row);
+        }
+    }
+}
+
+void map_screen_button(MapScreen *screen, Uint8 button, bool down)
+{
+    int32_t x = 0;
+    int32_t y = 0;
+    if (button == SDL_BUTTON_RIGHT && down) {
+        selection_clear(&screen->selected);
+    }
+    if (button != SDL_BUTTON_LEFT) {
+        return;
+    }
+    bool dragged = screen->dragging;
+    screen->dragging = false;
+    if (!mouse_place(screen, &x, &y)) {
+        return;
+    }
+    if (down) {
+        screen->dragging = true;
+        screen->drag = (SelectionDrag){x, y, x, y};
+        return;
+    }
+    if (!dragged) {
+        return;
+    }
+    screen->drag.to_x = x;
+    screen->drag.to_y = y;
+    Camera camera = camera_now(screen);
+    bool toggle = (SDL_GetModState() & SDL_KMOD_SHIFT) != 0;
+    if (selection_drag_is_box(&screen->drag, &camera)) {
+        selection_box(&screen->selected, &screen->map, &screen->live,
+            screen->units, between_ticks(screen), &camera, &screen->drag,
+            screen->any_player ? 0 : UNITS_PLAYER_SELF, toggle);
+    } else {
+        click(screen, &camera, x, y, toggle);
     }
 }
 
@@ -847,6 +930,8 @@ void map_screen_key(MapScreen *screen, SDL_Keycode key)
         screen->show_rate = !screen->show_rate;
     } else if (key == SDLK_B) {
         screen->all_bars = !screen->all_bars;
+    } else if (key == SDLK_T) {
+        screen->any_player = !screen->any_player;
     } else if (key == SDLK_E) {
         screen->show_held = !screen->show_held;
     } else if (key == SDLK_W) {
@@ -871,6 +956,7 @@ void map_screen_close(MapScreen *screen)
     }
     units_free(&screen->live);
     fields_free(&screen->fields);
+    selection_free(&screen->selected);
     terrain_free(&screen->terrain);
     free(screen->closed_marks);
     free(screen->no_marks);
