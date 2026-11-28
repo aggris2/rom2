@@ -53,6 +53,15 @@ typedef struct UnitLook {
  * `type` is less than UNIT_TYPES and `dress` than UNIT_DRESSES. */
 size_t unit_look_at(uint16_t type, uint8_t dress);
 
+/* Where a unit is on the screen: `*x` and `*y` get the point its
+ * anchor is drawn on, its place raised by the ground under it, and
+ * the look it is drawn in is returned. Returns NULL, and leaves the
+ * two alone, for a unit that is not drawn: one of a type or a dress
+ * without a look, or off the map. */
+const UnitLook *unit_on_screen(const Map *map, const Unit *unit,
+                               const UnitLook *looks, const Camera *camera,
+                               int32_t *x, int32_t *y);
+
 /* Finds the unit under a point of the screen: one whose selection box,
  * where it is drawn, holds the point. Of several it is the one that
  * stands lowest on the screen, which is in front of the others, and
@@ -76,7 +85,9 @@ size_t units_most(const Units *units);
  *
  * A unit stands with its anchor on its place, raised by the height of
  * the ground at that point, shows the standing frame of the way
- * it faces, and is as bright as LIGHT_STANDING.
+ * it faces, and is as bright as LIGHT_STANDING. The one `hovered`
+ * names, the unit the mouse is on, is as bright as LIGHT_HOVERED:
+ * NULL for none.
  *
  * A unit's facing is cut down to the UNIT_FACINGS its pictures have.
  * The frames of the first row do not start with the way the game
@@ -98,6 +109,7 @@ size_t units_most(const Units *units);
  * its turn: see sprites_sort(). */
 size_t units_sprites(const Map *map, const Units *units,
                      const UnitLook *looks, const UnitKind *kinds,
-                     uint64_t tick, const Camera *camera, Sprite *out);
+                     const UnitId *hovered, uint64_t tick,
+                     const Camera *camera, Sprite *out);
 
 #endif

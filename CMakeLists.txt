@@ -115,6 +115,7 @@ add_library(rom2_core STATIC
     src/mechanics/random.c
     src/mechanics/unit.c
     src/mechanics/units.c
+    src/view/bars.c
     src/view/camera.c
     src/view/ground.c
     src/view/light.c
@@ -225,6 +226,7 @@ add_executable(rom2_tests
     tests/mechanics/test_random.c
     tests/mechanics/test_unit.c
     tests/mechanics/test_units.c
+    tests/view/test_bars.c
     tests/view/test_camera.c
     tests/view/test_ground.c
     tests/view/test_light.c

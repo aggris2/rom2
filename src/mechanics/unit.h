@@ -39,6 +39,10 @@ typedef struct Unit {
     uint8_t facing_wanted;  /* the way it is turning to */
     uint8_t turn_speed;     /* steps of facing in a tick: its kind's */
     bool turning;           /* on its way to the facing it wants */
+    int32_t health;
+    int32_t health_most;    /* 0 or less for a unit that has none */
+    int32_t mana;
+    int32_t mana_most;      /* 0 or less for a unit that has none */
 } Unit;
 
 /* A turn of less than this many steps is taken at once, by a unit that

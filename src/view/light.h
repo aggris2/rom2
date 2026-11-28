@@ -35,6 +35,11 @@
 #define LIGHT_STANDING \
     ((16 - LIGHT_DARKNESS / 4) * 2 * FRAME_LIGHT_WHOLE / 16)
 
+/* The level of a unit the mouse is on: the original draws it from the
+ * first of those palettes, twice its picture's colours, whatever the
+ * time of day. */
+#define LIGHT_HOVERED (2u * FRAME_LIGHT_WHOLE)
+
 /* Works out the level at the top left corner of each square, row after
  * row from the top, into `levels`, which has room for the map's width
  * times its height. Each is from 2 to LIGHT_MAX. */

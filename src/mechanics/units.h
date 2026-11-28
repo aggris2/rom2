@@ -40,7 +40,19 @@ typedef struct Units {
     uint32_t count;
     uint32_t room;
     uint32_t living;
+    /* The players a person plays: a bit for each of the first
+     * UNITS_PLAYERS, the lowest for player 1. The computer plays the
+     * others. A hero who enters makes his player a person's. */
+    uint32_t people;
 } Units;
+
+/* The players the game tells a person's from the computer's: those of
+ * a map, and as many more. */
+#define UNITS_PLAYERS 32
+
+/* The player a person plays who plays a map alone: its first, which
+ * the maps call Self. */
+#define UNITS_PLAYER_SELF 1
 
 /* How far a unit turns in a tick whose kind is not known. */
 #define UNITS_TURN_SPEED_UNKNOWN 16
@@ -50,7 +62,9 @@ typedef struct Units {
  * whose record says a way there is not faces the first.
  *
  * `kinds` has UNIT_KIND_IDS entries, the kind with each ID, all zeros
- * for one that is not known: a unit turns as fast as its kind.
+ * for one that is not known: a unit turns as fast as its kind, and has
+ * the health and the mana of its kind, all of both, unless its record
+ * says a health of its own and the most of it.
  *
  * Returns false, and leaves `*out` alone, if memory runs out. */
 bool units_from_map(const Map *map, const UnitKind *kinds, Units *out);
@@ -70,8 +84,9 @@ typedef struct UnitsHero {
 /* Puts a hero on the map, in the middle of a square where a player
  * enters it. The dice pick one of them, as in the original; if a unit
  * stands on it he takes the next in the map's order that is free, and
- * the picked one if a unit stands on each. He faces the first way and
- * turns as fast as his kind. `out` may be NULL.
+ * the picked one if a unit stands on each. He faces the first way,
+ * turns as fast as his kind and has its health and mana, and his
+ * player is from then on one a person plays. `out` may be NULL.
  *
  * Returns false, and changes nothing, the dice too, if the map has no
  * such square. Returns false also if there are UNITS_MOST units
@@ -79,8 +94,10 @@ typedef struct UnitsHero {
 bool units_enter(Units *units, const Map *map, const UnitKind *kinds,
                  const UnitsHero *hero, Random *random, UnitId *out);
 
-/* One tick of every unit: so far each stands and may look around,
- * having nothing else to do. The units take their turn in the order of their
+/* One tick of every unit: so far each stands, having nothing else to
+ * do. A unit the computer plays may look around, as in the original;
+ * one of a player a person plays, his hero and any other, stands as
+ * it was left. The units take their turn in the order of their
  * slots. */
 void units_tick(Units *units, Random *random);
 

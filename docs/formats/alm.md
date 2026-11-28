@@ -139,6 +139,12 @@ This reading fits the names: in mission 10 the player `self` has 1 for
 `Enemy` and 0 for `Neutral`. It was not checked against the game. A
 mission's first player is named `self`.
 
+Bit 1 of the flags is in every player of the 58 maps but the first, and
+in the first of mission 103 and of three loose maps. Bit 2 is set for
+13 players of four loose maps. Neither was measured in the game, and
+ROM2 reads neither: it goes by who plays. A person who plays a map
+alone plays its first player, and the computer plays the others.
+
 ## Section 6, the units
 
 A unit is 48 bytes:

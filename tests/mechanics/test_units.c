@@ -12,6 +12,8 @@ static const UnitKind *some_kinds(void)
 {
     kinds[600].id = 600;
     kinds[600].rotation_speed = 19;
+    kinds[600].health = 80;
+    kinds[600].mana = 30;
     return kinds;
 }
 
@@ -176,6 +178,12 @@ UTEST(units, a_map_gives_the_units_a_game_starts_with)
     EXPECT_EQ(240u, units_at(&units, 1, NULL)->facing);
     EXPECT_EQ(0u, units_at(&units, 2, NULL)->facing);
     /* A unit turns as fast as its kind, or as one of no known kind. */
+    /* And has all the health and the mana of its kind. */
+    EXPECT_EQ(80, first->health);
+    EXPECT_EQ(80, first->health_most);
+    EXPECT_EQ(30, first->mana);
+    EXPECT_EQ(30, first->mana_most);
+    EXPECT_EQ(0, units_at(&units, 1, NULL)->health_most);
     EXPECT_EQ(19u, first->turn_speed);
     EXPECT_EQ((unsigned)UNITS_TURN_SPEED_UNKNOWN,
         units_at(&units, 1, NULL)->turn_speed);
@@ -197,6 +205,7 @@ UTEST(units, a_hero_enters_in_the_middle_of_the_square_for_it)
     MapDrop drops[1] = {{11, 41}};
     Map map = map_with_drops(drops, 1);
     kinds[UNITS_HERO_KIND].rotation_speed = 18;
+    kinds[UNITS_HERO_KIND].health = 20;
     Units units = {0};
     UnitId id = {9999, 9999};
     UnitsHero who = {1, 3, UNIT_DRESS_HERO_ARMOUR};
@@ -217,7 +226,10 @@ UTEST(units, a_hero_enters_in_the_middle_of_the_square_for_it)
     EXPECT_EQ(0u, hero->facing_wanted);
     EXPECT_FALSE(hero->turning);
     EXPECT_EQ(18u, hero->turn_speed);
+    EXPECT_EQ(20, hero->health);
+    EXPECT_EQ(20, hero->health_most);
     kinds[UNITS_HERO_KIND].rotation_speed = 0;
+    kinds[UNITS_HERO_KIND].health = 0;
     units_free(&units);
 }
 
@@ -314,6 +326,36 @@ UTEST(units, no_hero_enters_a_map_without_a_square_for_it)
     units_free(&units);
 }
 
+UTEST(units, a_record_may_say_its_own_health)
+{
+    MapUnit records[3];
+    memset(records, 0, sizeof records);
+    for (int i = 0; i < 3; i++) {
+        records[i].kind = 600;
+    }
+    records[0].health = 25;
+    records[0].health_max = 100;
+    /* The others say none, as most do, or only half of it. */
+    records[1].health = -1;
+    records[1].health_max = -1;
+    records[2].health = 25;
+    records[2].health_max = -1;
+    Map map;
+    memset(&map, 0, sizeof map);
+    map.units = records;
+    map.unit_count = 3;
+    Units units = {0};
+    ASSERT_TRUE(units_from_map(&map, some_kinds(), &units));
+    EXPECT_EQ(25, units_at(&units, 0, NULL)->health);
+    EXPECT_EQ(100, units_at(&units, 0, NULL)->health_most);
+    EXPECT_EQ(30, units_at(&units, 0, NULL)->mana);
+    EXPECT_EQ(80, units_at(&units, 1, NULL)->health);
+    EXPECT_EQ(80, units_at(&units, 1, NULL)->health_most);
+    EXPECT_EQ(80, units_at(&units, 2, NULL)->health);
+    EXPECT_EQ(80, units_at(&units, 2, NULL)->health_most);
+    units_free(&units);
+}
+
 UTEST(units, a_tick_is_a_tick_of_every_unit_there_is)
 {
     Units units = {0};
@@ -334,6 +376,106 @@ UTEST(units, a_tick_is_a_tick_of_every_unit_there_is)
     EXPECT_EQ(16u, units_get(&units, third)->facing);
     units_tick(&units, &random);
     EXPECT_EQ(32u, units_get(&units, first)->facing);
+    units_free(&units);
+}
+
+/* Whether a unit of `player` has looked another way after 5000 ticks
+ * of a game in which a person plays the players of `people`. */
+static bool looks_around(int32_t player, uint32_t people)
+{
+    Units units = {0};
+    units.people = people;
+    Random random;
+    random_start(&random, 5);
+    Unit unit = unit_of(10);
+    unit.turn_speed = 16;
+    unit.facing = 40;
+    unit.facing_wanted = 40;
+    unit.player = player;
+    UnitId id;
+    units_add(&units, &unit, &id);
+    for (int tick = 0; tick < 5000; tick++) {
+        units_tick(&units, &random);
+    }
+    bool looked = units_get(&units, id)->facing != 40;
+    units_free(&units);
+    return looked;
+}
+
+UTEST(units, only_a_unit_the_computer_plays_looks_around)
+{
+    /* A person plays the first player and the third. */
+    EXPECT_FALSE(looks_around(1, 5u));
+    EXPECT_TRUE(looks_around(2, 5u));
+    EXPECT_FALSE(looks_around(3, 5u));
+    EXPECT_FALSE(looks_around(32, 0x80000000u));
+    /* A player the game does not count is the computer's. */
+    EXPECT_TRUE(looks_around(0, 0xffffffffu));
+    EXPECT_TRUE(looks_around(33, 0xffffffffu));
+    EXPECT_TRUE(looks_around(-4, 0xffffffffu));
+}
+
+UTEST(units, a_hero_makes_his_player_a_persons)
+{
+    MapDrop drops[1] = {{3, 3}};
+    Map map = map_with_drops(drops, 1);
+    Units units = {0};
+    Random random;
+    random_start(&random, 5);
+    UnitsHero who = {UNITS_PLAYER_SELF, 3, UNIT_DRESS_HERO_ARMOUR};
+    UnitId hero;
+    ASSERT_TRUE(units_enter(&units, &map, some_kinds(), &who, &random,
+        &hero));
+    EXPECT_EQ(1u, units.people);
+    /* One more of his player, as a map may have, and one of another. */
+    Unit unit = unit_of(10);
+    unit.turn_speed = 16;
+    UnitId own;
+    UnitId other;
+    unit.player = UNITS_PLAYER_SELF;
+    units_add(&units, &unit, &own);
+    unit.player = 2;
+    units_add(&units, &unit, &other);
+    for (int tick = 0; tick < 5000; tick++) {
+        units_tick(&units, &random);
+    }
+    EXPECT_EQ(0u, units_get(&units, hero)->facing);
+    EXPECT_EQ(0u, units_get(&units, own)->facing);
+    EXPECT_NE(0u, units_get(&units, other)->facing);
+    units_free(&units);
+}
+
+UTEST(units, no_dice_are_thrown_for_a_unit_of_a_person)
+{
+    Units units = {0};
+    units.people = 1u;
+    Random random;
+    random_start(&random, 5);
+    Random same = random;
+    Unit unit = unit_of(10);
+    unit.player = 1;
+    units_add(&units, &unit, NULL);
+    for (int tick = 0; tick < 100; tick++) {
+        units_tick(&units, &random);
+    }
+    EXPECT_EQ(random_next(&same), random_next(&random));
+    units_free(&units);
+}
+
+UTEST(units, a_unit_of_a_person_still_turns_as_told)
+{
+    Units units = {0};
+    units.people = 1u;
+    Random random;
+    random_start(&random, 5);
+    Unit unit = unit_of(10);
+    unit.player = 1;
+    unit.turn_speed = 16;
+    unit.facing_wanted = 64;
+    UnitId id;
+    units_add(&units, &unit, &id);
+    units_tick(&units, &random);
+    EXPECT_EQ(16u, units_get(&units, id)->facing);
     units_free(&units);
 }
 

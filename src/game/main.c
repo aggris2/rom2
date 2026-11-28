@@ -44,8 +44,8 @@ static void toggle_fullscreen(SDL_Window *window)
 }
 
 /* Takes what happened since the last frame. A key that is not the
- * window's goes to the map, and so does a click of the left
- * button. Returns false when the player wants to leave. */
+ * window's goes to the map, and so does a button of the mouse.
+ * Returns false when the player wants to leave. */
 static bool handle_events(SDL_Window *window, MapScreen *screen)
 {
     SDL_Event event;
@@ -53,9 +53,8 @@ static bool handle_events(SDL_Window *window, MapScreen *screen)
         if (event.type == SDL_EVENT_QUIT) {
             return false;
         }
-        if (event.type == SDL_EVENT_MOUSE_BUTTON_DOWN
-            && event.button.button == SDL_BUTTON_LEFT) {
-            map_screen_click(screen);
+        if (event.type == SDL_EVENT_MOUSE_BUTTON_DOWN) {
+            map_screen_button(screen, event.button.button);
         }
         if (event.type != SDL_EVENT_KEY_DOWN || event.key.repeat) {
             continue;
@@ -153,8 +152,10 @@ int main(int argc, char **argv)
             "Shows a map: mission 10 if none is named. The content is\n"
             "taken from the folder `content` if no other is named. The\n"
             "mouse on the edge of the screen moves over the map and a\n"
-            "click selects a unit, G shows a grid, P pauses, F hides the\n"
-            "count of frames a second, and Escape leaves.\n");
+            "click selects a unit, which the right button lets go. B hides\n"
+            "the health of the units that are not selected, G shows a grid,\n"
+            "P pauses, F hides the count of frames a second, and Escape\n"
+            "leaves.\n");
         return 2;
     }
     if (map == NULL) {

@@ -133,18 +133,19 @@ animation for the tick, which its sprite sheet lists.
 
 `src/mechanics/units` holds the units of a game that is being played, made
 from a map's records when the game starts: from then on the map is only the
-ground they stand on. The hero is not among those records: he enters on
-the square the map's script names for it, and is drawn from pictures of his
-own, those of the type of unit he is armed as, in armour or without. A
-unit is named by its slot in the list and by how many units the slot had
-before it, so that a slot can be used again and an old name leads to
-nothing. `src/mechanics/random` is the game's dice, which follow from their
-seed alone, so that the same game plays out the same
-everywhere. `unit` is the record of one unit and how it turns: at its kind's
-speed and by the shorter way, as in the original. `idle` is what a unit does
-that has nothing to do: it stands, and now and then, when the dice say so,
-it turns to look another way. A tick of the game is so far a tick of every
-unit.
+ground they stand on. The hero is not among those records: he enters on the
+square the map's script names for it, and is drawn from pictures of his own,
+those of the type of unit he is armed as, in armour or without. A unit is
+named by its slot in the list and by how many units the slot had before it,
+so that a slot can be used again and an old name leads to nothing.
+`src/mechanics/random` is the game's dice, which follow from their seed
+alone, so that the same game plays out the same everywhere. `unit` is the
+record of one unit and how it turns: at its kind's speed and by the shorter
+way, as in the original. `idle` is what a unit does that has nothing to do:
+it stands, and now and then, when the dice say so, it turns to look another
+way. Only a unit the computer plays does that. A person plays the map's
+first player, and that player's units, the hero and any the map gives it,
+stand as they were left. A tick of the game is so far a tick of every unit.
 
 `src/view` turns what there is into what is drawn. `frame.h` is what the
 renderer is handed once a frame: the ground, and the sprites that lie on it.
@@ -163,13 +164,15 @@ out of its nine pieces, a sprite for each square. `units` writes a sprite
 for each unit, the standing frame of the way it faces, in the colour of its
 player if it is a human and of its kind if it is a monster, and finds the
 unit under a point of the screen by the selection box of its sheet.
-`pointer` is the cursor the mouse moves: on the edge of the screen it
-scrolls the map and shows an arrow that points the way, and its sprite has
-the last turn of all. `text` writes a text as the glyphs of a font, spaced
-as the original spaces them, over the map and under the pointer. Every
-sprite says where it stands, and `sprite` sorts the list into the order it
-is drawn: row after row from the top, and in a row from the right. None of
-it knows the graphics card, so all of it has unit tests.
+`bars` writes the bars of health and mana over the units, out of a small
+sheet of lines the game makes: over the selected unit, or over all with the
+others faint. `pointer` is the cursor the mouse moves: on the edge of the
+screen it scrolls the map and shows an arrow that points the way, and its
+sprite has the last turn of all. `text` writes a text as the glyphs of a
+font, spaced as the original spaces them, over the map and under the
+pointer. Every sprite says where it stands, and `sprite` sorts the list into
+the order it is drawn: row after row from the top, and in a row from the
+right. None of it knows the graphics card, so all of it has unit tests.
 
 `src/game` is the program `rom2`, and the only code that uses SDL. `main.c`
 is the window and the loop. `map_screen` is being in a map, the one place of

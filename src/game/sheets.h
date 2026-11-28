@@ -11,6 +11,7 @@
 #include "data/font.h"
 #include "data/sprite_sheet.h"
 #include "game/renderer.h"
+#include "view/bars.h"
 
 /* Reads a picture with a palette that is solid all over, such as the
  * ground's tiles, and puts it on the card. `*sheet` gets its number,
@@ -49,5 +50,12 @@ bool sheets_load_cursor(Renderer *renderer, const char *definition,
  * Returns false, with a message printed, if it cannot. */
 bool sheets_load_font(Renderer *renderer, const char *definition,
                       const Font *font, Rgb colour, uint16_t *sheet);
+
+/* Makes the sheet of the bars of the units, as view/bars.h lays it
+ * out, with the ball from the picture at `ball`, and puts it on the
+ * card. A pixel of the ball that is black is not there. `*sheet` gets
+ * its number. Returns false, with a message printed, if it cannot. */
+bool sheets_load_bars(Renderer *renderer, const char *ball,
+                      uint16_t *sheet);
 
 #endif

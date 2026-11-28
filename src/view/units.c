@@ -41,6 +41,21 @@ static const UnitLook *look_of(const Unit *unit, const UnitLook *looks)
     return look->known ? look : NULL;
 }
 
+const UnitLook *unit_on_screen(const Map *map, const Unit *unit,
+                               const UnitLook *looks, const Camera *camera,
+                               int32_t *x, int32_t *y)
+{
+    const UnitLook *look = look_of(unit, looks);
+    if (look == NULL) {
+        return NULL;
+    }
+    int32_t place_x = unit->x * MAP_SQUARE / UNIT_PLACE_PARTS;
+    int32_t place_y = unit->y * MAP_SQUARE / UNIT_PLACE_PARTS;
+    *x = place_x - camera->left;
+    *y = place_y - camera->top - ground_height_at(map, place_x, place_y);
+    return look;
+}
+
 bool units_pick(const Map *map, const Units *units, const UnitLook *looks,
                 const Camera *camera, int32_t x, int32_t y, UnitId *out)
 {
@@ -48,16 +63,14 @@ bool units_pick(const Map *map, const Units *units, const UnitLook *looks,
     int32_t lowest = 0;
     for (uint32_t slot = 0; slot < units->count; slot++) {
         UnitId id;
+        int32_t at_x = 0;
+        int32_t at_y = 0;
         const Unit *unit = units_at(units, slot, &id);
-        const UnitLook *look = unit == NULL ? NULL : look_of(unit, looks);
+        const UnitLook *look = unit == NULL ? NULL
+            : unit_on_screen(map, unit, looks, camera, &at_x, &at_y);
         if (look == NULL) {
             continue;
         }
-        int32_t place_x = unit->x * MAP_SQUARE / UNIT_PLACE_PARTS;
-        int32_t place_y = unit->y * MAP_SQUARE / UNIT_PLACE_PARTS;
-        int32_t at_x = place_x - camera->left;
-        int32_t at_y = place_y - camera->top
-            - ground_height_at(map, place_x, place_y);
         const SpriteBox *box = &look->selection;
         if (x < at_x + box->left || x >= at_x + box->right
             || y < at_y + box->top || y >= at_y + box->bottom
@@ -73,20 +86,22 @@ bool units_pick(const Map *map, const Units *units, const UnitLook *looks,
 
 size_t units_sprites(const Map *map, const Units *units,
                      const UnitLook *looks, const UnitKind *kinds,
-                     uint64_t tick, const Camera *camera, Sprite *out)
+                     const UnitId *hovered, uint64_t tick,
+                     const Camera *camera, Sprite *out)
 {
     size_t count = 0;
     for (uint32_t slot = 0; slot < units->count; slot++) {
-        const Unit *unit = units_at(units, slot, NULL);
-        const UnitLook *look = unit == NULL ? NULL : look_of(unit, looks);
+        UnitId id;
+        int32_t at_x = 0;
+        int32_t at_y = 0;
+        const Unit *unit = units_at(units, slot, &id);
+        const UnitLook *look = unit == NULL ? NULL
+            : unit_on_screen(map, unit, looks, camera, &at_x, &at_y);
         if (look == NULL) {
             continue;
         }
-        int32_t place_x = unit->x * MAP_SQUARE / UNIT_PLACE_PARTS;
-        int32_t place_y = unit->y * MAP_SQUARE / UNIT_PLACE_PARTS;
-        int32_t left = place_x - look->anchor_x - camera->left;
-        int32_t top = place_y - look->anchor_y - camera->top
-            - ground_height_at(map, place_x, place_y);
+        int32_t left = at_x - look->anchor_x;
+        int32_t top = at_y - look->anchor_y;
         if (left >= camera->width || top >= camera->height
             || left + (int32_t)look->cell_width <= 0
             || top + (int32_t)look->cell_height <= 0) {
@@ -109,7 +124,8 @@ size_t units_sprites(const Map *map, const Units *units,
         sprite->height = look->cell_height;
         sprite->x = (int16_t)left;
         sprite->y = (int16_t)top;
-        sprite->light = LIGHT_STANDING;
+        sprite->light = hovered != NULL && hovered->slot == id.slot
+            && hovered->age == id.age ? LIGHT_HOVERED : LIGHT_STANDING;
         sprite->palette = palette_of(map, unit, look, kinds);
         sprite->order = sprite_order(unit->x / UNIT_PLACE_PARTS,
             unit->y / UNIT_PLACE_PARTS);

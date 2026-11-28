@@ -232,3 +232,53 @@ bool sheets_load_font(Renderer *renderer, const char *definition,
     png_free(&solid);
     return ok;
 }
+
+bool sheets_load_bars(Renderer *renderer, const char *ball,
+                      uint16_t *sheet)
+{
+    enum { WIDTH = BARS_SHEET_WIDTH, HEIGHT = BARS_SHEET_HEIGHT };
+    static uint8_t colours[WIDTH * HEIGHT];
+    static uint8_t solid[WIDTH * HEIGHT];
+    Rgb palette[256];
+    Png png;
+    if (!read_png(ball, &png)) {
+        return false;
+    }
+    if (png.kind != PNG_RGB || png.width != BARS_BALL
+        || png.height != BARS_BALL) {
+        fprintf(stderr, "rom2: %s is not the ball of the bars\n", ball);
+        png_free(&png);
+        return false;
+    }
+    memset(colours, 0, sizeof colours);
+    memset(solid, 0, sizeof solid);
+    memset(palette, 0, sizeof palette);
+    /* A line has its place in the palette, and so has each pixel of
+     * the ball after them. */
+    for (int line = 0; line < BAR_LINES; line++) {
+        palette[line] = bars_colour((BarLine)line);
+        memset(colours + line * WIDTH, line, WIDTH);
+        memset(solid + line * WIDTH, SPRITE_SHEET_SOLID, WIDTH);
+        memset(colours + (BAR_LINES + line) * WIDTH, line, WIDTH);
+        memset(solid + (BAR_LINES + line) * WIDTH, SPRITE_SHEET_EDGE,
+            WIDTH);
+    }
+    for (int i = 0; i < BARS_BALL * BARS_BALL; i++) {
+        Rgb colour = {png.pixels[i * 3], png.pixels[i * 3 + 1],
+            png.pixels[i * 3 + 2]};
+        size_t at = (size_t)(2 * BAR_LINES + i / BARS_BALL) * WIDTH
+            + (size_t)(i % BARS_BALL);
+        palette[BAR_LINES + i] = colour;
+        colours[at] = (uint8_t)(BAR_LINES + i);
+        solid[at] = colour.r == 0 && colour.g == 0 && colour.b == 0
+            ? 0 : SPRITE_SHEET_SOLID;
+    }
+    png_free(&png);
+    if (!renderer_add_sheet(renderer, WIDTH, HEIGHT, colours, solid,
+            palette, 1, sheet)) {
+        fprintf(stderr, "rom2: cannot use the sheet of the bars: %s\n",
+            SDL_GetError());
+        return false;
+    }
+    return true;
+}

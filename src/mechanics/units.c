@@ -84,11 +84,24 @@ void units_remove(Units *units, UnitId id)
     units->living--;
 }
 
+/* Whether the computer plays the unit: no person plays its player. */
+static bool computer_plays(const Units *units, const Unit *unit)
+{
+    return unit->player < 1 || unit->player > UNITS_PLAYERS
+        || (units->people >> (unit->player - 1) & 1u) == 0;
+}
+
 void units_tick(Units *units, Random *random)
 {
     for (uint32_t slot = 0; slot < units->count; slot++) {
-        if (units->slots[slot].taken) {
-            idle_tick(&units->slots[slot].unit, random);
+        if (!units->slots[slot].taken) {
+            continue;
+        }
+        Unit *unit = &units->slots[slot].unit;
+        if (computer_plays(units, unit)) {
+            idle_tick(unit, random);
+        } else {
+            unit_turn(unit);
         }
     }
 }
@@ -99,6 +112,19 @@ static uint8_t turn_speed_of(const UnitKind *kinds, int32_t kind)
     uint8_t speed = kind < 0 || kind >= UNIT_KIND_IDS
         ? 0 : kinds[kind].rotation_speed;
     return speed != 0 ? speed : UNITS_TURN_SPEED_UNKNOWN;
+}
+
+/* Gives a unit the health and the mana its kind starts with. */
+static void fill_up(Unit *unit, const UnitKind *kinds)
+{
+    if (unit->kind < 0 || unit->kind >= UNIT_KIND_IDS) {
+        return;
+    }
+    const UnitKind *kind = &kinds[unit->kind];
+    unit->health = kind->health;
+    unit->health_most = kind->health;
+    unit->mana = kind->mana;
+    unit->mana_most = kind->mana;
 }
 
 /* Whether a unit stands on a square. */
@@ -138,7 +164,14 @@ bool units_enter(Units *units, const Map *map, const UnitKind *kinds,
     hero.x = drop->x * UNIT_PLACE_PARTS + UNIT_PLACE_PARTS / 2;
     hero.y = drop->y * UNIT_PLACE_PARTS + UNIT_PLACE_PARTS / 2;
     hero.turn_speed = turn_speed_of(kinds, hero.kind);
-    return units_add(units, &hero, out);
+    fill_up(&hero, kinds);
+    if (!units_add(units, &hero, out)) {
+        return false;
+    }
+    if (who->player >= 1 && who->player <= UNITS_PLAYERS) {
+        units->people |= 1u << (who->player - 1);
+    }
+    return true;
 }
 
 bool units_from_map(const Map *map, const UnitKind *kinds, Units *out)
@@ -160,6 +193,12 @@ bool units_from_map(const Map *map, const UnitKind *kinds, Units *out)
         unit.facing = (uint8_t)(angle * (UNIT_TURN / MAP_FACINGS));
         unit.facing_wanted = unit.facing;
         unit.turn_speed = turn_speed_of(kinds, from->kind);
+        fill_up(&unit, kinds);
+        /* A record may say its own health, and the most of it. */
+        if (from->health >= 0 && from->health_max > 0) {
+            unit.health = from->health;
+            unit.health_most = from->health_max;
+        }
         if (!units_add(&units, &unit, NULL)) {
             units_free(&units);
             return false;

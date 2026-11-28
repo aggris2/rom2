@@ -72,7 +72,7 @@ typedef struct MapStructure {
 /* A player of the map. */
 typedef struct MapPlayer {
     int32_t colour;
-    uint32_t flags;
+    uint32_t flags;        /* not read yet */
     int32_t money;
     char name[MAP_PLAYER_NAME_SIZE];
     /* How it stands to each player, by bits. */

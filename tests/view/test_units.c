@@ -17,6 +17,8 @@ typedef struct MakeUnits {
     UnitLook looks[UNIT_LOOKS];
     UnitKind kinds[UNIT_KIND_IDS];
     uint64_t tick;
+    UnitId hovered;         /* the unit the mouse is on, if has_hovered */
+    bool has_hovered;
     Sprite sprites[4];
 } MakeUnits;
 
@@ -63,7 +65,7 @@ static size_t sprites_for(MakeUnits *m, int32_t left, int32_t top,
 {
     Camera camera = {left, top, width, height};
     size_t count = units_sprites(&m->map, &m->live, m->looks, m->kinds,
-        m->tick, &camera, m->sprites);
+        m->has_hovered ? &m->hovered : NULL, m->tick, &camera, m->sprites);
     return count <= units_most(&m->live) ? count : 9999;
 }
 
@@ -167,6 +169,24 @@ UTEST(units, a_unit_that_is_not_drawn_or_has_no_box_is_not_picked)
     m.looks[9] = m.looks[3];
     m.looks[9].selection = (SpriteBox){0, 0, 0, 0};
     EXPECT_EQ(-1, picked_at(&m, 144, 176));
+}
+
+UTEST(units, the_unit_the_mouse_is_on_is_as_bright_as_can_be)
+{
+    MakeUnits m;
+    make_units(&m);
+    put(&m, 4, 5, 3);
+    put(&m, 6, 5, 3);
+    m.has_hovered = true;
+    m.hovered = (UnitId){1, 0};
+    ASSERT_EQ(2u, sprites_for(&m, 0, 0, 320, 320));
+    EXPECT_EQ((unsigned)LIGHT_STANDING, m.sprites[0].light);
+    EXPECT_EQ((unsigned)LIGHT_HOVERED, m.sprites[1].light);
+    EXPECT_EQ(64u, m.sprites[1].light);
+    /* An id of a unit that was in the slot before is not this one. */
+    m.hovered = (UnitId){1, 7};
+    ASSERT_EQ(2u, sprites_for(&m, 0, 0, 320, 320));
+    EXPECT_EQ((unsigned)LIGHT_STANDING, m.sprites[1].light);
 }
 
 UTEST(units, a_unit_stands_with_its_anchor_on_its_place)
