@@ -45,3 +45,12 @@ void marks_held(const Units *units, UnitId id, bool held,
         mark_at(units, unit, unit->to_x, unit->to_y, held, under, marks);
     }
 }
+
+void marks_seen(const uint8_t *seen, size_t squares, uint8_t *marks)
+{
+    for (size_t i = 0; i < squares; i++) {
+        if (seen[i] != 0 && marks[i] == FRAME_MARK_NONE) {
+            marks[i] = FRAME_MARK_SEEN;
+        }
+    }
+}

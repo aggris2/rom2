@@ -136,7 +136,7 @@ square how slow it is to cross, from the kinds of ground that meet on it,
 and whether it is closed to what walks, hovers or flies, by its ground, the
 tree or rock on it and the structures. `src/view/marks` turns it into marks
 that the ground is drawn with, for a look at the closed squares, and marks
-the squares the selected units hold.
+the squares the selected units hold and those they see.
 
 `src/mechanics/walk` is a step from a square to one beside it. A unit turns
 to face the way, and then the step is looked at and taken in one tick: if
@@ -171,8 +171,11 @@ tests run it. A unit is named by its slot in the list and by how many units
 the slot had before it, so that a slot can be used again and an old name
 leads to nothing. `src/mechanics/random` is the game's dice, which follow
 from their seed alone, so that the same game plays out the same everywhere.
-`src/mechanics/relations` is how the players stand to each other, from the
-map: who is at war with whom, which is one way, as in the original.
+`src/mechanics/sight` is what a unit sees, by the original's rule: sight is
+used up square by square from the eye, faster uphill, so hills hide what is
+behind them. `src/mechanics/relations` is how the players stand to each
+other, from the map: who is at war with whom, which is one way, as in the
+original.
 `unit` is the record of one unit and how it turns: at its kind's speed and
 by the shorter way, as in the original. `idle` is what a unit does that has
 nothing to do: it stands, and now and then, when the dice say so, it turns

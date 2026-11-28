@@ -117,6 +117,7 @@ add_library(rom2_core STATIC
     src/mechanics/idle.c
     src/mechanics/random.c
     src/mechanics/relations.c
+    src/mechanics/sight.c
     src/mechanics/unit.c
     src/mechanics/units.c
     src/mechanics/walk.c
@@ -235,6 +236,7 @@ add_executable(rom2_tests
     tests/mechanics/test_idle.c
     tests/mechanics/test_random.c
     tests/mechanics/test_relations.c
+    tests/mechanics/test_sight.c
     tests/mechanics/test_unit.c
     tests/mechanics/test_units.c
     tests/mechanics/test_walk.c

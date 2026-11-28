@@ -37,10 +37,12 @@ layout(location = 0) out vec4 pixel;
 const int ONE = 65536;
 const int HALF = 32768;
 
-/* The colours a marked square is drawn towards, a closed one and one
- * a unit holds, and how far: a third of the way. */
+/* The colours a marked square is drawn towards, a closed one, one
+ * a unit holds and one that is seen, and how far: a third of the
+ * way. */
 const ivec3 MARK_CLOSED = ivec3(255, 40, 40);
 const ivec3 MARK_HELD = ivec3(40, 255, 90);
+const ivec3 MARK_SEEN = ivec3(255, 230, 60);
 const int MARK_STRENGTH = 85;
 
 /* The light is worked out as how dark it is, with 9 bits after the
@@ -98,8 +100,9 @@ void main()
 
     /* A mark, for looking at what the game takes the square to be. */
     if (mark != 0) {
-        lit += ((mark == 1 ? MARK_CLOSED : MARK_HELD) - lit)
-            * MARK_STRENGTH / 255;
+        ivec3 towards = mark == 1 ? MARK_CLOSED : mark == 2 ? MARK_HELD
+            : MARK_SEEN;
+        lit += (towards - lit) * MARK_STRENGTH / 255;
     }
 
     /* The grid: the square's left column, and its top edge. Where the

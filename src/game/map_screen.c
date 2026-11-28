@@ -15,6 +15,7 @@
 #include "mechanics/clock.h"
 #include "mechanics/random.h"
 #include "mechanics/relations.h"
+#include "mechanics/sight.h"
 #include "mechanics/terrain.h"
 #include "mechanics/units.h"
 #include "mechanics/walk.h"
@@ -86,12 +87,15 @@ struct MapScreen {
     StructureKind structure_kinds[STRUCTURE_KINDS];
     /* The marks the ground is drawn with: those of the closed
      * squares, none at all where they are not shown, and the list
-     * that is handed over, which has the selected units' squares on
-     * top of one of the two. */
+     * that is handed over, which has the selected units' squares
+     * and what they see on top of one of the two. `seen` is what
+     * they see, a square to an entry. */
     uint8_t *closed_marks;
     uint8_t *no_marks;
     uint8_t *marks;
+    uint8_t *seen;
     bool show_held;             /* the selected units' squares are marked */
+    bool show_seen;             /* and the squares they see */
     /* Whose closed squares are marked: 0 for none, or TERRAIN_NO_WALK,
      * TERRAIN_NO_HOVER or TERRAIN_NO_FLY. */
     uint8_t show_closed;
@@ -363,8 +367,9 @@ static bool add_terrain(MapScreen *screen, const char *content)
     screen->closed_marks = calloc(squares, 1);
     screen->no_marks = calloc(squares, 1);
     screen->marks = calloc(squares, 1);
+    screen->seen = calloc(squares, 1);
     if (screen->closed_marks == NULL || screen->no_marks == NULL
-        || screen->marks == NULL) {
+        || screen->marks == NULL || screen->seen == NULL) {
         fprintf(stderr, "rom2: out of memory\n");
         return false;
     }
@@ -585,17 +590,43 @@ static uint32_t between_ticks(const MapScreen *screen)
         ? UNIT_BETWEEN - 1u : (uint32_t)between;
 }
 
-/* Marks the squares the selected units hold, or with `held` false
- * gives them back the marks they have without. */
-static void mark_selected(MapScreen *screen, bool held)
+/* The marks without those of the selected units: of the closed
+ * squares, or none. */
+static const uint8_t *marks_under(const MapScreen *screen)
 {
-    const uint8_t *under = screen->show_closed != 0 ? screen->closed_marks
+    return screen->show_closed != 0 ? screen->closed_marks
         : screen->no_marks;
+}
+
+/* Marks what the selected units see and the squares they hold, as
+ * far as each is shown. */
+static void mark_selected(MapScreen *screen)
+{
+    size_t squares = (size_t)screen->terrain.width * screen->terrain.height;
+    if (screen->show_seen) {
+        memset(screen->seen, 0, squares);
+    }
     for (uint32_t slot = 0; slot < screen->live.count; slot++) {
+        UnitId id;
+        const Unit *unit = units_at(&screen->live, slot, &id);
+        if (unit == NULL || !selection_has(&screen->selected, id)) {
+            continue;
+        }
+        if (screen->show_seen) {
+            sight_mark(&screen->terrain, unit->x / UNIT_PLACE_PARTS,
+                unit->y / UNIT_PLACE_PARTS, unit->sight, screen->seen);
+        }
+    }
+    if (screen->show_seen) {
+        marks_seen(screen->seen, squares, screen->marks);
+    }
+    for (uint32_t slot = 0; screen->show_held && slot < screen->live.count;
+        slot++) {
         UnitId id;
         if (units_at(&screen->live, slot, &id) != NULL
             && selection_has(&screen->selected, id)) {
-            marks_held(&screen->live, id, held, under, screen->marks);
+            marks_held(&screen->live, id, true, marks_under(screen),
+                screen->marks);
         }
     }
 }
@@ -773,16 +804,18 @@ bool map_screen_frame(MapScreen *screen, float seconds)
     frame.ground_sheet = screen->tiles;
     frame.ground = screen->ground;
     uint64_t tick = screen->clock.tick;
-    /* The squares the selected units hold are marked for this frame,
+    /* What the selected units see and hold is marked for this frame,
      * and given back after it. */
-    if (screen->show_held) {
-        mark_selected(screen, true);
+    bool marked = screen->show_held || screen->show_seen;
+    if (marked) {
+        mark_selected(screen);
     }
     frame.ground_count = ground_squares(&screen->map, screen->light,
         screen->marks, tick, &camera, screen->tiles_width,
         screen->tiles_height, screen->ground);
-    if (screen->show_held) {
-        mark_selected(screen, false);
+    if (marked) {
+        memcpy(screen->marks, marks_under(screen),
+            (size_t)screen->terrain.width * screen->terrain.height);
     }
     frame.sprites = screen->sprites;
     frame.sprite_count = objects_sprites(&screen->map, screen->objects,
@@ -931,6 +964,8 @@ void map_screen_key(MapScreen *screen, SDL_Keycode key)
         screen->all_bars = !screen->all_bars;
     } else if (key == SDLK_E) {
         screen->show_held = !screen->show_held;
+    } else if (key == SDLK_S) {
+        screen->show_seen = !screen->show_seen;
     } else if (key == SDLK_W) {
         /* What walks, what hovers, what flies, and none again. */
         screen->show_closed = screen->show_closed == 0 ? TERRAIN_NO_WALK
@@ -958,6 +993,7 @@ void map_screen_close(MapScreen *screen)
     free(screen->closed_marks);
     free(screen->no_marks);
     free(screen->marks);
+    free(screen->seen);
     map_free(&screen->map);
     free(screen->light);
     free(screen->ground);

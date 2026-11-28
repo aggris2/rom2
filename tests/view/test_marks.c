@@ -81,3 +81,17 @@ UTEST(marks, the_squares_a_unit_stands_on_are_marked_and_given_back)
     EXPECT_EQ(0, memcmp(marks, under, sizeof marks));
     units_free(&units);
 }
+
+UTEST(marks, a_square_that_is_seen_is_marked_unless_it_has_a_mark)
+{
+    const uint8_t seen[5] = {0, 1, 1, 0, 1};
+    uint8_t marks[5] = {FRAME_MARK_NONE, FRAME_MARK_NONE,
+        FRAME_MARK_CLOSED, FRAME_MARK_HELD, FRAME_MARK_NONE};
+    marks_seen(seen, 4, marks);
+    EXPECT_EQ((unsigned)FRAME_MARK_NONE, marks[0]);
+    EXPECT_EQ((unsigned)FRAME_MARK_SEEN, marks[1]);
+    EXPECT_EQ((unsigned)FRAME_MARK_CLOSED, marks[2]);
+    EXPECT_EQ((unsigned)FRAME_MARK_HELD, marks[3]);
+    /* And nothing past those asked for. */
+    EXPECT_EQ((unsigned)FRAME_MARK_NONE, marks[4]);
+}

@@ -7,6 +7,7 @@
 #define ROM2_VIEW_MARKS_H
 
 #include <stdbool.h>
+#include <stddef.h>
 #include <stdint.h>
 
 #include "mechanics/terrain.h"
@@ -26,5 +27,11 @@ void marks_closed(const Terrain *terrain, uint8_t whom, uint8_t *marks);
  * list of units on no map. */
 void marks_held(const Units *units, UnitId id, bool held,
                 const uint8_t *under, uint8_t *marks);
+
+/* Marks the squares that are seen with FRAME_MARK_SEEN: those of the
+ * first `squares` whose entry in `seen` is not 0, as
+ * mechanics/sight.h fills it. One that has a mark already keeps
+ * it. */
+void marks_seen(const uint8_t *seen, size_t squares, uint8_t *marks);
 
 #endif

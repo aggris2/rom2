@@ -96,13 +96,12 @@ lets go. A box drawn with the left button held selects your own units in it,
 and with Shift a click or a box adds to those selected or lets go of them. A
 click on the ground sends your selected units there. Every unit shows its
 health, the selected ones plainly and the others faintly; B hides that of
-the others. W
-marks the squares that are closed to what walks, pressed again to what
-hovers, and again to what flies. E marks the squares the selected units
-stand on. G shows a grid of the map's squares, P pauses the game, and F
-shows or hides how many frames a second are drawn. The window covers the
-whole screen; Alt+Enter switches to a plain window and back, and `--window`
-starts in one. Escape closes it.
+the others. W marks the squares that are closed to what walks, pressed again
+to what hovers, and again to what flies. E marks the squares the selected
+units stand on and S those they see. G shows a grid of the map's squares, P
+pauses the game, and F shows or hides how many frames a second are drawn.
+The window covers the whole screen; Alt+Enter switches to a plain window and
+back, and `--window` starts in one. Escape closes it.
 
 ## Licence
 

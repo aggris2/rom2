@@ -40,13 +40,14 @@ typedef struct GroundSquare {
 } GroundSquare;
 
 /* The marks a square can have. A marked square is drawn a third of
- * the way towards the colour of its mark: red for a closed square and
- * green for one a unit holds, as ground.frag has them. A mark is for
- * looking at what the game takes a square to be, and no part of how
- * the game looks. */
+ * the way towards the colour of its mark: red for a closed square,
+ * green for one a unit holds and yellow for one that is seen, as
+ * ground.frag has them. A mark is for looking at what the game takes
+ * a square to be, and no part of how the game looks. */
 #define FRAME_MARK_NONE 0
 #define FRAME_MARK_CLOSED 1
 #define FRAME_MARK_HELD 2
+#define FRAME_MARK_SEEN 3
 
 /* How strongly the lines of the grid are drawn over the ground, in
  * 255ths: at 255 they would be white. */
