@@ -229,7 +229,9 @@ from, are written counted from `CenterX`, `CenterY`.
 
 After that the file lists the unit's kinds, the rows of `data.bin` that
 name this unit, each with its numbers: a weak and a strong goblin are
-two kinds of the one goblin unit. The 59 units have 458 kinds.
+two kinds of the one goblin unit. The 59 units have 458 kinds. A kind's
+`scan_range` is how far it sees, in squares on flat ground: from 4 to 12,
+and 6 or 7 for most.
 
 59 of the 61 units are written. The two whose frame count does not fit
 are left out with a message.

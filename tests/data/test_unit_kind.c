@@ -21,11 +21,12 @@ static bool reads(const char *text, UnitKind *out)
 static bool refuses(const char *text)
 {
     UnitKind kind = {0x5a5a, 0x5a5a, 0x5a, 0x5a, 0x5a5a, 0x5a5a, 0x5a,
-        0x5a};
+        0x5a, 0x5a};
     return !reads(text, &kind) && kind.id == 0x5a5a && kind.face == 0x5a5a
         && kind.rotation_speed == 0x5a && kind.speed == 0x5a
         && kind.health == 0x5a5a
-        && kind.mana == 0x5a5a && kind.size == 0x5a && kind.mover == 0x5a;
+        && kind.mana == 0x5a5a && kind.size == 0x5a && kind.mover == 0x5a
+        && kind.sight == 0x5a;
 }
 
 #define LIFE "speed = 18\nhealth = 45\nmana = 0\n"
@@ -87,6 +88,19 @@ UTEST(unit_kind, reads_its_size_and_how_it_moves)
     ASSERT_TRUE(reads(KIND, &kind));
     EXPECT_EQ(1u, kind.size);
     EXPECT_EQ((unsigned)UNIT_WALKS, kind.mover);
+}
+
+UTEST(unit_kind, reads_how_far_it_sees)
+{
+    UnitKind kind;
+    ASSERT_TRUE(reads(KIND "scan_range = 6\n", &kind));
+    EXPECT_EQ(6u, kind.sight);
+    /* A kind that does not say sees nothing. */
+    ASSERT_TRUE(reads(KIND, &kind));
+    EXPECT_EQ(0u, kind.sight);
+    EXPECT_TRUE(refuses(KIND "scan_range = -1\n"));
+    EXPECT_TRUE(refuses(KIND "scan_range = 256\n"));
+    EXPECT_TRUE(refuses(KIND "scan_range = \"far\"\n"));
 }
 
 UTEST(unit_kind, refuses_a_size_or_a_way_of_moving_there_is_not)

@@ -50,6 +50,9 @@ typedef struct UnitKind {
      * do, covers one square and walks. */
     uint8_t size;
     uint8_t mover;
+    /* How far it sees, in squares on flat ground: 0 for a kind that
+     * does not say. */
+    uint8_t sight;
 } UnitKind;
 
 /* Reads a kind from its table.
@@ -60,7 +63,9 @@ typedef struct UnitKind {
  * 65,535, the rotation speed or the speed not from 1 to 255, or the
  * health or the mana less than -1. It need not say its `token_size`
  * or its `movement_type`, but is refused if the one is not -1 or from
- * 1 to UNIT_KIND_MAX_SIZE, or the other not -1 or a UnitMover. */
+ * 1 to UNIT_KIND_MAX_SIZE, or the other not -1 or a UnitMover. Nor
+ * need it say its `scan_range`, how far it sees, but is refused if
+ * that is not from 0 to 255. */
 bool unit_kind_read(const TomlTable *kind, UnitKind *out);
 
 #endif

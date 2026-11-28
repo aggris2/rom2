@@ -49,6 +49,10 @@ typedef struct Unit {
     uint8_t size;
     uint8_t mover;
     uint8_t speed;          /* its kind's: see mechanics/walk.h */
+    uint8_t sight;          /* how far it sees, in squares: its kind's */
+    /* The group a map puts it in, which acts as one: 0 for a unit in
+     * none. */
+    int32_t group;
     /* Walking. A step goes from the square `from` to the square
      * `to`, and what is drawn slides from the one to the other, the
      * same part of the way in every tick. `ticks` is how many ticks

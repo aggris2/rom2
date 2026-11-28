@@ -259,7 +259,7 @@ static uint8_t turn_speed_of(const UnitKind *kinds, int32_t kind)
 }
 
 /* Gives a unit what its kind says of it: the health and the mana it
- * starts with, its size and how it moves. */
+ * starts with, its size, how it moves and how far it sees. */
 static void fill_up(Unit *unit, const UnitKind *kinds)
 {
     if (unit->kind < 0 || unit->kind >= UNIT_KIND_IDS) {
@@ -273,6 +273,7 @@ static void fill_up(Unit *unit, const UnitKind *kinds)
     unit->size = kind->size;
     unit->mover = kind->mover;
     unit->speed = kind->speed;
+    unit->sight = kind->sight;
 }
 
 /* Whether a unit could stand with its first square on (x, y): the
@@ -372,6 +373,7 @@ bool units_from_map(const Map *map, const UnitKind *kinds,
             : (uint16_t)from->type;
         unit.kind = from->kind;
         unit.player = from->player;
+        unit.group = from->group;
         unit.x = from->x;
         unit.y = from->y;
         int32_t angle = from->angle < 0 || from->angle >= MAP_FACINGS

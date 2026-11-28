@@ -14,6 +14,7 @@ static const UnitKind *some_kinds(void)
     kinds[600].rotation_speed = 19;
     kinds[600].health = 80;
     kinds[600].mana = 30;
+    kinds[600].sight = 7;
     return kinds;
 }
 
@@ -167,6 +168,7 @@ UTEST(units, a_map_gives_the_units_a_game_starts_with)
     records[0].x = 4 * 256 + 128;
     records[0].y = 5 * 256 + 64;
     records[0].angle = 10;
+    records[0].group = 12;
     records[1].type = 74;
     records[1].angle = 15;
     records[2].type = 1;
@@ -186,6 +188,10 @@ UTEST(units, a_map_gives_the_units_a_game_starts_with)
     EXPECT_EQ(3u, first->type);
     EXPECT_EQ(600, first->kind);
     EXPECT_EQ(2, first->player);
+    /* In the group its record names, and none for one that names
+     * none. */
+    EXPECT_EQ(12, first->group);
+    EXPECT_EQ(0, units_at(&units, 1, NULL)->group);
     EXPECT_EQ(4 * 256 + 128, first->x);
     EXPECT_EQ(5 * 256 + 64, first->y);
     /* A map counts a turn in 16 steps, the game in 256. */
@@ -197,6 +203,8 @@ UTEST(units, a_map_gives_the_units_a_game_starts_with)
     /* And has all the health and the mana of its kind. */
     EXPECT_EQ(80, first->health);
     EXPECT_EQ(80, first->health_most);
+    /* And sees as far as its kind. */
+    EXPECT_EQ(7u, first->sight);
     EXPECT_EQ(30, first->mana);
     EXPECT_EQ(30, first->mana_most);
     EXPECT_EQ(0, units_at(&units, 1, NULL)->health_most);

@@ -10,6 +10,7 @@ bool unit_kind_read(const TomlTable *kind, UnitKind *out)
     int32_t mana = 0;
     int32_t size = -1;
     int32_t mover = -1;
+    int32_t sight = 0;
     if (!toml_get_int(kind, "id", &id) || id < 0 || id >= UNIT_KIND_IDS
         || !toml_get_int(kind, "face", &face) || face < 0
         || face > UINT16_MAX
@@ -24,7 +25,10 @@ bool unit_kind_read(const TomlTable *kind, UnitKind *out)
                 || size < -1 || size > UNIT_KIND_MAX_SIZE))
         || (toml_has(kind, "movement_type")
             && (!toml_get_int(kind, "movement_type", &mover) || mover == 0
-                || mover < -1 || mover > UNIT_FLIES))) {
+                || mover < -1 || mover > UNIT_FLIES))
+        || (toml_has(kind, "scan_range")
+            && (!toml_get_int(kind, "scan_range", &sight) || sight < 0
+                || sight > UINT8_MAX))) {
         return false;
     }
     out->id = (uint16_t)id;
@@ -35,5 +39,6 @@ bool unit_kind_read(const TomlTable *kind, UnitKind *out)
     out->mana = mana;
     out->size = (uint8_t)(size < 0 ? 1 : size);
     out->mover = (uint8_t)(mover < 0 ? UNIT_WALKS : mover);
+    out->sight = (uint8_t)sight;
     return true;
 }
