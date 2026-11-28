@@ -104,8 +104,9 @@ static void stand_structure(Terrain *terrain, const MapStructure *structure,
             if ((closed >> bit & 1u) != 0) {
                 terrain->closed[at] |= TERRAIN_NO_WALK | TERRAIN_NO_HOVER;
             } else {
-                terrain->closed[at] &= (uint8_t)~(TERRAIN_NO_WALK
-                    | TERRAIN_NO_HOVER);
+                /* Open to what walks and what hovers: only what it is
+                 * closed to in the air is left. */
+                terrain->closed[at] &= TERRAIN_NO_FLY;
                 terrain->cost[at] = costs->of[TERRAIN_CRACKED];
             }
         }

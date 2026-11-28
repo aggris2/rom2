@@ -141,17 +141,22 @@ that the ground is drawn with, for a look at the closed squares.
 from a map's records when the game starts: from then on the map is only the
 ground they stand on. The hero is not among those records: he enters on the
 square the map's script names for it, and is drawn from pictures of his own,
-those of the type of unit he is armed as, in armour or without. A unit is
-named by its slot in the list and by how many units the slot had before it,
-so that a slot can be used again and an old name leads to nothing.
-`src/mechanics/random` is the game's dice, which follow from their seed
-alone, so that the same game plays out the same everywhere. `unit` is the
-record of one unit and how it turns: at its kind's speed and by the shorter
-way, as in the original. `idle` is what a unit does that has nothing to do:
-it stands, and now and then, when the dice say so, it turns to look another
-way. Only a unit the computer plays does that. A person plays the map's
-first player, and that player's units, the hero and any the map gives it,
-stand as they were left. A tick of the game is so far a tick of every unit.
+those of the type of unit he is armed as, in armour or without. The list
+also keeps who stands on each square, on the ground and in the air, and that
+is what stops two units from being on one: a unit is added only where its
+squares are free, and adding and taking away change the unit and its squares
+together. A check says whether every unit holds exactly its squares, and
+tests run it. A unit is named by its slot in the list and by how many units
+the slot had before it, so that a slot can be used again and an old name
+leads to nothing. `src/mechanics/random` is the game's dice, which follow
+from their seed alone, so that the same game plays out the same everywhere.
+`unit` is the record of one unit and how it turns: at its kind's speed and
+by the shorter way, as in the original. `idle` is what a unit does that has
+nothing to do: it stands, and now and then, when the dice say so, it turns
+to look another way. Only a unit the computer plays does that. A person
+plays the map's first player, and that player's units, the hero and any the
+map gives it, stand as they were left. A tick of the game is so far a tick
+of every unit.
 
 `src/view` turns what there is into what is drawn. `frame.h` is what the
 renderer is handed once a frame: the ground, and the sprites that lie on it.

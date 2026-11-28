@@ -26,8 +26,83 @@ static bool make_room(Units *units)
     return true;
 }
 
+bool units_make(uint32_t width, uint32_t height, Units *out)
+{
+    Units units;
+    size_t squares = (size_t)width * height;
+    memset(&units, 0, sizeof units);
+    units.width = width;
+    units.height = height;
+    units.on_ground = calloc(squares > 0 ? squares : 1,
+        sizeof *units.on_ground);
+    units.in_air = calloc(squares > 0 ? squares : 1, sizeof *units.in_air);
+    if (units.on_ground == NULL || units.in_air == NULL) {
+        free(units.on_ground);
+        free(units.in_air);
+        return false;
+    }
+    *out = units;
+    return true;
+}
+
+/* The squares a unit covers along a side. */
+static int32_t size_of(const Unit *unit)
+{
+    return unit->size == 0 ? 1 : unit->size;
+}
+
+/* The layer a unit stands in. */
+static uint16_t *layer_of(const Units *units, const Unit *unit)
+{
+    return unit->mover == UNIT_FLIES ? units->in_air : units->on_ground;
+}
+
+/* Whether a unit of this layer and size could stand with its first
+ * square on (x, y): each square it would cover is on the map and held
+ * by nobody, or by the unit in `self`, a slot plus 1. */
+static bool squares_free(const Units *units, const uint16_t *layer,
+                         int32_t size, int32_t x, int32_t y, uint16_t self)
+{
+    if (x < 0 || y < 0 || (uint32_t)(x + size) > units->width
+        || (uint32_t)(y + size) > units->height) {
+        return false;
+    }
+    for (int32_t row = y; row < y + size; row++) {
+        for (int32_t column = x; column < x + size; column++) {
+            uint16_t who = layer[(size_t)row * units->width
+                + (size_t)column];
+            if (who != 0 && who != self) {
+                return false;
+            }
+        }
+    }
+    return true;
+}
+
+/* Writes who holds the squares of a unit: `who` is its slot plus 1,
+ * or 0 to free them. */
+static void hold_squares(Units *units, const Unit *unit, uint16_t who)
+{
+    uint16_t *layer = layer_of(units, unit);
+    int32_t size = size_of(unit);
+    int32_t x = unit->x / UNIT_PLACE_PARTS;
+    int32_t y = unit->y / UNIT_PLACE_PARTS;
+    for (int32_t row = y; row < y + size; row++) {
+        for (int32_t column = x; column < x + size; column++) {
+            layer[(size_t)row * units->width + (size_t)column] = who;
+        }
+    }
+}
+
 bool units_add(Units *units, const Unit *unit, UnitId *out)
 {
+    /* On a map it must have its squares free. */
+    if (units->width != 0 && (unit->x < 0 || unit->y < 0
+            || !squares_free(units, layer_of(units, unit), size_of(unit),
+                unit->x / UNIT_PLACE_PARTS, unit->y / UNIT_PLACE_PARTS,
+                0))) {
+        return false;
+    }
     /* A slot that was left, if there is one: the first of them. */
     uint32_t slot = units->count;
     if (units->living < units->count) {
@@ -43,6 +118,9 @@ bool units_add(Units *units, const Unit *unit, UnitId *out)
         units->count++;
     }
     units->living++;
+    if (units->width != 0) {
+        hold_squares(units, unit, (uint16_t)(slot + 1));
+    }
     if (out != NULL) {
         out->slot = (uint16_t)slot;
         out->age = into->age;
@@ -77,6 +155,9 @@ void units_remove(Units *units, UnitId id)
         return;
     }
     UnitSlot *slot = &units->slots[id.slot];
+    if (units->width != 0) {
+        hold_squares(units, &slot->unit, 0);
+    }
     slot->taken = false;
     /* The next unit here is another: an id of this one no longer
      * fits. */
@@ -114,7 +195,8 @@ static uint8_t turn_speed_of(const UnitKind *kinds, int32_t kind)
     return speed != 0 ? speed : UNITS_TURN_SPEED_UNKNOWN;
 }
 
-/* Gives a unit the health and the mana its kind starts with. */
+/* Gives a unit what its kind says of it: the health and the mana it
+ * starts with, its size and how it moves. */
 static void fill_up(Unit *unit, const UnitKind *kinds)
 {
     if (unit->kind < 0 || unit->kind >= UNIT_KIND_IDS) {
@@ -125,59 +207,99 @@ static void fill_up(Unit *unit, const UnitKind *kinds)
     unit->health_most = kind->health;
     unit->mana = kind->mana;
     unit->mana_most = kind->mana;
+    unit->size = kind->size;
+    unit->mover = kind->mover;
 }
 
-/* Whether a unit stands on a square. */
-static bool stands_on(const Units *units, int32_t x, int32_t y)
+/* Whether a unit could stand with its first square on (x, y): the
+ * ground is open to it there and nobody of its layer holds a square
+ * it would cover. */
+static bool can_stand(const Units *units, const Terrain *terrain,
+                      const Unit *unit, int32_t x, int32_t y)
 {
-    for (uint32_t slot = 0; slot < units->count; slot++) {
-        const Unit *unit = units_at(units, slot, NULL);
-        if (unit != NULL && unit->x / UNIT_PLACE_PARTS == x
-            && unit->y / UNIT_PLACE_PARTS == y) {
-            return true;
+    int32_t size = size_of(unit);
+    uint8_t closed = unit->mover == UNIT_FLIES ? TERRAIN_NO_FLY
+        : unit->mover == UNIT_HOVERS ? TERRAIN_NO_HOVER : TERRAIN_NO_WALK;
+    if (!squares_free(units, layer_of(units, unit), size, x, y, 0)) {
+        return false;
+    }
+    for (int32_t row = y; row < y + size; row++) {
+        for (int32_t column = x; column < x + size; column++) {
+            if ((terrain->closed[(size_t)row * terrain->width
+                    + (size_t)column] & closed) != 0) {
+                return false;
+            }
+        }
+    }
+    return true;
+}
+
+/* Finds the nearest square to (x, y) a unit can stand on, in rings
+ * around it out to UNITS_NEAR: in a ring row after row from the top,
+ * and in a row from the left. Returns false if there is none. */
+static bool stand_near(const Units *units, const Terrain *terrain,
+                       const Unit *unit, int32_t x, int32_t y,
+                       int32_t *out_x, int32_t *out_y)
+{
+    for (int32_t ring = 0; ring <= UNITS_NEAR; ring++) {
+        for (int32_t down = -ring; down <= ring; down++) {
+            for (int32_t across = -ring; across <= ring; across++) {
+                bool on_ring = down == -ring || down == ring
+                    || across == -ring || across == ring;
+                if (on_ring && can_stand(units, terrain, unit, x + across,
+                        y + down)) {
+                    *out_x = x + across;
+                    *out_y = y + down;
+                    return true;
+                }
+            }
         }
     }
     return false;
 }
 
 bool units_enter(Units *units, const Map *map, const UnitKind *kinds,
-                 const UnitsHero *who, Random *random, UnitId *out)
+                 const Terrain *terrain, const UnitsHero *who,
+                 Random *random, UnitId *out)
 {
     if (map->drop_count == 0) {
         return false;
     }
-    uint32_t picked = random_below(random, map->drop_count);
-    const MapDrop *drop = &map->drops[picked];
-    for (uint32_t i = 0; i < map->drop_count; i++) {
-        const MapDrop *next = &map->drops[(picked + i) % map->drop_count];
-        if (!stands_on(units, next->x, next->y)) {
-            drop = next;
-            break;
-        }
-    }
+    Random dice = *random;
+    const MapDrop *drop = &map->drops[random_below(&dice,
+        map->drop_count)];
     Unit hero;
+    int32_t x = 0;
+    int32_t y = 0;
     memset(&hero, 0, sizeof hero);
     hero.type = who->type;
     hero.dress = who->dress;
     hero.kind = UNITS_HERO_KIND;
     hero.player = who->player;
-    hero.x = drop->x * UNIT_PLACE_PARTS + UNIT_PLACE_PARTS / 2;
-    hero.y = drop->y * UNIT_PLACE_PARTS + UNIT_PLACE_PARTS / 2;
     hero.turn_speed = turn_speed_of(kinds, hero.kind);
     fill_up(&hero, kinds);
+    if (!stand_near(units, terrain, &hero, drop->x, drop->y, &x, &y)) {
+        return false;
+    }
+    hero.x = x * UNIT_PLACE_PARTS + UNIT_PLACE_PARTS / 2;
+    hero.y = y * UNIT_PLACE_PARTS + UNIT_PLACE_PARTS / 2;
     if (!units_add(units, &hero, out)) {
         return false;
     }
+    *random = dice;
     if (who->player >= 1 && who->player <= UNITS_PLAYERS) {
         units->people |= 1u << (who->player - 1);
     }
     return true;
 }
 
-bool units_from_map(const Map *map, const UnitKind *kinds, Units *out)
+bool units_from_map(const Map *map, const UnitKind *kinds,
+                    const Terrain *terrain, Units *out)
 {
     Units units;
-    memset(&units, 0, sizeof units);
+    if (!units_make(map->info.width, map->info.height, &units)) {
+        return false;
+    }
     for (uint32_t i = 0; i < map->unit_count; i++) {
         const MapUnit *from = &map->units[i];
         Unit unit;
@@ -199,6 +321,21 @@ bool units_from_map(const Map *map, const UnitKind *kinds, Units *out)
             unit.health = from->health;
             unit.health_most = from->health_max;
         }
+        /* Its own square if nobody is on it, whatever the ground;
+         * else one near that it can stand on. */
+        int32_t x = unit.x / UNIT_PLACE_PARTS;
+        int32_t y = unit.y / UNIT_PLACE_PARTS;
+        if (unit.x < 0 || unit.y < 0
+            || !squares_free(&units, layer_of(&units, &unit),
+                size_of(&unit), x, y, 0)) {
+            if (unit.x < 0 || unit.y < 0
+                || !stand_near(&units, terrain, &unit, x, y, &x, &y)) {
+                continue;
+            }
+            unit.x = x * UNIT_PLACE_PARTS + UNIT_PLACE_PARTS / 2;
+            unit.y = y * UNIT_PLACE_PARTS + UNIT_PLACE_PARTS / 2;
+        }
+        /* The list is full or memory ran out. */
         if (!units_add(&units, &unit, NULL)) {
             units_free(&units);
             return false;
@@ -208,8 +345,68 @@ bool units_from_map(const Map *map, const UnitKind *kinds, Units *out)
     return true;
 }
 
+bool units_standing(const Units *units, bool in_air, int32_t x, int32_t y,
+                    UnitId *out)
+{
+    if (x < 0 || y < 0 || (uint32_t)x >= units->width
+        || (uint32_t)y >= units->height) {
+        return false;
+    }
+    const uint16_t *layer = in_air ? units->in_air : units->on_ground;
+    uint16_t who = layer[(size_t)y * units->width + (size_t)x];
+    if (who == 0) {
+        return false;
+    }
+    out->slot = (uint16_t)(who - 1);
+    out->age = units->slots[who - 1].age;
+    return true;
+}
+
+bool units_check(const Units *units)
+{
+    size_t squares = (size_t)units->width * units->height;
+    size_t held = 0;
+    size_t covered = 0;
+    if (units->width == 0) {
+        return false;
+    }
+    /* Every unit holds each square it covers. */
+    for (uint32_t slot = 0; slot < units->count; slot++) {
+        const Unit *unit = units_at(units, slot, NULL);
+        if (unit == NULL) {
+            continue;
+        }
+        int32_t size = size_of(unit);
+        if (unit->x < 0 || unit->y < 0
+            || !squares_free(units, layer_of(units, unit), size,
+                unit->x / UNIT_PLACE_PARTS, unit->y / UNIT_PLACE_PARTS,
+                (uint16_t)(slot + 1))) {
+            return false;
+        }
+        const uint16_t *layer = layer_of(units, unit);
+        size_t first = (size_t)(unit->y / UNIT_PLACE_PARTS) * units->width
+            + (size_t)(unit->x / UNIT_PLACE_PARTS);
+        for (int32_t i = 0; i < size * size; i++) {
+            size_t at = first + (size_t)(i / size) * units->width
+                + (size_t)(i % size);
+            if (layer[at] != slot + 1) {
+                return false;
+            }
+        }
+        covered += (size_t)(size * size);
+    }
+    /* And no square is held beyond those. */
+    for (size_t i = 0; i < squares; i++) {
+        held += units->on_ground[i] != 0 ? 1u : 0u;
+        held += units->in_air[i] != 0 ? 1u : 0u;
+    }
+    return held == covered;
+}
+
 void units_free(Units *units)
 {
+    free(units->on_ground);
+    free(units->in_air);
     free(units->slots);
     memset(units, 0, sizeof *units);
 }

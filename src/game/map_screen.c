@@ -627,7 +627,8 @@ MapScreen *map_screen_open(Renderer *renderer, const char *content,
     /* Every game starts its dice the same until there is a reason not
      * to, such as a game the player starts anew. */
     random_start(&screen->random, 1);
-    if (!units_from_map(&screen->map, screen->kinds, &screen->live)) {
+    if (!units_from_map(&screen->map, screen->kinds, &screen->terrain,
+            &screen->live)) {
         fprintf(stderr, "rom2: out of memory\n");
         map_screen_close(screen);
         return NULL;
@@ -635,7 +636,8 @@ MapScreen *map_screen_open(Renderer *renderer, const char *content,
     add_hero(screen, content, HERO_TYPE, HERO_DRESS);
     const UnitsHero hero = {UNITS_PLAYER_SELF, HERO_TYPE, HERO_DRESS};
     screen->has_hero = units_enter(&screen->live, &screen->map,
-        screen->kinds, &hero, &screen->random, &screen->hero);
+        screen->kinds, &screen->terrain, &hero, &screen->random,
+        &screen->hero);
     start_camera(screen);
     clock_start(&screen->clock);
     return screen;

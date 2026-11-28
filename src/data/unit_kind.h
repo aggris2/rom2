@@ -16,6 +16,18 @@
 /* The IDs a kind can have are less than this. */
 #define UNIT_KIND_IDS 16384
 
+/* How a unit moves, by the numbers the original knows the ways by.
+ * What hovers crosses water and stands on the ground among those that
+ * walk; what flies is over them, in the air. */
+typedef enum UnitMover {
+    UNIT_WALKS = 1,
+    UNIT_HOVERS = 2,
+    UNIT_FLIES = 3
+} UnitMover;
+
+/* The most squares a unit covers along one side. */
+#define UNIT_KIND_MAX_SIZE 3
+
 typedef struct UnitKind {
     uint16_t id;
     /* Which colouring a monster of this kind has, counted from 1: the
@@ -30,6 +42,11 @@ typedef struct UnitKind {
      * health of -1. */
     int32_t health;
     int32_t mana;
+    /* How many squares it covers each way, and how it moves: a
+     * UnitMover. A kind that says -1 for either, as those of people
+     * do, covers one square and walks. */
+    uint8_t size;
+    uint8_t mover;
 } UnitKind;
 
 /* Reads a kind from its table.
@@ -38,7 +55,9 @@ typedef struct UnitKind {
  * its face, its rotation speed, its health or its mana, the ID is not
  * from 0 to UNIT_KIND_IDS - 1, the face not from 0 to 65,535, the
  * rotation speed not from 1 to 255, or the health or the mana less
- * than -1. */
+ * than -1. It need not say its `token_size` or its `movement_type`,
+ * but is refused if the one is not -1 or from 1 to
+ * UNIT_KIND_MAX_SIZE, or the other not -1 or a UnitMover. */
 bool unit_kind_read(const TomlTable *kind, UnitKind *out);
 
 #endif

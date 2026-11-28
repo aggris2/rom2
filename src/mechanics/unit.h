@@ -43,6 +43,11 @@ typedef struct Unit {
     int32_t health_most;    /* 0 or less for a unit that has none */
     int32_t mana;
     int32_t mana_most;      /* 0 or less for a unit that has none */
+    /* How many squares it covers each way, from the square of its
+     * place to the right and down: its kind's, and 0 counts as 1. And
+     * how it moves, a UnitMover: 0 counts as walking. */
+    uint8_t size;
+    uint8_t mover;
 } Unit;
 
 /* A turn of less than this many steps is taken at once, by a unit that
