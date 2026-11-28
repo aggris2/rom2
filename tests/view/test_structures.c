@@ -221,15 +221,116 @@ UTEST(structures, a_kind_that_is_not_known_is_not_drawn)
     EXPECT_EQ(1u, structures_most(&m.map, m.looks));
 }
 
-UTEST(structures, a_bridge_of_variable_size_is_not_drawn)
+/* Makes kind 8 a bridge: a structure of pieces, and puts one on the
+ * map that covers `width` by `height` squares from (x, y). */
+static MapStructure *put_bridge(MakeStructures *m, int x, int y, int width,
+                                int height)
 {
-    MakeStructures m;
+    m->looks[8].pieces = true;
+    MapStructure *bridge = put(m, x, y, 8);
+    bridge->bridge_width = width;
+    bridge->bridge_height = height;
+    return bridge;
+}
+
+UTEST(structures, a_bridge_is_a_piece_for_each_square_it_covers)
+{
+    static MakeStructures m;
     make_structures(&m);
-    MapStructure *bridge = put(&m, 2, 2, 8);
-    bridge->bridge_width = 3;
-    bridge->bridge_height = 1;
+    put_bridge(&m, 2, 3, 4, 3);
+    ASSERT_EQ(12u, sprites_for(&m, 0, 0, 320, 320));
+    /* Row after row, and in a row from the left: the three pieces of
+     * the first row, of the rows between and of the last, each with
+     * its first square, those between and its last. */
+    const uint16_t pieces[12] = {0, 1, 1, 2, 3, 4, 4, 5, 6, 7, 7, 8};
+    for (int i = 0; i < 12; i++) {
+        const Sprite *s = &m.sprites[i];
+        EXPECT_EQ(80u, s->sheet);
+        EXPECT_EQ(pieces[i] * 32, s->source_x);
+        EXPECT_EQ(0u, s->source_y);
+        EXPECT_EQ(32u, s->width);
+        EXPECT_EQ(32u, s->height);
+        EXPECT_EQ((2 + i % 4) * 32, s->x);
+        EXPECT_EQ((3 + i / 4) * 32, s->y);
+    }
+}
+
+UTEST(structures, a_bridge_a_square_wide_or_long_is_ends_alone)
+{
+    static MakeStructures m;
+    make_structures(&m);
+    /* Two squares each way: the four corners. */
+    put_bridge(&m, 1, 1, 2, 2);
+    ASSERT_EQ(4u, sprites_for(&m, 0, 0, 320, 320));
+    EXPECT_EQ(0u * 32, m.sprites[0].source_x);
+    EXPECT_EQ(2u * 32, m.sprites[1].source_x);
+    EXPECT_EQ(6u * 32, m.sprites[2].source_x);
+    EXPECT_EQ(8u * 32, m.sprites[3].source_x);
+    /* One square: its first piece. */
+    make_structures(&m);
+    put_bridge(&m, 1, 1, 1, 1);
+    ASSERT_EQ(1u, sprites_for(&m, 0, 0, 320, 320));
+    EXPECT_EQ(0u, m.sprites[0].source_x);
+}
+
+UTEST(structures, a_bridge_lies_under_all_that_stands_and_at_one_height)
+{
+    static MakeStructures m;
+    make_structures(&m);
+    put_bridge(&m, 2, 3, 4, 2);
+    /* The middle of it is the corner (4, 4). */
+    m.heights[4 * 10 + 4] = 12;
+    m.heights[3 * 10 + 2] = 90;
+    ASSERT_EQ(8u, sprites_for(&m, 0, 0, 320, 320));
+    for (int i = 0; i < 8; i++) {
+        EXPECT_EQ((3 + i / 4) * 32 - 12, m.sprites[i].y);
+        EXPECT_EQ((unsigned)SPRITE_ORDER_FLAT, m.sprites[i].order);
+        EXPECT_LE(m.sprites[i].order, sprite_order(9, 0));
+    }
+}
+
+UTEST(structures, the_squares_of_a_bridge_off_the_screen_are_left_out)
+{
+    static MakeStructures m;
+    make_structures(&m);
+    put_bridge(&m, 2, 3, 4, 3);
+    /* The screen shows the squares 3 and 4 of row 4 alone. */
+    ASSERT_EQ(2u, sprites_for(&m, 3 * 32, 4 * 32, 64, 32));
+    EXPECT_EQ(4u * 32, m.sprites[0].source_x);
+    EXPECT_EQ(0, m.sprites[0].x);
+    EXPECT_EQ(0, m.sprites[0].y);
+    EXPECT_EQ(0u, sprites_for(&m, 6 * 32, 0, 100, 320));
+}
+
+UTEST(structures, a_bridge_the_map_gives_no_size_is_not_drawn)
+{
+    static MakeStructures m;
+    make_structures(&m);
+    put_bridge(&m, 2, 2, 0, 3);
+    put_bridge(&m, 5, 5, 3, 0);
+    put_bridge(&m, 7, 7, -2, 2);
     EXPECT_EQ(0u, sprites_for(&m, 0, 0, 320, 320));
     EXPECT_EQ(0u, structures_most(&m.map, m.looks));
+}
+
+UTEST(structures, a_size_in_the_map_means_nothing_for_what_is_no_bridge)
+{
+    static MakeStructures m;
+    make_structures(&m);
+    MapStructure *well = put(&m, 2, 2, 8);
+    well->bridge_width = 3;
+    well->bridge_height = 2;
+    ASSERT_EQ(1u, sprites_for(&m, 0, 0, 320, 320));
+    EXPECT_EQ(1u, structures_most(&m.map, m.looks));
+}
+
+UTEST(structures, most_counts_every_square_of_a_bridge)
+{
+    static MakeStructures m;
+    make_structures(&m);
+    put_bridge(&m, 2, 3, 4, 3);
+    put(&m, 8, 8, 12);
+    EXPECT_EQ(12u + 2u, structures_most(&m.map, m.looks));
 }
 
 UTEST(structures, most_is_a_strip_for_each_row_of_each_base)

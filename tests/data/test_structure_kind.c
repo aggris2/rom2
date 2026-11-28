@@ -47,6 +47,21 @@ UTEST(structure_kind, a_picture_may_be_as_high_as_the_base_is_deep)
     EXPECT_TRUE(reads("size = [64, 64]\nheight = 64\n" SPRITE, &kind));
 }
 
+UTEST(structure_kind, a_structure_of_variable_size_is_one_of_pieces)
+{
+    StructureKind kind;
+    ASSERT_TRUE(reads("size = [1, 1]\nheight = 1\nvariable_size = 1\n"
+        SPRITE, &kind));
+    EXPECT_TRUE(kind.pieces);
+    ASSERT_TRUE(reads("size = [1, 1]\nheight = 1\nvariable_size = 0\n"
+        SPRITE, &kind));
+    EXPECT_FALSE(kind.pieces);
+    ASSERT_TRUE(reads("size = [1, 1]\nheight = 1\n" SPRITE, &kind));
+    EXPECT_FALSE(kind.pieces);
+    EXPECT_TRUE(refuses("size = [1, 1]\nheight = 1\n"
+        "variable_size = \"yes\"\n" SPRITE));
+}
+
 UTEST(structure_kind, refuses_a_definition_that_lacks_a_part)
 {
     EXPECT_TRUE(refuses("height = 3\n" SPRITE));

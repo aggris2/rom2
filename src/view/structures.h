@@ -31,6 +31,9 @@ typedef struct StructureLook {
     uint16_t depth;
     uint16_t height;
     SpriteRound round;      /* how it moves: its frames are in one row */
+    /* A bridge: its sheet is a row of nine pieces a square each, and a
+     * map says how many squares it covers. See below. */
+    bool pieces;
 } StructureLook;
 
 /* The most sprites structures_sprites() writes for a map, given the
@@ -46,8 +49,16 @@ size_t structures_most(const Map *map, const StructureLook *looks);
  * as a windmill, shows the frame of its round for the tick: all of a
  * kind move as one.
  * All of it is raised by one height, that of the ground under the
- * middle of its base, however the ground lies under the rest. A
- * bridge of variable size is not drawn.
+ * middle of its base, however the ground lies under the rest.
+ *
+ * A structure of pieces, a bridge, covers as many squares as its
+ * record in the map says, and is a sprite for each of them: the piece
+ * for where the square is in the bridge. The nine pieces are, in the
+ * order of the sheet, the three of the first row of squares, the three
+ * of the rows between and the three of the last, and of each three
+ * the first square of a row, those between and the last. A bridge
+ * lies flat: it has the turn of what is under everything that stands.
+ * One the map gives no size is not drawn.
  *
  * The sprites are not in the order they are to be drawn, but each has
  * its turn: see sprites_sort(). */

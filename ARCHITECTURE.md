@@ -155,7 +155,8 @@ ground has a record of its own and is not made of sprites. `objects` writes
 a sprite for each tree or rock the camera can see, standing on the ground at
 its height. `structures` writes each building as strips a square high, one
 for each row of its base, because something may stand behind a building's
-front and before its back. `units` writes a sprite for each unit, the
+front and before its back; a bridge, whose size the map gives, it lays
+out of its nine pieces, a sprite for each square. `units` writes a sprite for each unit, the
 standing frame of the way it faces, in the colour of its player if it is a
 human and of its kind if it is a monster. `pointer` is the cursor the mouse
 moves: on the edge of the screen it scrolls the map and shows an arrow that

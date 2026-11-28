@@ -24,6 +24,9 @@ typedef struct StructureKind {
     uint16_t width;         /* of its base, in squares */
     uint16_t depth;         /* of its base, from back to front */
     uint16_t height;        /* of its picture, in squares */
+    /* Its sheet is not a picture of it but loose pieces a square
+     * each, and a map says how many squares it covers: a bridge. */
+    bool pieces;
     SpriteSheet sheet;
 } StructureKind;
 

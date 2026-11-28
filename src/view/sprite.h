@@ -29,6 +29,10 @@ typedef struct Sprite {
     uint32_t order;         /* its turn: see sprite_order() */
 } Sprite;
 
+/* The turn of what lies flat on the ground, such as a bridge: before
+ * everything that stands, so that it never covers a unit on it. */
+#define SPRITE_ORDER_FLAT 0u
+
 /* The turns of what is not on the map but over it: writing, and over
  * that the pointer. They come after every turn sprite_order() gives. */
 #define SPRITE_ORDER_TEXT (UINT32_MAX - 1u)

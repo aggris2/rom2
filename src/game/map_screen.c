@@ -224,6 +224,7 @@ static void add_structure(MapScreen *screen, int id, const char *path,
         look->depth = kind.depth;
         look->height = kind.height;
         look->round = kind.sheet.round;
+        look->pieces = kind.pieces;
     }
 }
 

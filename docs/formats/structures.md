@@ -115,6 +115,20 @@ picture.
 
 All 179 structures are written.
 
+## A bridge of variable size
+
+One structure, the vertical wooden bridge of ID 33, has `VariableSize`
+set. Its picture is not the bridge but nine pieces of it, a square
+each, and a map gives the bridge its width and its height in squares.
+The pieces are three rows of three: the first row of squares, the rows
+between and the last, and in each the first square, those between and
+the last. So the square at column `c` and row `r` of a bridge takes
+the piece `part(r) * 3 + part(c)`, where `part` is 0 for the first, 2
+for the last and 1 for any between.
+
+The whole bridge is drawn at one height, that of the ground under the
+middle of it, and under everything that stands on the map.
+
 ## Not known
 
 - The meaning of `ShadowY`, `Picture`, `IconID`, `Flat`, `Usable`,
