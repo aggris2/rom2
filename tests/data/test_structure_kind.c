@@ -4,7 +4,9 @@
 
 #include "utest.h"
 
-#define SPRITE "[sprite]\nsheet = \"sprites.png\"\ncell = [64, 96]\n"
+/* The end of a definition: its two masks and its sheet. */
+#define SHEET "[sprite]\nsheet = \"sprites.png\"\ncell = [64, 96]\n"
+#define SPRITE "building_present = 63\npassability = 55\n" SHEET
 
 /* Reads a definition written as text. */
 static bool reads(const char *text, StructureKind *out)
@@ -60,6 +62,25 @@ UTEST(structure_kind, a_structure_of_variable_size_is_one_of_pieces)
     EXPECT_FALSE(kind.pieces);
     EXPECT_TRUE(refuses("size = [1, 1]\nheight = 1\n"
         "variable_size = \"yes\"\n" SPRITE));
+}
+
+UTEST(structure_kind, reads_where_it_stands_and_what_of_that_is_closed)
+{
+    StructureKind kind;
+    ASSERT_TRUE(reads("size = [3, 2]\nheight = 2\n" SPRITE, &kind));
+    EXPECT_EQ(63u, kind.present);
+    EXPECT_EQ(55u, kind.closed);
+    /* All 32 bits, as a registry that counts with a sign has them. */
+    ASSERT_TRUE(reads("size = [3, 2]\nheight = 2\nbuilding_present = -1\n"
+        "passability = 2132801535\n" SHEET, &kind));
+    EXPECT_EQ(0xffffffffu, kind.present);
+    EXPECT_EQ(2132801535u, kind.closed);
+    EXPECT_TRUE(refuses("size = [3, 2]\nheight = 2\npassability = 55\n"
+        SHEET));
+    EXPECT_TRUE(refuses("size = [3, 2]\nheight = 2\n"
+        "building_present = 63\n" SHEET));
+    EXPECT_TRUE(refuses("size = [3, 2]\nheight = 2\n"
+        "building_present = \"all\"\npassability = 55\n" SHEET));
 }
 
 UTEST(structure_kind, refuses_a_definition_that_lacks_a_part)

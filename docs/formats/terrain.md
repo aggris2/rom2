@@ -62,8 +62,8 @@ There are ten kinds of ground, with the cost of walking on each as
 | Kind | Cost | Kind | Cost |
 |---|---|---|---|
 | 1 land | 8 | 6 stones | 12 |
-| 2 grass | 8 | 7 savanna | 11 |
-| 3 flowers | 9 | 8 mountain | 16 |
+| 2 grass | 8 | 7 savanna | 8 |
+| 3 flowers | 8 | 8 mountain | 16 |
 | 4 sand | 14 | 9 water | 8 |
 | 5 cracked | 6 | 10 road | 6 |
 
@@ -99,7 +99,15 @@ which is land.
 
 A square cannot be walked on if bit 13 is set, if it counts as
 mountain, if it is of a family of water, or if an object stands on it.
-The 8 squares along each edge of a map cannot be walked on either.
+The 8 squares along each edge of a map cannot be walked on either. A
+structure closes and opens squares of its own: see
+[structures.md](structures.md). What hovers crosses water and
+mountain but not an object or a wall, and what flies stops only at the
+edge.
+
+ROM2 keeps this as one table for a map, `src/mechanics/terrain`. In
+the game the key W marks the squares that are closed to what walks,
+and pressed again those closed to what hovers, then to what flies.
 
 These rules and the two tables are the original program's, taken from
 earlier work on it, and were then checked on the 58 maps:

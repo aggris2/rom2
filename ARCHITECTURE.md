@@ -131,6 +131,12 @@ and does not look at a clock itself, so a test runs it as the game does. The
 view goes by their count too: a tree or a windmill shows the frame of its
 animation for the tick, which its sprite sheet lists.
 
+`src/mechanics/terrain` is the ground of a map as units meet it: for each
+square how slow it is to cross, from the kinds of ground that meet on it,
+and whether it is closed to what walks, hovers or flies, by its ground, the
+tree or rock on it and the structures. `src/view/closed` turns it into marks
+that the ground is drawn with, for a look at the closed squares.
+
 `src/mechanics/units` holds the units of a game that is being played, made
 from a map's records when the game starts: from then on the map is only the
 ground they stand on. The hero is not among those records: he enters on the

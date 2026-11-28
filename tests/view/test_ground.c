@@ -13,6 +13,7 @@ typedef struct MakeGround {
     uint16_t ground[30];
     uint8_t heights[30];
     uint8_t light[30];
+    const uint8_t *marks;   /* NULL for none */
     GroundSquare squares[80];
 } MakeGround;
 
@@ -41,7 +42,7 @@ static size_t squares_for(MakeGround *m, int32_t left, int32_t top,
                           int32_t width, int32_t height)
 {
     Camera camera = {left, top, width, height};
-    size_t count = ground_squares(&m->map, m->light, 0, &camera,
+    size_t count = ground_squares(&m->map, m->light, m->marks, 0, &camera,
         SHEET_WIDTH, SHEET_HEIGHT, m->squares);
     return count <= ground_most(&camera)
         && count <= sizeof m->squares / sizeof m->squares[0]
@@ -64,7 +65,7 @@ UTEST(ground, a_flat_square_is_as_its_tile)
     }
     EXPECT_EQ(6u * 32, s->tile_x);
     EXPECT_EQ(4u * 32, s->tile_y);
-    EXPECT_EQ(0u, s->unused);
+    EXPECT_EQ(0u, s->mark);
 }
 
 UTEST(ground, a_corner_is_raised_by_its_height_and_has_its_light)
@@ -225,6 +226,25 @@ UTEST(ground, the_bits_above_the_tile_are_not_part_of_it)
     EXPECT_EQ(4u * 32, m.squares[0].tile_y);
 }
 
+UTEST(ground, a_square_takes_its_mark_if_marks_are_given)
+{
+    MakeGround m;
+    make_ground(&m);
+    uint8_t marks[30] = {0};
+    marks[1 * 6 + 2] = 85;
+    m.marks = marks;
+    /* The squares (2, 1) and (3, 1) come first, then those of the
+     * rows below that could reach up. */
+    ASSERT_EQ(8u, squares_for(&m, 2 * 32, 1 * 32, 64, 1));
+    EXPECT_EQ(85u, m.squares[0].mark);
+    for (int i = 1; i < 8; i++) {
+        EXPECT_EQ(0u, m.squares[i].mark);
+    }
+    m.marks = NULL;
+    ASSERT_EQ(8u, squares_for(&m, 2 * 32, 1 * 32, 64, 1));
+    EXPECT_EQ(0u, m.squares[0].mark);
+}
+
 /* The picture the square (x, y) shows at a tick, on a sheet as wide
  * as the real one, when the map names picture `named` for it. */
 static unsigned picture_shown(int x, int y, unsigned named, uint64_t tick)
@@ -233,8 +253,8 @@ static unsigned picture_shown(int x, int y, unsigned named, uint64_t tick)
     make_ground(&m);
     m.ground[y * 6 + x] = (uint16_t)(named << 4);
     Camera camera = {x * 32, y * 32, 32, 1};
-    size_t count = ground_squares(&m.map, m.light, tick, &camera, 52 * 32,
-        SHEET_HEIGHT, m.squares);
+    size_t count = ground_squares(&m.map, m.light, NULL, tick, &camera,
+        52 * 32, SHEET_HEIGHT, m.squares);
     return count == 0 ? 9999 : m.squares[0].tile_x / 32u;
 }
 

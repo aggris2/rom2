@@ -115,6 +115,26 @@ picture.
 
 All 179 structures are written.
 
+## Where a structure can be walked on
+
+`BuildingPresent` and `Passability` have a bit for each square of the
+base, row after row from the back and in a row from the left, the
+lowest bit first. A square with its bit in `BuildingPresent` is one the
+structure is on. Of those, a square with its bit in `Passability` is
+closed, and one without is the structure's floor: it can be walked on
+whatever is under it, water too, and costs as cracked ground does.
+
+A hut of 3 by 2 has 63 and 55: it is on all six squares, and the left
+one of its front row is its doorway. The vertical bridge of 4 by 6 has
+`Passability` 0x999999, which closes the first and the last square of
+each row: its rails. A bridge of variable size is on every square the
+map gives it and closes none.
+
+A base of more than 32 squares, which one structure of 11 by 5 has,
+uses the bits again from the first. The rule is the original
+program's, taken from earlier work on it; drawn over missions 41 and
+73 it leaves the bridges open and the huts closed but for their doors.
+
 ## A bridge of variable size
 
 One structure, the vertical wooden bridge of ID 33, has `VariableSize`
@@ -133,7 +153,4 @@ middle of it, and under everything that stands on the map.
 
 - The meaning of `ShadowY`, `Picture`, `IconID`, `Flat`, `Usable`,
   `LightRadius` and `LightPulse` beyond their names.
-- How `Passability` and `BuildingPresent` are read. They look like one
-  bit for each tile the structure stands on: 55 and 63 for a hut of 3
-  by 2.
 - When a structure with 2 pictures and no lists shows the second.

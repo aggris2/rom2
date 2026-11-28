@@ -9,13 +9,16 @@
 #include "base/file.h"
 #include "data/map.h"
 #include "data/structure_kind.h"
+#include "data/terrain_costs.h"
 #include "data/unit_kind.h"
 #include "game/sheets.h"
 #include "mechanics/clock.h"
 #include "mechanics/random.h"
+#include "mechanics/terrain.h"
 #include "mechanics/units.h"
 #include "view/bars.h"
 #include "view/camera.h"
+#include "view/closed.h"
 #include "view/ground.h"
 #include "view/light.h"
 #include "view/objects.h"
@@ -66,6 +69,14 @@ struct MapScreen {
     UnitId selected;            /* the unit clicked on, if has_selected */
     bool has_selected;
     BarsLook bars;              /* the bars of health and mana */
+    /* The ground as units meet it, and the kinds of structure it was
+     * made with: each by its ID, all zeros for one not read. */
+    Terrain terrain;
+    StructureKind structure_kinds[STRUCTURE_KINDS];
+    uint8_t *closed_marks;      /* the mark of each closed square */
+    /* Whose closed squares are marked: 0 for none, or TERRAIN_NO_WALK,
+     * TERRAIN_NO_HOVER or TERRAIN_NO_FLY. */
+    uint8_t show_closed;
     bool all_bars;              /* every unit shows its, not one alone */
     Random random;              /* its dice */
     PointerLook pointers[POINTER_KINDS];    /* how each pointer looks */
@@ -233,8 +244,12 @@ static void add_structure(MapScreen *screen, int id, const char *path,
 {
     StructureKind kind;
     StructureLook *look = &screen->structures[id];
-    if (!structure_kind_read(top, &kind)
-        || kind.sheet.cell_width != kind.width * MAP_SQUARE
+    bool read = structure_kind_read(top, &kind);
+    /* The game goes by a kind whether or not its picture is usable. */
+    if (read) {
+        screen->structure_kinds[id] = kind;
+    }
+    if (!read || kind.sheet.cell_width != kind.width * MAP_SQUARE
         || kind.sheet.cell_height != kind.height * MAP_SQUARE) {
         fprintf(stderr, "rom2: %s is not a usable structure\n", path);
     } else if (sheets_load_sprites(screen->renderer, path, &kind.sheet,
@@ -287,6 +302,38 @@ static void add_unit(MapScreen *screen, int id, const char *path,
             fprintf(stderr, "rom2: %s: kind %zu is not usable\n", path, i);
         }
     }
+}
+
+/* Reads the costs of the ground and makes the table of the map's
+ * ground with them. */
+static bool add_terrain(MapScreen *screen, const char *content)
+{
+    char path[1024];
+    TomlTable *top = NULL;
+    TerrainCosts costs;
+    int written = snprintf(path, sizeof path, "%s/rules/map.toml", content);
+    if (written < 0 || (size_t)written >= sizeof path
+        || !sheets_read_definition(path, &top)) {
+        return false;
+    }
+    bool ok = terrain_costs_read(top, &costs);
+    toml_free(top);
+    if (!ok) {
+        fprintf(stderr, "rom2: %s lacks the costs of the ground\n", path);
+        return false;
+    }
+    if (!terrain_from_map(&screen->map, &costs, screen->structure_kinds,
+            &screen->terrain)) {
+        fprintf(stderr, "rom2: out of memory\n");
+        return false;
+    }
+    screen->closed_marks = malloc((size_t)screen->terrain.width
+        * screen->terrain.height + 1);
+    if (screen->closed_marks == NULL) {
+        fprintf(stderr, "rom2: out of memory\n");
+        return false;
+    }
+    return true;
 }
 
 /* Makes the sheet of the bars. Without it no bars are drawn. */
@@ -572,7 +619,8 @@ MapScreen *map_screen_open(Renderer *renderer, const char *content,
     add_bars(screen, content);
     screen->all_bars = true;
     screen->show_rate = true;
-    if (!add_tiles(screen, content) || !add_looks(screen, content)) {
+    if (!add_tiles(screen, content) || !add_looks(screen, content)
+        || !add_terrain(screen, content)) {
         map_screen_close(screen);
         return NULL;
     }
@@ -661,8 +709,10 @@ bool map_screen_frame(MapScreen *screen, float seconds)
     frame.ground_sheet = screen->tiles;
     frame.ground = screen->ground;
     uint64_t tick = screen->clock.tick;
-    frame.ground_count = ground_squares(&screen->map, screen->light, tick,
-        &camera, screen->tiles_width, screen->tiles_height, screen->ground);
+    frame.ground_count = ground_squares(&screen->map, screen->light,
+        screen->show_closed != 0 ? screen->closed_marks : NULL, tick,
+        &camera,
+        screen->tiles_width, screen->tiles_height, screen->ground);
     frame.sprites = screen->sprites;
     frame.sprite_count = objects_sprites(&screen->map, screen->objects,
         tick, &camera, screen->sprites);
@@ -738,6 +788,15 @@ void map_screen_key(MapScreen *screen, SDL_Keycode key)
         screen->show_rate = !screen->show_rate;
     } else if (key == SDLK_B) {
         screen->all_bars = !screen->all_bars;
+    } else if (key == SDLK_W) {
+        /* What walks, what hovers, what flies, and none again. */
+        screen->show_closed = screen->show_closed == 0 ? TERRAIN_NO_WALK
+            : screen->show_closed == TERRAIN_NO_WALK ? TERRAIN_NO_HOVER
+            : screen->show_closed == TERRAIN_NO_HOVER ? TERRAIN_NO_FLY : 0;
+        if (screen->show_closed != 0) {
+            closed_marks(&screen->terrain, screen->show_closed,
+                screen->closed_marks);
+        }
     }
 }
 
@@ -747,6 +806,8 @@ void map_screen_close(MapScreen *screen)
         return;
     }
     units_free(&screen->live);
+    terrain_free(&screen->terrain);
+    free(screen->closed_marks);
     map_free(&screen->map);
     free(screen->light);
     free(screen->ground);

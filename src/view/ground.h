@@ -23,7 +23,9 @@ size_t ground_most(const Camera *camera);
  * ticks of the game have passed.
  *
  * `light` is the level of light at the top left corner of each square,
- * as light_ground() gives it. The sheet of tiles is `sheet_width` by
+ * as light_ground() gives it. `marks` says how strongly each square is
+ * marked, a value for each square as `light` has them, 0 for not at
+ * all; NULL marks none. The sheet of tiles is `sheet_width` by
  * `sheet_height` pixels. A square names its tile by a column and a row
  * of that sheet: one that names a tile the sheet does not have is left
  * out.
@@ -39,7 +41,8 @@ size_t ground_most(const Camera *camera);
  * and no light of its own, and takes those of the corner beside it.
  * Ground is raised up the screen, so rows below the screen that may
  * reach up into it are written too. */
-size_t ground_squares(const Map *map, const uint8_t *light, uint64_t tick,
+size_t ground_squares(const Map *map, const uint8_t *light,
+                      const uint8_t *marks, uint64_t tick,
                       const Camera *camera, uint32_t sheet_width,
                       uint32_t sheet_height, GroundSquare *out);
 

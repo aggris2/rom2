@@ -153,9 +153,10 @@ int main(int argc, char **argv)
             "taken from the folder `content` if no other is named. The\n"
             "mouse on the edge of the screen moves over the map and a\n"
             "click selects a unit, which the right button lets go. B hides\n"
-            "the health of the units that are not selected, G shows a grid,\n"
-            "P pauses, F hides the count of frames a second, and Escape\n"
-            "leaves.\n");
+            "the health of the units that are not selected, W marks the\n"
+            "squares closed to what walks, then hovers, then flies, G shows\n"
+            "a grid, P pauses, F hides the count of frames a second, and\n"
+            "Escape leaves.\n");
         return 2;
     }
     if (map == NULL) {

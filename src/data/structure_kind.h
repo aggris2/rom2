@@ -27,15 +27,24 @@ typedef struct StructureKind {
     /* Its sheet is not a picture of it but loose pieces a square
      * each, and a map says how many squares it covers: a bridge. */
     bool pieces;
+    /* Which squares of its base it is on, and which of those nothing
+     * can walk onto: a bit for each square, row after row from the
+     * back and in a row from the left, the lowest bit first. A square
+     * it is on and that is not closed is its floor: a doorway, or the
+     * deck of a bridge. The registry's `BuildingPresent` and
+     * `Passability`. */
+    uint32_t present;
+    uint32_t closed;
     SpriteSheet sheet;
 } StructureKind;
 
 /* Reads a kind from the table of its definition's top.
  *
  * Returns false, and leaves `*out` alone, if the definition lacks its
- * size, its height or a usable [sprite] part, a side is less than 1 or
- * more than STRUCTURE_MAX_SIDE, or the picture is less high than the
- * base is deep. */
+ * size, its height, `building_present`, `passability` or a usable
+ * [sprite] part, a side is less than 1 or more than
+ * STRUCTURE_MAX_SIDE, or the picture is less high than the base is
+ * deep. */
 bool structure_kind_read(const TomlTable *top, StructureKind *out);
 
 #endif

@@ -28,12 +28,17 @@ layout(set = 3, binding = 0) uniform Ground {
 layout(location = 0) flat in ivec4 corners;  /* y: see ground.vert */
 layout(location = 1) flat in ivec3 from;     /* left edge, then the tile */
 layout(location = 2) flat in ivec4 levels;
+layout(location = 3) flat in int mark;   /* in 255ths: 0 for none */
 
 layout(location = 0) out vec4 pixel;
 
 /* Numbers with 16 bits after the point: one, and a half. */
 const int ONE = 65536;
 const int HALF = 32768;
+
+/* The colour a marked square is drawn towards: FRAME_MARK_ in
+ * view/frame.h. */
+const ivec3 MARK = ivec3(255, 40, 40);
 
 /* The light is worked out as how dark it is, with 9 bits after the
  * point. */
@@ -87,6 +92,9 @@ void main()
         + (dark_low - dark_top) / tall * row;
     int level = ground.light_most - dark_here / DARK_ONE;
     ivec3 lit = min(colour * level / ground.light_whole, 255);
+
+    /* A mark, for looking at what the game takes the square to be. */
+    lit += (MARK - lit) * mark / 255;
 
     /* The grid: the square's left column, and its top edge. Where the
      * edge steps by more than a pixel from a column to the one beside

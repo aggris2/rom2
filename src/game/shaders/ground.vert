@@ -12,20 +12,22 @@ layout(set = 1, binding = 0) uniform Screen {
 } screen;
 
 layout(location = 0) in ivec4 corner_y;  /* of its corners, on the screen */
-layout(location = 1) in ivec2 left;      /* its left edge, and a number
-                                            unused */
+layout(location = 1) in ivec2 left;      /* its left edge, and how
+                                            strongly it is marked */
 layout(location = 2) in uvec2 tile;      /* its tile's corner in the sheet */
 layout(location = 3) in uvec4 light;     /* the level at its corners */
 
 layout(location = 0) flat out ivec4 corners;
 layout(location = 1) flat out ivec3 from;
 layout(location = 2) flat out ivec4 levels;
+layout(location = 3) flat out int mark;
 
 void main()
 {
     corners = corner_y;
     from = ivec3(left.x, ivec2(tile));
     levels = ivec4(light);
+    mark = left.y;
     /* From its highest top corner to its lowest low corner. */
     int right = gl_VertexIndex & 1;
     int low = gl_VertexIndex >> 1;

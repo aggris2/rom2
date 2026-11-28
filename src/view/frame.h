@@ -32,12 +32,20 @@ typedef struct GroundSquare {
     int16_t y[FRAME_SQUARE_CORNERS];    /* of each corner on the screen,
                                            in pixels */
     int16_t x;              /* of its left corners on the screen */
-    uint16_t unused;        /* 0: fills the record to 20 bytes */
+    uint16_t mark;          /* how strongly it is marked, in 255ths:
+                               see FRAME_MARK */
     uint16_t tile_x;        /* the top left corner of its tile in the */
     uint16_t tile_y;        /* sheet */
     uint8_t light[FRAME_SQUARE_CORNERS];    /* how bright each corner
                                                is: see FRAME_LIGHT_WHOLE */
 } GroundSquare;
+
+/* A marked square is drawn towards this colour, as far as its mark
+ * says: at 255 it would be all of it. A mark is for looking at what
+ * the game takes a square to be, and no part of how the game looks. */
+#define FRAME_MARK_RED 255
+#define FRAME_MARK_GREEN 40
+#define FRAME_MARK_BLUE 40
 
 /* How strongly the lines of the grid are drawn over the ground, in
  * 255ths: at 255 they would be white. */

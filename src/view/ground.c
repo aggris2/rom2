@@ -89,7 +89,8 @@ static uint32_t picture_at(uint32_t picture, int32_t x, int32_t y,
     return family * FAMILY_PICTURES + picture % FAMILY_PICTURES;
 }
 
-size_t ground_squares(const Map *map, const uint8_t *light, uint64_t tick,
+size_t ground_squares(const Map *map, const uint8_t *light,
+                      const uint8_t *marks, uint64_t tick,
                       const Camera *camera, uint32_t sheet_width,
                       uint32_t sheet_height, GroundSquare *out)
 {
@@ -124,7 +125,8 @@ size_t ground_squares(const Map *map, const uint8_t *light, uint64_t tick,
             }
             GroundSquare *square = &out[count++];
             square->x = (int16_t)(x * MAP_SQUARE - camera->left);
-            square->unused = 0;
+            square->mark = marks == NULL ? 0
+                : marks[(size_t)y * map->info.width + (size_t)x];
             square->tile_x = (uint16_t)tile_x;
             square->tile_y = (uint16_t)tile_y;
             /* Top left, top right, low left, low right. */
