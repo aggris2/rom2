@@ -50,7 +50,7 @@ UTEST(text, a_character_the_font_has_no_glyph_for_takes_no_room)
     const FontLook *f = make_font();
     /* A tab is before the first, and a byte of 200 past the last. */
     EXPECT_EQ(6 + 5, text_width(f, "0\t0"));
-    EXPECT_EQ(6 + 5, text_width(f, "0\3100"));
+    EXPECT_EQ(6 + 5, text_width(f, "0\310" "0"));
 }
 
 UTEST(text, each_character_is_the_whole_cell_of_its_glyph)
