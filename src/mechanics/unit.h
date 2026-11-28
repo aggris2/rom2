@@ -1,0 +1,30 @@
+/* A unit as it is in a game that is being played: where it stands and
+ * which way it looks now. A map's record of a unit, MapUnit, is only
+ * how the unit starts.
+ *
+ * It holds what the game has a use for so far, and grows with it.
+ */
+#ifndef ROM2_MECHANICS_UNIT_H
+#define ROM2_MECHANICS_UNIT_H
+
+#include <stdint.h>
+
+/* A unit's place is in these parts of a square, as a map has it. */
+#define UNIT_PLACE_PARTS 256
+
+/* A unit can face this many ways: a full turn in so many steps, far
+ * finer than its pictures show. Facings are counted round with a byte,
+ * so that the step after the last is the first. */
+#define UNIT_TURN 256
+
+typedef struct Unit {
+    uint16_t type;          /* its ID in units.reg: how it looks */
+    int32_t kind;           /* the id of its kind: its numbers */
+    int32_t player;         /* counted from 1, as a map counts */
+    int32_t x;              /* in UNIT_PLACE_PARTS of a square */
+    int32_t y;
+    uint8_t facing;         /* of UNIT_TURN */
+    uint8_t facing_wanted;  /* the way it is turning to */
+} Unit;
+
+#endif

@@ -1,5 +1,5 @@
-/* The units of a map as things to draw: a sprite for each one the
- * camera can see, standing where the map has it.
+/* The units of a game as things to draw: a sprite for each one the
+ * camera can see, standing where it is.
  */
 #ifndef ROM2_VIEW_UNITS_H
 #define ROM2_VIEW_UNITS_H
@@ -10,14 +10,16 @@
 
 #include "data/map.h"
 #include "data/unit_kind.h"
+#include "mechanics/units.h"
 #include "view/camera.h"
 #include "view/sprite.h"
 
 /* The types of unit there can be: a map names a type by its ID. */
 #define UNIT_TYPES 256
 
-/* The ways a unit can face as it stands: a full turn in this many
- * steps. The first row of a unit's sheet has a frame for each. */
+/* The ways a unit's pictures show it facing as it stands: a full turn
+ * in this many steps, where the game counts UNIT_TURN. The first row
+ * of a unit's sheet has a frame for each. */
 #define UNIT_FACINGS 16
 
 /* How one type of unit looks: its sheet on the card, and how a frame
@@ -36,23 +38,24 @@ typedef struct UnitLook {
     bool by_player;
 } UnitLook;
 
-/* The most sprites units_sprites() writes for a map: room for this
- * many is enough. */
-size_t units_most(const Map *map);
+/* The most sprites units_sprites() writes for a list of units: room
+ * for this many is enough. */
+size_t units_most(const Units *units);
 
 /* Writes a sprite for each unit the camera can see and returns how
- * many it wrote. `looks` has UNIT_TYPES entries, one for each ID.
+ * many it wrote. `map` is the map they are on, for its ground and its
+ * players. `looks` has UNIT_TYPES entries, one for each ID.
  * `faces` has UNIT_KIND_IDS entries, the face of the kind with each
  * ID as UnitKind has it, and 0 for a kind that is not known.
  *
  * A unit stands with its anchor on its place, raised by the height of
  * the ground at that point, shows the standing frame of the way
- * it faces, and is as bright as LIGHT_STANDING. One that faces a way
- * there is not is not drawn.
+ * it faces, and is as bright as LIGHT_STANDING.
  *
- * The frames of the first row do not start with the way a map counts
- * from: the frame of a facing is the one half a turn further on,
- * facing 0 the ninth frame and facing 8 the first.
+ * A unit's facing is cut down to the UNIT_FACINGS its pictures have.
+ * The frames of the first row do not start with the way the game
+ * counts from: the frame of a facing is the one half a turn further
+ * on, so a unit that faces the first way shows the ninth frame.
  *
  * A unit whose sheet goes by the player is drawn in the palette that
  * its player's colour numbers, and any other in the palette of its
@@ -61,8 +64,8 @@ size_t units_most(const Map *map);
  *
  * The sprites are not in the order they are to be drawn, but each has
  * its turn: see sprites_sort(). */
-size_t units_sprites(const Map *map, const UnitLook *looks,
-                     const uint16_t *faces, const Camera *camera,
-                     Sprite *out);
+size_t units_sprites(const Map *map, const Units *units,
+                     const UnitLook *looks, const uint16_t *faces,
+                     const Camera *camera, Sprite *out);
 
 #endif

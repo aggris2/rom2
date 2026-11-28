@@ -3,11 +3,8 @@
 #include "view/ground.h"
 #include "view/light.h"
 
-/* A unit's place is in these parts of a square. */
-#define PLACE_PARTS 256
-
 /* Which of its sheet's palettes a unit is drawn in. */
-static uint16_t palette_of(const Map *map, const MapUnit *unit,
+static uint16_t palette_of(const Map *map, const Unit *unit,
                            const UnitLook *look, const uint16_t *faces)
 {
     if (!look->by_player) {
@@ -23,26 +20,25 @@ static uint16_t palette_of(const Map *map, const MapUnit *unit,
     return colour < 0 || colour > UINT16_MAX ? 0 : (uint16_t)colour;
 }
 
-size_t units_most(const Map *map)
+size_t units_most(const Units *units)
 {
-    return map->unit_count;
+    return units->living;
 }
 
-size_t units_sprites(const Map *map, const UnitLook *looks,
-                     const uint16_t *faces, const Camera *camera,
-                     Sprite *out)
+size_t units_sprites(const Map *map, const Units *units,
+                     const UnitLook *looks, const uint16_t *faces,
+                     const Camera *camera, Sprite *out)
 {
     size_t count = 0;
-    for (uint32_t i = 0; i < map->unit_count; i++) {
-        const MapUnit *unit = &map->units[i];
-        if (unit->type >= UNIT_TYPES || !looks[unit->type].known
-            || unit->angle < 0 || unit->angle >= UNIT_FACINGS
-            || unit->x < 0 || unit->y < 0) {
+    for (uint32_t slot = 0; slot < units->count; slot++) {
+        const Unit *unit = units_at(units, slot, NULL);
+        if (unit == NULL || unit->type >= UNIT_TYPES
+            || !looks[unit->type].known || unit->x < 0 || unit->y < 0) {
             continue;
         }
         const UnitLook *look = &looks[unit->type];
-        int32_t place_x = unit->x * MAP_SQUARE / PLACE_PARTS;
-        int32_t place_y = unit->y * MAP_SQUARE / PLACE_PARTS;
+        int32_t place_x = unit->x * MAP_SQUARE / UNIT_PLACE_PARTS;
+        int32_t place_y = unit->y * MAP_SQUARE / UNIT_PLACE_PARTS;
         int32_t left = place_x - look->anchor_x - camera->left;
         int32_t top = place_y - look->anchor_y - camera->top
             - ground_height_at(map, place_x, place_y);
@@ -53,7 +49,8 @@ size_t units_sprites(const Map *map, const UnitLook *looks,
         }
         Sprite *sprite = &out[count++];
         sprite->sheet = look->sheet;
-        int32_t frame = (unit->angle + UNIT_FACINGS / 2) % UNIT_FACINGS;
+        int32_t shown = unit->facing / (UNIT_TURN / UNIT_FACINGS);
+        int32_t frame = (shown + UNIT_FACINGS / 2) % UNIT_FACINGS;
         sprite->source_x = (uint16_t)(frame * look->cell_width);
         sprite->source_y = 0;
         sprite->width = look->cell_width;
@@ -62,8 +59,8 @@ size_t units_sprites(const Map *map, const UnitLook *looks,
         sprite->y = (int16_t)top;
         sprite->light = LIGHT_STANDING;
         sprite->palette = palette_of(map, unit, look, faces);
-        sprite->order = sprite_order(unit->x / PLACE_PARTS,
-            unit->y / PLACE_PARTS);
+        sprite->order = sprite_order(unit->x / UNIT_PLACE_PARTS,
+            unit->y / UNIT_PLACE_PARTS);
     }
     return count;
 }

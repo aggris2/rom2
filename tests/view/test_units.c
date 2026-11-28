@@ -11,7 +11,8 @@
 typedef struct MakeUnits {
     Map map;
     uint8_t heights[100];
-    MapUnit units[4];
+    Units live;
+    UnitSlot slots[4];
     MapPlayer players[3];
     UnitLook looks[UNIT_TYPES];
     uint16_t faces[UNIT_KIND_IDS];
@@ -24,7 +25,9 @@ static void make_units(MakeUnits *m)
     m->map.info.width = 10;
     m->map.info.height = 10;
     m->map.heights = m->heights;
-    m->map.units = m->units;
+    /* Room for the units, with nothing to give back afterwards. */
+    m->live.slots = m->slots;
+    m->live.room = 4;
     /* Three players, with the colours 0, 7 and 2. */
     m->map.players = m->players;
     m->map.player_count = 3;
@@ -38,15 +41,17 @@ static void make_units(MakeUnits *m)
     m->looks[3].anchor_y = 40;
 }
 
-/* Puts a unit of type `type` in the middle of the square (x, y), as a
- * map has it: in 256ths of a square. */
-static MapUnit *put(MakeUnits *m, int x, int y, uint32_t type)
+/* Puts a unit of type `type` in the middle of the square (x, y): its
+ * place is in 256ths of a square. */
+static Unit *put(MakeUnits *m, int x, int y, uint16_t type)
 {
-    MapUnit *unit = &m->units[m->map.unit_count++];
-    unit->x = x * 256 + 128;
-    unit->y = y * 256 + 128;
-    unit->type = type;
-    return unit;
+    Unit unit;
+    UnitId id;
+    memset(&unit, 0, sizeof unit);
+    unit.x = x * 256 + 128;
+    unit.y = y * 256 + 128;
+    unit.type = type;
+    return units_add(&m->live, &unit, &id) ? units_get(&m->live, id) : NULL;
 }
 
 /* The sprites for a camera, or 9999 if more were written than
@@ -55,9 +60,9 @@ static size_t sprites_for(MakeUnits *m, int32_t left, int32_t top,
                           int32_t width, int32_t height)
 {
     Camera camera = {left, top, width, height};
-    size_t count = units_sprites(&m->map, m->looks, m->faces, &camera,
-        m->sprites);
-    return count <= units_most(&m->map) ? count : 9999;
+    size_t count = units_sprites(&m->map, &m->live, m->looks, m->faces,
+        &camera, m->sprites);
+    return count <= units_most(&m->live) ? count : 9999;
 }
 
 UTEST(units, a_unit_stands_with_its_anchor_on_its_place)
@@ -81,7 +86,7 @@ UTEST(units, a_place_is_in_256ths_of_a_square)
 {
     MakeUnits m;
     make_units(&m);
-    MapUnit *unit = put(&m, 4, 5, 3);
+    Unit *unit = put(&m, 4, 5, 3);
     /* A quarter of a square in, and three quarters down. */
     unit->x = 4 * 256 + 64;
     unit->y = 5 * 256 + 192;
@@ -95,32 +100,47 @@ UTEST(units, the_way_a_unit_faces_picks_its_frame_of_the_first_row)
 {
     MakeUnits m;
     make_units(&m);
-    MapUnit *unit = put(&m, 4, 5, 3);
-    /* The frame of a facing is the one half a turn further on. */
+    Unit *unit = put(&m, 4, 5, 3);
+    /* A sixteenth of a turn is 16 of the game's 256 steps, and the
+     * frame of a facing is the one half a turn further on. */
     ASSERT_EQ(1u, sprites_for(&m, 0, 0, 320, 320));
     EXPECT_EQ(8u * 64, m.sprites[0].source_x);
     EXPECT_EQ(0u, m.sprites[0].source_y);
-    unit->angle = 5;
+    unit->facing = 5 * 16;
     ASSERT_EQ(1u, sprites_for(&m, 0, 0, 320, 320));
     EXPECT_EQ(13u * 64, m.sprites[0].source_x);
     EXPECT_EQ(0u, m.sprites[0].source_y);
-    unit->angle = 8;
+    unit->facing = 8 * 16;
     ASSERT_EQ(1u, sprites_for(&m, 0, 0, 320, 320));
     EXPECT_EQ(0u, m.sprites[0].source_x);
-    unit->angle = 15;
+    unit->facing = 255;
     ASSERT_EQ(1u, sprites_for(&m, 0, 0, 320, 320));
     EXPECT_EQ(7u * 64, m.sprites[0].source_x);
 }
 
-UTEST(units, a_unit_that_faces_a_way_there_is_not_is_not_drawn)
+UTEST(units, a_facing_between_two_pictures_shows_the_one_before)
 {
     MakeUnits m;
     make_units(&m);
-    MapUnit *unit = put(&m, 4, 5, 3);
-    unit->angle = 16;
-    EXPECT_EQ(0u, sprites_for(&m, 0, 0, 320, 320));
-    unit->angle = -1;
-    EXPECT_EQ(0u, sprites_for(&m, 0, 0, 320, 320));
+    Unit *unit = put(&m, 4, 5, 3);
+    unit->facing = 5 * 16 + 15;
+    ASSERT_EQ(1u, sprites_for(&m, 0, 0, 320, 320));
+    EXPECT_EQ(13u * 64, m.sprites[0].source_x);
+    unit->facing = 6 * 16;
+    ASSERT_EQ(1u, sprites_for(&m, 0, 0, 320, 320));
+    EXPECT_EQ(14u * 64, m.sprites[0].source_x);
+}
+
+UTEST(units, a_unit_that_is_gone_is_not_drawn)
+{
+    MakeUnits m;
+    make_units(&m);
+    put(&m, 1, 1, 3);
+    put(&m, 4, 5, 3);
+    UnitId first = {0, 0};
+    units_remove(&m.live, first);
+    ASSERT_EQ(1u, sprites_for(&m, 0, 0, 320, 320));
+    EXPECT_EQ(144 - 32, m.sprites[0].x);
 }
 
 UTEST(units, a_unit_is_raised_by_the_ground_it_stands_on)
@@ -141,7 +161,7 @@ UTEST(units, on_uneven_ground_a_unit_is_raised_by_the_height_at_its_point)
 {
     MakeUnits m;
     make_units(&m);
-    MapUnit *unit = put(&m, 4, 5, 3);
+    Unit *unit = put(&m, 4, 5, 3);
     /* In the middle of its square, the mean of the four corners,
      * rounded: 51 and a half is 52. */
     m.heights[5 * 10 + 4] = 59;
@@ -180,7 +200,7 @@ UTEST(units, a_unit_whose_sheet_goes_by_the_kind_has_its_kinds_colouring)
     /* Faces are counted from 1, and palettes from 0. */
     m.faces[600] = 1;
     m.faces[601] = 4;
-    MapUnit *first = put(&m, 1, 1, 3);
+    Unit *first = put(&m, 1, 1, 3);
     first->kind = 600;
     first->player = 2;
     put(&m, 2, 2, 3)->kind = 601;
@@ -220,7 +240,7 @@ UTEST(units, a_unit_of_a_player_the_map_does_not_have_has_the_first_palette)
     EXPECT_EQ(0u, m.sprites[2].palette);
     /* Nor does a colour that is no number of a palette pick one. */
     m.players[1].colour = -3;
-    m.units[0].player = 2;
+    units_at(&m.live, 0, NULL)->player = 2;
     ASSERT_EQ(3u, sprites_for(&m, 0, 0, 320, 320));
     EXPECT_EQ(0u, m.sprites[0].palette);
 }
@@ -253,13 +273,13 @@ UTEST(units, a_unit_off_the_screen_is_left_out)
     EXPECT_EQ(1u, sprites_for(&m, 0, 0, 320, 137));
 }
 
-UTEST(units, most_is_every_unit_of_the_map)
+UTEST(units, most_is_every_unit_there_is)
 {
     MakeUnits m;
     make_units(&m);
     put(&m, 1, 1, 3);
     put(&m, 5, 5, 3);
     put(&m, 8, 8, 4);
-    EXPECT_EQ(3u, units_most(&m.map));
+    EXPECT_EQ(3u, units_most(&m.live));
     EXPECT_EQ(2u, sprites_for(&m, 0, 0, 320, 320));
 }

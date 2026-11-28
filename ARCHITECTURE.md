@@ -29,9 +29,9 @@ is one, is a second program on top of layers 1 to 3.
 A frame goes down the same order: input, then the ticks, then the view
 writes the list of what to draw, then the renderer draws it.
 
-`src/mechanics` has only its clock so far. The table below says where
-what is still to come will go, so that the place is decided before the
-code is written.
+`src/mechanics` has its clock, its dice and its list of units so far. The
+table below says where what is still to come will go, so that the place is
+decided before the code is written.
 
 | Thing | Place |
 |---|---|
@@ -120,6 +120,14 @@ and does not look at a clock itself, so a test runs it as the game does.
 Nothing happens in a tick yet, but the view goes by their count: a tree or a
 windmill shows the frame of its animation for the tick, which its sprite
 sheet lists.
+
+`src/mechanics/units` holds the units of a game that is being played, made
+from a map's records when the game starts: from then on the map is only the
+ground they stand on. A unit is named by its slot in the list and by how
+many units the slot had before it, so that a slot can be used again and an
+old name leads to nothing. `src/mechanics/random` is the game's dice, which
+follow from their seed alone, so that the same game plays out the same
+everywhere.
 
 `src/view` turns what there is into what is drawn. `frame.h` is what the
 renderer is handed once a frame: the ground, and the sprites that lie on it.

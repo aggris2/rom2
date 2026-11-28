@@ -108,6 +108,8 @@ add_library(rom2_core STATIC
     src/data/structure_kind.c
     src/data/unit_kind.c
     src/mechanics/clock.c
+    src/mechanics/random.c
+    src/mechanics/units.c
     src/view/camera.c
     src/view/ground.c
     src/view/light.c
@@ -208,6 +210,8 @@ add_executable(rom2_tests
     tests/data/test_structure_kind.c
     tests/data/test_unit_kind.c
     tests/mechanics/test_clock.c
+    tests/mechanics/test_random.c
+    tests/mechanics/test_units.c
     tests/view/test_camera.c
     tests/view/test_ground.c
     tests/view/test_light.c

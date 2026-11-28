@@ -12,6 +12,7 @@
 #include "data/unit_kind.h"
 #include "game/sheets.h"
 #include "mechanics/clock.h"
+#include "mechanics/units.h"
 #include "view/camera.h"
 #include "view/ground.h"
 #include "view/light.h"
@@ -37,6 +38,7 @@ struct MapScreen {
     float top;
     bool grid;                  /* whether the grid is shown */
     Clock clock;                /* the ticks of the game */
+    Units live;                 /* the units of the game */
     uint8_t *light;             /* the light at each corner of the map */
     ObjectLook objects[OBJECT_KINDS];   /* how each kind of object looks */
     StructureLook structures[STRUCTURE_KINDS];  /* and of structure */
@@ -337,6 +339,11 @@ MapScreen *map_screen_open(Renderer *renderer, const char *content,
         map_screen_close(screen);
         return NULL;
     }
+    if (!units_from_map(&screen->map, &screen->live)) {
+        fprintf(stderr, "rom2: out of memory\n");
+        map_screen_close(screen);
+        return NULL;
+    }
     start_camera(screen);
     clock_start(&screen->clock);
     return screen;
@@ -384,7 +391,7 @@ bool map_screen_frame(MapScreen *screen, float seconds)
     }
     most = objects_most(&camera, screen->objects)
         + structures_most(&screen->map, screen->structures)
-        + units_most(&screen->map);
+        + units_most(&screen->live);
     if (most > screen->sprite_room) {
         Sprite *sprites = realloc(screen->sprites,
             2 * most * sizeof *sprites);
@@ -399,17 +406,18 @@ bool map_screen_frame(MapScreen *screen, float seconds)
     frame.ground_grid = screen->grid;
     frame.ground_sheet = screen->tiles;
     frame.ground = screen->ground;
-    frame.ground_count = ground_squares(&screen->map, screen->light,
-        screen->clock.tick, &camera, screen->tiles_width, screen->tiles_height, screen->ground);
-    frame.sprites = screen->sprites;
     uint64_t tick = screen->clock.tick;
+    frame.ground_count = ground_squares(&screen->map, screen->light, tick,
+        &camera, screen->tiles_width, screen->tiles_height, screen->ground);
+    frame.sprites = screen->sprites;
     frame.sprite_count = objects_sprites(&screen->map, screen->objects,
         tick, &camera, screen->sprites);
     frame.sprite_count += structures_sprites(&screen->map,
         screen->structures, tick, &camera,
         screen->sprites + frame.sprite_count);
-    frame.sprite_count += units_sprites(&screen->map, screen->units,
-        screen->faces, &camera, screen->sprites + frame.sprite_count);
+    frame.sprite_count += units_sprites(&screen->map, &screen->live,
+        screen->units, screen->faces, &camera,
+        screen->sprites + frame.sprite_count);
     sprites_sort(screen->sprites, frame.sprite_count,
         screen->sprites + screen->sprite_room);
     if (!renderer_draw(screen->renderer, &frame)) {
@@ -433,6 +441,7 @@ void map_screen_close(MapScreen *screen)
     if (screen == NULL) {
         return;
     }
+    units_free(&screen->live);
     map_free(&screen->map);
     free(screen->light);
     free(screen->ground);
