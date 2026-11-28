@@ -116,10 +116,9 @@ its ID and which colouring it has.
 `src/mechanics/clock` turns time that has passed into ticks, the steps the
 game happens in: 16 in a second at the speed a game starts on, and from 8 to
 32 at the others, as in the original. It is told how much time has passed
-and does not look at a clock itself, so a test runs it as the game does.
-Nothing happens in a tick yet, but the view goes by their count: a tree or a
-windmill shows the frame of its animation for the tick, which its sprite
-sheet lists.
+and does not look at a clock itself, so a test runs it as the game does. The
+view goes by their count too: a tree or a windmill shows the frame of its
+animation for the tick, which its sprite sheet lists.
 
 `src/mechanics/units` holds the units of a game that is being played, made
 from a map's records when the game starts: from then on the map is only the
@@ -127,7 +126,11 @@ ground they stand on. A unit is named by its slot in the list and by how
 many units the slot had before it, so that a slot can be used again and an
 old name leads to nothing. `src/mechanics/random` is the game's dice, which
 follow from their seed alone, so that the same game plays out the same
-everywhere.
+everywhere. `unit` is the record of one unit and how it turns: at its kind's
+speed and by the shorter way, as in the original. `idle` is what a unit does
+that has nothing to do: it stands, and now and then, when the dice say so,
+it turns to look another way. A tick of the game is so far a tick of every
+unit.
 
 `src/view` turns what there is into what is drawn. `frame.h` is what the
 renderer is handed once a frame: the ground, and the sprites that lie on it.

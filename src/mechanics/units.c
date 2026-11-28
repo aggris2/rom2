@@ -3,6 +3,8 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include "mechanics/idle.h"
+
 /* The steps of a turn a map counts a unit's facing in. */
 #define MAP_FACINGS 16
 
@@ -82,7 +84,16 @@ void units_remove(Units *units, UnitId id)
     units->living--;
 }
 
-bool units_from_map(const Map *map, Units *out)
+void units_tick(Units *units, Random *random)
+{
+    for (uint32_t slot = 0; slot < units->count; slot++) {
+        if (units->slots[slot].taken) {
+            idle_tick(&units->slots[slot].unit, random);
+        }
+    }
+}
+
+bool units_from_map(const Map *map, const UnitKind *kinds, Units *out)
 {
     Units units;
     memset(&units, 0, sizeof units);
@@ -100,6 +111,9 @@ bool units_from_map(const Map *map, Units *out)
             ? 0 : from->angle;
         unit.facing = (uint8_t)(angle * (UNIT_TURN / MAP_FACINGS));
         unit.facing_wanted = unit.facing;
+        uint8_t speed = from->kind < 0 || from->kind >= UNIT_KIND_IDS
+            ? 0 : kinds[from->kind].rotation_speed;
+        unit.turn_speed = speed != 0 ? speed : UNITS_TURN_SPEED_UNKNOWN;
         if (!units_add(&units, &unit, NULL)) {
             units_free(&units);
             return false;

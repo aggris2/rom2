@@ -4,6 +4,17 @@
 
 #include "utest.h"
 
+/* Kinds for units_from_map(): none is known, but for kind 600, which
+ * turns 19 steps a tick. */
+static UnitKind kinds[UNIT_KIND_IDS];
+
+static const UnitKind *some_kinds(void)
+{
+    kinds[600].id = 600;
+    kinds[600].rotation_speed = 19;
+    return kinds;
+}
+
 /* A unit of a type, to tell one from another by. */
 static Unit unit_of(uint16_t type)
 {
@@ -150,7 +161,7 @@ UTEST(units, a_map_gives_the_units_a_game_starts_with)
     map.unit_count = 3;
 
     Units units = {0};
-    ASSERT_TRUE(units_from_map(&map, &units));
+    ASSERT_TRUE(units_from_map(&map, some_kinds(), &units));
     ASSERT_EQ(3u, units.living);
     /* In the map's order, the first in slot 0. */
     const Unit *first = units_at(&units, 0, NULL);
@@ -164,7 +175,71 @@ UTEST(units, a_map_gives_the_units_a_game_starts_with)
     EXPECT_EQ(160u, first->facing_wanted);
     EXPECT_EQ(240u, units_at(&units, 1, NULL)->facing);
     EXPECT_EQ(0u, units_at(&units, 2, NULL)->facing);
+    /* A unit turns as fast as its kind, or as one of no known kind. */
+    EXPECT_EQ(19u, first->turn_speed);
+    EXPECT_EQ((unsigned)UNITS_TURN_SPEED_UNKNOWN,
+        units_at(&units, 1, NULL)->turn_speed);
     units_free(&units);
+}
+
+UTEST(units, a_tick_is_a_tick_of_every_unit_there_is)
+{
+    Units units = {0};
+    Random random;
+    random_start(&random, 1);
+    Unit unit = unit_of(10);
+    unit.turn_speed = 16;
+    unit.facing_wanted = 64;
+    UnitId first;
+    UnitId second;
+    UnitId third;
+    units_add(&units, &unit, &first);
+    units_add(&units, &unit, &second);
+    units_add(&units, &unit, &third);
+    units_remove(&units, second);
+    units_tick(&units, &random);
+    EXPECT_EQ(16u, units_get(&units, first)->facing);
+    EXPECT_EQ(16u, units_get(&units, third)->facing);
+    units_tick(&units, &random);
+    EXPECT_EQ(32u, units_get(&units, first)->facing);
+    units_free(&units);
+}
+
+UTEST(units, the_same_dice_play_the_same_game)
+{
+    MapUnit records[20];
+    memset(records, 0, sizeof records);
+    for (int i = 0; i < 20; i++) {
+        records[i].angle = i % 16;
+        records[i].kind = i % 2 == 0 ? 600 : 0;
+    }
+    Map map;
+    memset(&map, 0, sizeof map);
+    map.units = records;
+    map.unit_count = 20;
+    Units a = {0};
+    Units b = {0};
+    Random dice_a;
+    Random dice_b;
+    random_start(&dice_a, 42);
+    random_start(&dice_b, 42);
+    ASSERT_TRUE(units_from_map(&map, some_kinds(), &a));
+    ASSERT_TRUE(units_from_map(&map, some_kinds(), &b));
+    for (int tick = 0; tick < 3000; tick++) {
+        units_tick(&a, &dice_a);
+        units_tick(&b, &dice_b);
+    }
+    int moved = 0;
+    for (uint32_t slot = 0; slot < 20; slot++) {
+        EXPECT_EQ(units_at(&a, slot, NULL)->facing,
+            units_at(&b, slot, NULL)->facing);
+        moved += units_at(&a, slot, NULL)->facing
+            != (uint8_t)(records[slot].angle * 16);
+    }
+    EXPECT_GT(moved, 10);
+    EXPECT_EQ(dice_a.state, dice_b.state);
+    units_free(&a);
+    units_free(&b);
 }
 
 UTEST(units, a_record_that_faces_a_way_there_is_not_faces_the_first)
@@ -178,7 +253,7 @@ UTEST(units, a_record_that_faces_a_way_there_is_not_faces_the_first)
     map.units = records;
     map.unit_count = 2;
     Units units = {0};
-    ASSERT_TRUE(units_from_map(&map, &units));
+    ASSERT_TRUE(units_from_map(&map, some_kinds(), &units));
     EXPECT_EQ(0u, units_at(&units, 0, NULL)->facing);
     EXPECT_EQ(0u, units_at(&units, 1, NULL)->facing);
     units_free(&units);
@@ -189,7 +264,7 @@ UTEST(units, a_map_without_units_gives_an_empty_list)
     Map map;
     memset(&map, 0, sizeof map);
     Units units = {0};
-    ASSERT_TRUE(units_from_map(&map, &units));
+    ASSERT_TRUE(units_from_map(&map, some_kinds(), &units));
     EXPECT_EQ(0u, units.living);
     EXPECT_TRUE(units_at(&units, 0, NULL) == NULL);
     units_free(&units);

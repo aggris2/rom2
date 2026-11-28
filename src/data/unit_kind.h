@@ -22,13 +22,17 @@ typedef struct UnitKind {
      * first is the first of its sheet's palettes. For a human it is a
      * number of another meaning. */
     uint16_t face;
+    /* How far it turns in a tick, in the 256 steps of a full turn:
+     * never 0, so a record that is all zeros is no kind. */
+    uint8_t rotation_speed;
 } UnitKind;
 
 /* Reads a kind from its table.
  *
- * Returns false, and leaves `*out` alone, if the table lacks its ID or
- * its face, the ID is not from 0 to UNIT_KIND_IDS - 1, or the face not
- * from 0 to 65,535. */
+ * Returns false, and leaves `*out` alone, if the table lacks its ID,
+ * its face or its rotation speed, the ID is not from 0 to
+ * UNIT_KIND_IDS - 1, the face not from 0 to 65,535, or the rotation
+ * speed not from 1 to 255. */
 bool unit_kind_read(const TomlTable *kind, UnitKind *out);
 
 #endif

@@ -12,6 +12,7 @@
 #include "data/unit_kind.h"
 #include "game/sheets.h"
 #include "mechanics/clock.h"
+#include "mechanics/random.h"
 #include "mechanics/units.h"
 #include "view/camera.h"
 #include "view/ground.h"
@@ -39,11 +40,12 @@ struct MapScreen {
     bool grid;                  /* whether the grid is shown */
     Clock clock;                /* the ticks of the game */
     Units live;                 /* the units of the game */
+    Random random;              /* its dice */
     uint8_t *light;             /* the light at each corner of the map */
     ObjectLook objects[OBJECT_KINDS];   /* how each kind of object looks */
     StructureLook structures[STRUCTURE_KINDS];  /* and of structure */
     UnitLook units[UNIT_TYPES];                 /* and type of unit */
-    uint16_t faces[UNIT_KIND_IDS];  /* the face of each kind of unit */
+    UnitKind kinds[UNIT_KIND_IDS];  /* each kind of unit, by its ID */
     GroundSquare *ground;       /* room for a frame's ground */
     size_t ground_room;
     Sprite *sprites;            /* room for a frame's sprites, twice: */
@@ -229,7 +231,7 @@ static void add_unit(MapScreen *screen, int id, const char *path,
     for (size_t i = 0; i < count; i++) {
         UnitKind kind;
         if (unit_kind_read(toml_get_table_at(top, "kind", i), &kind)) {
-            screen->faces[kind.id] = kind.face;
+            screen->kinds[kind.id] = kind;
         } else {
             fprintf(stderr, "rom2: %s: kind %zu is not usable\n", path, i);
         }
@@ -339,7 +341,10 @@ MapScreen *map_screen_open(Renderer *renderer, const char *content,
         map_screen_close(screen);
         return NULL;
     }
-    if (!units_from_map(&screen->map, &screen->live)) {
+    /* Every game starts its dice the same until there is a reason not
+     * to, such as a game the player starts anew. */
+    random_start(&screen->random, 1);
+    if (!units_from_map(&screen->map, screen->kinds, &screen->live)) {
         fprintf(stderr, "rom2: out of memory\n");
         map_screen_close(screen);
         return NULL;
@@ -371,11 +376,12 @@ static void move_camera(MapScreen *screen, float seconds)
 
 bool map_screen_frame(MapScreen *screen, float seconds)
 {
-    /* The ticks that pass with this frame. Nothing happens in one yet
-     * but that trees and windmills move by their count. The camera is
-     * the player's and not the game's, and moves while the game is
-     * paused too. */
-    clock_advance(&screen->clock, seconds);
+    /* The ticks that pass with this frame. The camera is the player's
+     * and not the game's, and moves while the game is paused too. */
+    for (uint32_t ticks = clock_advance(&screen->clock, seconds);
+        ticks > 0; ticks--) {
+        units_tick(&screen->live, &screen->random);
+    }
     move_camera(screen, seconds);
     Camera camera = camera_now(screen);
     size_t most = ground_most(&camera);
@@ -416,7 +422,7 @@ bool map_screen_frame(MapScreen *screen, float seconds)
         screen->structures, tick, &camera,
         screen->sprites + frame.sprite_count);
     frame.sprite_count += units_sprites(&screen->map, &screen->live,
-        screen->units, screen->faces, &camera,
+        screen->units, screen->kinds, &camera,
         screen->sprites + frame.sprite_count);
     sprites_sort(screen->sprites, frame.sprite_count,
         screen->sprites + screen->sprite_room);

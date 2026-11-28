@@ -45,8 +45,8 @@ size_t units_most(const Units *units);
 /* Writes a sprite for each unit the camera can see and returns how
  * many it wrote. `map` is the map they are on, for its ground and its
  * players. `looks` has UNIT_TYPES entries, one for each ID.
- * `faces` has UNIT_KIND_IDS entries, the face of the kind with each
- * ID as UnitKind has it, and 0 for a kind that is not known.
+ * `kinds` has UNIT_KIND_IDS entries, the kind with each ID, all zeros
+ * for one that is not known.
  *
  * A unit stands with its anchor on its place, raised by the height of
  * the ground at that point, shows the standing frame of the way
@@ -65,7 +65,7 @@ size_t units_most(const Units *units);
  * The sprites are not in the order they are to be drawn, but each has
  * its turn: see sprites_sort(). */
 size_t units_sprites(const Map *map, const Units *units,
-                     const UnitLook *looks, const uint16_t *faces,
+                     const UnitLook *looks, const UnitKind *kinds,
                      const Camera *camera, Sprite *out);
 
 #endif

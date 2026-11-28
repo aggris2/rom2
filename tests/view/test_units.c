@@ -15,7 +15,7 @@ typedef struct MakeUnits {
     UnitSlot slots[4];
     MapPlayer players[3];
     UnitLook looks[UNIT_TYPES];
-    uint16_t faces[UNIT_KIND_IDS];
+    UnitKind kinds[UNIT_KIND_IDS];
     Sprite sprites[4];
 } MakeUnits;
 
@@ -60,7 +60,7 @@ static size_t sprites_for(MakeUnits *m, int32_t left, int32_t top,
                           int32_t width, int32_t height)
 {
     Camera camera = {left, top, width, height};
-    size_t count = units_sprites(&m->map, &m->live, m->looks, m->faces,
+    size_t count = units_sprites(&m->map, &m->live, m->looks, m->kinds,
         &camera, m->sprites);
     return count <= units_most(&m->live) ? count : 9999;
 }
@@ -198,8 +198,8 @@ UTEST(units, a_unit_whose_sheet_goes_by_the_kind_has_its_kinds_colouring)
     MakeUnits m;
     make_units(&m);
     /* Faces are counted from 1, and palettes from 0. */
-    m.faces[600] = 1;
-    m.faces[601] = 4;
+    m.kinds[600].face = 1;
+    m.kinds[601].face = 4;
     Unit *first = put(&m, 1, 1, 3);
     first->kind = 600;
     first->player = 2;

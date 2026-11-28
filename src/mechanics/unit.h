@@ -7,6 +7,7 @@
 #ifndef ROM2_MECHANICS_UNIT_H
 #define ROM2_MECHANICS_UNIT_H
 
+#include <stdbool.h>
 #include <stdint.h>
 
 /* A unit's place is in these parts of a square, as a map has it. */
@@ -25,6 +26,19 @@ typedef struct Unit {
     int32_t y;
     uint8_t facing;         /* of UNIT_TURN */
     uint8_t facing_wanted;  /* the way it is turning to */
+    uint8_t turn_speed;     /* steps of facing in a tick: its kind's */
+    bool turning;           /* on its way to the facing it wants */
 } Unit;
+
+/* A turn of less than this many steps is taken at once, by a unit that
+ * was not turning already. */
+#define UNIT_TURN_AT_ONCE 33
+
+/* One tick of turning to the facing a unit wants, by the shorter way
+ * round and at its speed, as the original turns one. A unit that is
+ * not turning yet and wants a turn of less than UNIT_TURN_AT_ONCE
+ * steps takes it at once. A unit that faces as it wants does not
+ * move. */
+void unit_turn(Unit *unit);
 
 #endif

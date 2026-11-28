@@ -14,6 +14,8 @@
 #include <stdint.h>
 
 #include "data/map.h"
+#include "data/unit_kind.h"
+#include "mechanics/random.h"
 #include "mechanics/unit.h"
 
 /* The most units there can be at once. */
@@ -40,12 +42,23 @@ typedef struct Units {
     uint32_t living;
 } Units;
 
+/* How far a unit turns in a tick whose kind is not known. */
+#define UNITS_TURN_SPEED_UNKNOWN 16
+
 /* Makes the units a map starts with, in the order the map has them,
  * so that the first is in slot 0. A unit faces as its record says: one
  * whose record says a way there is not faces the first.
  *
+ * `kinds` has UNIT_KIND_IDS entries, the kind with each ID, all zeros
+ * for one that is not known: a unit turns as fast as its kind.
+ *
  * Returns false, and leaves `*out` alone, if memory runs out. */
-bool units_from_map(const Map *map, Units *out);
+bool units_from_map(const Map *map, const UnitKind *kinds, Units *out);
+
+/* One tick of every unit: so far each stands and may look around,
+ * having nothing else to do. The units take their turn in the order of their
+ * slots. */
+void units_tick(Units *units, Random *random);
 
 /* Frees the list and sets it to none. */
 void units_free(Units *units);
